@@ -34,8 +34,8 @@ reconstructed_model = keras.models.load_model("test_model")
 print(model.predict(test_input))
 print(reconstructed_model.predict(test_input))
 
-# input_data = np.array([[1, 2, 3, 4]])
-# output = model.predict(input_data)
+input_data = np.array([[1, 2, 3, 4]])
+output = model.predict(input_data)
 
-# print(f"{input_data}")
-# print(f"{output}")
+print(f"{input_data}")
+print(f"{output}")
