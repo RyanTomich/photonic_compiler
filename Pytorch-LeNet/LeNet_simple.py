@@ -39,7 +39,7 @@ torch.save(model, 'LeNet.pt')
 print(model)
 model = model.eval()
 
-input_shape = [1, 1, 28, 28]
+input_shape = [28, 28]
 input_data = torch.randn(input_shape)
 scripted_model = torch.jit.trace(model, input_data).eval()
 
@@ -48,9 +48,9 @@ input_name = "conv1"
 shape_list = [(input_name, input_shape)]
 mod, params = relay.frontend.from_pytorch(scripted_model, shape_list)
 
-target = tvm.target.Target("llvm", host="llvm")
+target = tvm.target.Target("gcc", host="gcc")
 dev = tvm.cpu(0)
-with tvm.transform.PassContext(opt_level=3):
+with tvm.transform.PassContext(opt_level=1):
     lib = relay.build(mod, target=target, params=params) #module
 
 
