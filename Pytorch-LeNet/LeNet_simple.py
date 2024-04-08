@@ -48,7 +48,7 @@ input_name = "conv1"
 shape_list = [(input_name, input_shape)]
 mod, params = relay.frontend.from_pytorch(scripted_model, shape_list)
 
-target = tvm.target.Target("gcc", host="gcc")
+target = tvm.target.Target("llvm", host="llvm")
 dev = tvm.cpu(0)
 with tvm.transform.PassContext(opt_level=1):
     lib = relay.build(mod, target=target, params=params) #module
@@ -58,7 +58,7 @@ file_path = "LeNet_module.so"
 lib.export_library(file_path)
 
 # Save the graph JSON to a file
-graph_json_path = "LeNet_graph.json"
+graph_json_path = "simple_LeNet_graph.json"
 with open(graph_json_path, "w") as f:
     f.write(lib.get_graph_json())
 

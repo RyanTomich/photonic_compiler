@@ -3,7 +3,7 @@ import json
 with open('/home/rjtomich/photonic_compiler/Pytorch-LeNet/LeNet_graph.json') as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
-parsed_txt = open("parsed.txt", "w") # creates the write file in write mode append ('a') mode also exists
+parsed_txt = open("LeNet_parsed.txt", "w") # creates the write file in write mode append ('a') mode also exists
 
 
 # # Nicer visualization
@@ -40,23 +40,35 @@ def contains(node, val):
 def get_shape_index(node):
     return[input[0] for input in node["inputs"]]
 
-tab = "    " # standard 8 space tab
+
+tab = "    " # 4 space tab
+'''
+N = null
+E = nonliner, electronic
+P = liner, photonic
+
+Asumes dense Multilayer perceptron. No convolutions
+Should be expanede to be more robust to other formats
+'''
 
 for order, node in enumerate(raw_json["nodes"]):
     if contains(node, 'null'):
-        parsed_txt.write(f"[null]{tab}{raw_json['nodes'][order]}\n")
+        parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
     elif contains(node, 'dense'):
-        parsed_txt.write(f"[relu/MAC]{raw_json['nodes'][order]}\n")
+        parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
+
         vector_index, matrix_index = get_shape_index(node)
         vector = raw_json['attrs']['shape'][1][vector_index]
         matrix = raw_json['attrs']['shape'][1][matrix_index]
-        parsed_txt.write(f"{tab}[mac] {vector} x {matrix}\n")
+
+        parsed_txt.write(f"E: {tab}[read] {vector_index}, {matrix_index}\n") # indicies
+        parsed_txt.write(f"   {tab}[MAC] {vector} x {matrix}\n")
         for matrix_row in range(matrix[0]):
-            parsed_txt.write(f"{tab*2}{vector} . {matrix}[{matrix_row}]\n")
-        parsed_txt.write(f"{tab}[relu] {vector}\n")
-
-
-
+            parsed_txt.write(f"P: {tab*2}{vector} . {matrix}[{matrix_row}]\n")
+        parsed_txt.write(f"E: {tab}[relu] {vector}\n")
 
     else:
-        parsed_txt.write(f"[other]    {raw_json['nodes'][order]}\n")
+        parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
+        input_index = get_shape_index(node)
+        if input_index:
+            parsed_txt.write(f"E: {tab}[read] {input_index}\n")

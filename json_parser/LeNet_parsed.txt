@@ -1,0 +1,20 @@
+N: [null] {'op': 'null', 'name': 'conv1', 'inputs': []}
+E: [other] {'op': 'tvm_op', 'name': 'tvmgen_default_fused_layout_transform', 'attrs': {'num_outputs': '1', 'num_inputs': '1', 'flatten_data': '0', 'func_name': 'tvmgen_default_fused_layout_transform', 'src_layout': 'NCHW', 'dst_layout': 'NCHW1c', 'hash': 'b78d5cb8b4cc9033'}, 'inputs': [[0, 0, 0]]}
+E:     [read] [0]
+N: [null] {'op': 'null', 'name': 'p0', 'inputs': []}
+N: [null] {'op': 'null', 'name': 'p1', 'inputs': []}
+E: [other] {'op': 'tvm_op', 'name': 'tvmgen_default_fused_nn_contrib_conv2d_NCHWc_add_nn_relu', 'attrs': {'num_outputs': '1', 'num_inputs': '3', 'flatten_data': '0', 'func_name': 'tvmgen_default_fused_nn_contrib_conv2d_NCHWc_add_nn_relu', 'out_layout': 'NCHW3c', 'kernel_layout': 'OIHW1i3o', 'data_layout': 'NCHW1c', 'hash': '5dc650c01396e5ed'}, 'inputs': [[1, 0, 0], [2, 0, 0], [3, 0, 0]]}
+E:     [read] [1, 2, 3]
+E: [other] {'op': 'tvm_op', 'name': 'tvmgen_default_fused_nn_max_pool2d', 'attrs': {'num_outputs': '1', 'num_inputs': '1', 'flatten_data': '0', 'func_name': 'tvmgen_default_fused_nn_max_pool2d', 'out_layout': '', 'layout': 'NCHW3c', 'hash': '4742af322d07be30'}, 'inputs': [[4, 0, 0]]}
+E:     [read] [4]
+N: [null] {'op': 'null', 'name': 'p2', 'inputs': []}
+N: [null] {'op': 'null', 'name': 'p3', 'inputs': []}
+E: [other] {'op': 'tvm_op', 'name': 'tvmgen_default_fused_nn_contrib_conv2d_NCHWc_add_nn_relu_1', 'attrs': {'num_outputs': '1', 'num_inputs': '3', 'flatten_data': '0', 'func_name': 'tvmgen_default_fused_nn_contrib_conv2d_NCHWc_add_nn_relu_1', 'out_layout': 'NCHW4c', 'kernel_layout': 'OIHW3i4o', 'data_layout': 'NCHW3c', 'hash': '1bd32b720ad3965d'}, 'inputs': [[5, 0, 0], [6, 0, 0], [7, 0, 0]]}
+E:     [read] [5, 6, 7]
+E: [other] {'op': 'tvm_op', 'name': 'tvmgen_default_fused_nn_max_pool2d_1', 'attrs': {'num_outputs': '1', 'num_inputs': '1', 'flatten_data': '0', 'func_name': 'tvmgen_default_fused_nn_max_pool2d_1', 'out_layout': '', 'layout': 'NCHW4c', 'hash': '6ce1dafe5e843194'}, 'inputs': [[8, 0, 0]]}
+E:     [read] [8]
+E: [other] {'op': 'tvm_op', 'name': 'tvmgen_default_fused_layout_transform_reshape', 'attrs': {'num_outputs': '1', 'num_inputs': '1', 'flatten_data': '0', 'func_name': 'tvmgen_default_fused_layout_transform_reshape', 'src_layout': 'NCHW4c', 'dst_layout': 'NCHW', 'hash': 'c50c7a62902d2d71'}, 'inputs': [[9, 0, 0]]}
+E:     [read] [9]
+N: [null] {'op': 'null', 'name': 'p4', 'inputs': []}
+N: [null] {'op': 'null', 'name': 'p5', 'inputs': []}
+   [relu/MAC]{'op': 'tvm_op', 'name': 'tvmgen_default_fused_nn_contrib_dense_pack_add_nn_relu', 'attrs': {'num_outputs': '1', 'num_inputs': '3', 'flatten_data': '0', 'func_name': 'tvmgen_default_fused_nn_contrib_dense_pack_add_nn_relu', 'weight_layout': 'NC8n', 'hash': 'cfeb6c4dcf414b38'}, 'inputs': [[10, 0, 0], [11, 0, 0], [12, 0, 0]]}
