@@ -1,36 +1,22 @@
-def contains(node, val):
-    # where node is a nesded dictionary
-    if type(node) == dict:
-        for key in node:
-            if contains(node[key], val):
-                return True
-    else:
-        if node == val:
-            return True
+import math
 
+def batch_vector(vector_size, batch_size, num_registers):
+    temp = vector_size
 
-triple_nested_dict = {
-    'outer_key1': {
-        'inner_key1': {
-            'deep_key1': 'value1',
-            'deep_key2': 'value2'
-        },
-        'inner_key2': {
-            'deep_key3': 'value3',
-            'deep_key4': 'value4'
-        }
-    },
-    'outer_key2': {
-        'inner_key3': {
-            'deep_key5': 'value5',
-            'deep_key6': 'value6'
-        },
-        'inner_key4': {
-            'deep_key7': 'value7',
-            'deep_key8': 'value8'
-        }
-    }
-}
+    start = 0
+    end = batch_size
+    for i in range(num_registers):
+        if temp < batch_size:
+            end = start + temp
+        yield f"[{start}:{end}]"
+        start += batch_size
+        end += batch_size
+        temp -= batch_size
 
+vector = [1,728]
+max_array_len = 100
+num_registers = math.ceil(vector[1] / max_array_len)
 
-print(contains(triple_nested_dict, 'value8'))
+batch_gen = batch_vector(vector[1], max_array_len, num_registers)
+for register in range(num_registers):
+    print(f"   Register {register}: {next(batch_gen)}\n ")
