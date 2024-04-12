@@ -42,10 +42,10 @@ def batch_vector(vector_size, batch_size):
         str: "[start_index: end index]"
     """
     temp = vector_size
-    num_registers = math.ceil(vector_size / batch_size)
+    num_needed_registers = math.ceil(vector_size / batch_size)
     start = 0
     end = batch_size
-    for i in range(num_registers):
+    for i in range(num_needed_registers):
         if temp < batch_size:
             end = start + temp
         yield f"[{start}:{end}]"
@@ -67,7 +67,7 @@ tab = "    " # 4 space tab
 max_array_len = 100
 
 for order, node in enumerate(raw_json["nodes"]):
-    # Null instructions
+    # Null instructions - N:
     if contains(node, 'null'):
         parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
 
@@ -75,35 +75,36 @@ for order, node in enumerate(raw_json["nodes"]):
     elif contains(node, 'dense'):
         parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
 
+        # get vector index and shapes
         vector_index, matrix_index = get_shape_index(node)
         vector = raw_json['attrs']['shape'][1][vector_index]
         matrix = raw_json['attrs']['shape'][1][matrix_index]
 
         # vector registration
         parsed_txt.write(f"   {tab}[read] {vector_index}, {matrix_index}\n") # indicies
-        num_registers = math.ceil(vector[1] / max_array_len)
-        batch_gen = batch_vector(vector[1], max_array_len)
+        num_needed_registers = math.ceil(vector[1] / max_array_len) # number of registers needed to hold vector
+        batch_gen = batch_vector(vector[1], max_array_len) # generator object seperating each vector slice
 
-        for register in range(num_registers):
+        for register in range(num_needed_registers):
             parsed_txt.write(f"E:  {tab*2}load vector: a{register}, {1}{next(batch_gen)}\n")
 
         # Dot products
         parsed_txt.write(f"   {tab}[MAC] {vector} x {matrix}\n")
+        accumulate_register = register + 1
+        parsed_txt.write(f"    {tab*2}Accumulate register: a{accumulate_register}\n")
+
         for matrix_row in range(matrix[0]):
             parsed_txt.write(f"P: {tab*2}{vector} . {matrix}[{matrix_row}]\n")
 
             batch_gen = batch_vector(vector[1], max_array_len)
-            to_sum = []
-            for register in range(num_registers):
-                to_sum.append(register + num_registers)
-                parsed_txt.write(f"E:  {tab*3}load vector: a{register + num_registers}, {matrix_index}{next(batch_gen)}\n")
-                parsed_txt.write(f"P:  {tab*3}MAC: a{register + num_registers}, a{register + num_registers}, a{register}\n")
+            working_register = accumulate_register + 1
+            for register in range(num_needed_registers):
+                parsed_txt.write(f"E:  {tab*3}load vector: a{working_register}, {matrix_index}{next(batch_gen)}\n")
+                parsed_txt.write(f"P:  {tab*3}MAC: a{working_register}, a{working_register}, a{register}\n")
+                parsed_txt.write(f"E:  {tab*3}add: a{accumulate_register}, a{accumulate_register}, a{working_register}\n")
 
-            accumulate = to_sum.pop(0)
-            for i in to_sum:
-                parsed_txt.write(f"E:  {tab*3}add: a{accumulate}, a{i}\n")
 
-            parsed_txt.write(f"E:  {tab*3}save:{vector}[{matrix_row}], a{accumulate}\n")
+            parsed_txt.write(f"E:  {tab*3}save:{vector}[{matrix_row}], a{accumulate_register}\n")
 
         parsed_txt.write(f"E: {tab}[relu] {vector}\n")
 
