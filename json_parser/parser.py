@@ -14,7 +14,8 @@ import math
 import os
 
 
-# Metrics
+#region Metrics
+
 class MetricsCounter:
     def __init__(self):
         self.MAC_instructions = 0
@@ -39,10 +40,18 @@ class MetricsCounter:
                 f"Add Instructions: {self.add_instructions}\n"
                 f"Save Instructions: {self.save_instructions}\n")
 
-metrics_couter = MetricsCounter()
+metrics_counter = MetricsCounter()
 
 
-# File access
+def metrics_counter_dec(func):
+    def wrapper(instruction_type, *args, **kwargs):
+        metrics_counter.increment(instruction_type)
+        return func(instruction_type, *args, **kwargs)
+    return wrapper
+
+#endregion
+
+#region File access
 current_directory = os.path.dirname(os.path.abspath(__file__))
 
 read_json_path = os.path.join(current_directory, '..', 'Pytorch-LeNet', 'simple_LeNet_graph.json')
@@ -51,9 +60,9 @@ with open(read_json_path)  as json_file:
 
 output_file_path = os.path.join(current_directory, 'simple_LeNet_parsed.txt')
 parsed_txt = open(output_file_path, "w") # creates the write file in write mode append ('a') mode also exists
+#endregion
 
-
-# Node helpter Functions
+#region Node helpter Functions
 
 def contains(node, val):
     """recursively searches for val in each node
@@ -98,25 +107,27 @@ def batch_vector(vector_size, batch_size):
         temp -= batch_size
 
 
-def write_instruction(instruct_type, *args):
-    if instruct_type == 'add':
+@metrics_counter_dec
+def write_instruction(instruction_type, *args):
+    if instruction_type == 'add':
         a1, a2, a3 = args
         parsed_txt.write(f"E: add: a{a1}, a{a2}, a{a3}\n")
-        metrics_couter.increment('add')
+        # metrics_counter.increment('add')
 
-    elif instruct_type == "MAC":
+    elif instruction_type == "MAC":
         a1, a2, a3 = args
         parsed_txt.write(f"P: MAC: a{a1}, a{a2}, a{a3}\n")
-        metrics_couter.increment('MAC')
+        # metrics_counter.increment('MAC')
 
-    elif instruct_type == 'load_vector':
+    elif instruction_type == 'load_vector':
         a1, matrix_index, batch = args
         parsed_txt.write(f"E: load vector: a{a1}, {matrix_index}{batch}\n")
-        metrics_couter.increment('load_vector')
-    elif instruct_type == 'save':
+        # metrics_counter.increment('load_vector')
+
+    elif instruction_type == 'save':
         vector, matrix_row, a1 = args
         parsed_txt.write(f"E: save:{vector}[{matrix_row}], a{a1}\n")
-        metrics_couter.increment('save')
+        # metrics_counter.increment('save')
 
 
 def sequential_cross_product(node):
@@ -161,6 +172,8 @@ def concurrent_cross_product(node):
     # TODO
 
 
+#endregion
+
 # Loop over Nodes
 
 max_array_len = 100
@@ -190,4 +203,5 @@ for order, node in enumerate(raw_json["nodes"]):
             parsed_txt.write(f"   [read] {input_index}\n")
 
 
-print(metrics_couter)
+
+print(metrics_counter)
