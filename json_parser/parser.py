@@ -1,19 +1,42 @@
+'''
+Author: Ryan Tomich
+Project: Photonic-Compiler: Dense Liner Parser
+
+N = null
+E = nonliner, electronic
+P = liner, photonic
+
+Asumes dense Multilayer perceptron. No convolutions
+'''
+
 import json
 import math
+import os
 
 
-with open('/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json') as json_file:
+
+# Metrics
+MAC_instructions = 0
+loadvec_instructions = 0
+add_instructions = 0
+save_instructions = 0
+
+# File access
+current_directory = os.path.dirname(os.path.abspath(__file__))
+
+read_json_path = os.path.join(current_directory, '..', 'Pytorch-LeNet', 'simple_LeNet_graph.json')
+with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
-parsed_txt = open("simple_LeNet_parsed.txt", "w") # creates the write file in write mode append ('a') mode also exists
+output_file_path = os.path.join(current_directory, 'simple_LeNet_parsed.txt')
+parsed_txt = open(output_file_path, "w") # creates the write file in write mode append ('a') mode also exists
+
 
 def contains(node, val):
     """recursively searches for val in each node
-
     Args:
         node (dict): nexted dictionary
         val (str): search word
-
     Returns:
         bool: True = found  word
     """
@@ -33,11 +56,9 @@ def get_shape_index(node):
 
 def batch_vector(vector_size, batch_size):
     """Generator object that groups vectors into batches
-
     Args:
         vector_size (int): size of iriginal vector
         batch_size (int): size of each batch
-
     Yields:
         str: "[start_index: end index]"
     """
@@ -53,18 +74,9 @@ def batch_vector(vector_size, batch_size):
         end += batch_size
         temp -= batch_size
 
-
-'''
-N = null
-E = nonliner, electronic
-P = liner, photonic
-
-Asumes dense Multilayer perceptron. No convolutions
-Should be expanede to be more robust to other formats
-'''
-
 tab = "    " # 4 space tab
 max_array_len = 100
+
 
 for order, node in enumerate(raw_json["nodes"]):
     # Null instructions - N:
@@ -94,7 +106,7 @@ for order, node in enumerate(raw_json["nodes"]):
         parsed_txt.write(f"    {tab*2}Accumulate register: a{accumulate_register}\n")
 
         for matrix_row in range(matrix[0]):
-            parsed_txt.write(f"P: {tab*2}{vector} . {matrix}[{matrix_row}]\n")
+            parsed_txt.write(f"   {tab*2}{vector} . {matrix}[{matrix_row}]\n")
 
             batch_gen = batch_vector(vector[1], max_array_len)
             working_register = accumulate_register + 1
@@ -114,25 +126,3 @@ for order, node in enumerate(raw_json["nodes"]):
         input_index = get_shape_index(node)
         if input_index:
             parsed_txt.write(f"E:  {tab}[read] {input_index}\n")
-
-
-# # Nicer visualization
-# if "nodes" in raw_json:
-#     for num, node in enumerate(raw_json['nodes']):
-#         parsed_txt.write(f"nodes[{num}]:\n")
-#         for key in node:
-#             if key == "attrs":
-#                 parsed_txt.write(f"         {key}: \n")
-#                 for attribute in node[key]:
-#                     parsed_txt.write(f"           {attribute}: {node[key][attribute]}\n")
-#                 continue
-#             parsed_txt.write(f"         {key}: {node[key]}\n")
-
-
-#         # print(f"nodes[{num}]: {node}")
-#         # print("")
-
-# if "attrs" in raw_jsopn:
-#     attrs = raw_json["attrs"]
-#     if "shape" in attrs:
-#         parsed_txt.write(f"Shape attributes: {attrs['shape'][1]}")
