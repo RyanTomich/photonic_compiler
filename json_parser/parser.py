@@ -76,6 +76,7 @@ def metrics_counter_dec(func):
 
 #endregion
 
+
 #region File access
 current_directory = os.path.dirname(os.path.abspath(__file__))
 
@@ -86,6 +87,7 @@ with open(read_json_path)  as json_file:
 output_file_path = os.path.join(current_directory, 'simple_LeNet_parsed.txt')
 parsed_txt = open(output_file_path, "w") # creates the write file in write mode append ('a') mode also exists
 #endregion
+
 
 #region Node helper Functions
 
@@ -156,6 +158,10 @@ def sequential_cross_product(node):
     Args:
         node (dict): one node of thejson graph representing a layer and relu
     """
+    # get vector index and shapes
+    vector_index, matrix_index = get_shape_index(node)
+    vector = raw_json['attrs']['shape'][1][vector_index]
+    matrix = raw_json['attrs']['shape'][1][matrix_index]
 
     # vector registration
     parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
@@ -186,6 +192,11 @@ def sequential_cross_product(node):
 
 
 def concurrent_cross_product(node):
+    # get vector index and shapes
+    vector_index, matrix_index = get_shape_index(node)
+    vector = raw_json['attrs']['shape'][1][vector_index]
+    matrix = raw_json['attrs']['shape'][1][matrix_index]
+
     parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
     num_needed_registers = math.ceil(vector[1] / max_array_len) # number of registers needed to hold vector
     batch_gen = batch_vector(vector[1], max_array_len) # generator object seperating each vector slice
@@ -199,23 +210,15 @@ def concurrent_cross_product(node):
             write_instruction('MAC', 1, 0, 1)
             write_instruction('save', vector, matrix_row, 1)
 
+    parsed_txt.write(f"E: [relu] {vector}\n")
+
+
 
 #endregion
 
+
 # Loop over Nodes
-
-MAC_instructions_plot = []
-loadvec_instructions_plot = []
-add_instructions_plot = []
-save_instructions_plot = []
-reg_used_plot = []
-max_array_len_plot = []
-
-for max_array_len in range(25,1001, 25):
-    max_array_len_plot.append(max_array_len)
-    metrics_counter = MetricsCounter()
-    concurrent = True
-
+def main(max_array_len, concurrent = False):
     for order, node in enumerate(raw_json["nodes"]):
         # Null instructions - N:
         if contains(node, 'null'):
@@ -224,11 +227,6 @@ for max_array_len in range(25,1001, 25):
         # Dense instructions
         elif contains(node, 'dense'):
             parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
-
-            # get vector index and shapes
-            vector_index, matrix_index = get_shape_index(node)
-            vector = raw_json['attrs']['shape'][1][vector_index]
-            matrix = raw_json['attrs']['shape'][1][matrix_index]
 
             if concurrent == False:
                 sequential_cross_product(node)
@@ -246,7 +244,19 @@ for max_array_len in range(25,1001, 25):
     metrics_counter.plot_add_data()
 
 
-print(reg_used_plot)
+#region Metric Ploting
+MAC_instructions_plot = []
+loadvec_instructions_plot = []
+add_instructions_plot = []
+save_instructions_plot = []
+reg_used_plot = []
+max_array_len_plot = []
+
+
+for max_array_len in range(25,1001, 25):
+    metrics_counter = MetricsCounter()
+    max_array_len_plot.append(max_array_len)
+    main(max_array_len)
 
 # Plotting Metrics
 fig, ax = plt.subplots()
@@ -274,3 +284,5 @@ twin2.set_ylabel("Save Instructions")
 
 plt.title('Concurrent Cross Product')
 plt.show()
+
+#endregion
