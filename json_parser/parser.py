@@ -12,9 +12,11 @@ Asumes dense Multilayer perceptron. No convolutions
 import json
 import math
 import os
+import matplotlib.pyplot as plt
 
 
 #region Metrics
+
 
 class MetricsCounter:
     def __init__(self):
@@ -33,8 +35,16 @@ class MetricsCounter:
             self.loadvec_instructions += 1
         elif instruction_type == 'save':
             self.save_instructions += 1
+
     def num_reg_used(self, max_register):
         self.reg_used = max(self.reg_used, max_register)
+
+    def plot_add_data(self):
+        MAC_instructions_plot.append(self.MAC_instructions)
+        loadvec_instructions_plot.append(self.loadvec_instructions)
+        add_instructions_plot.append(self.add_instructions)
+        save_instructions_plot.append(self.save_instructions)
+        reg_used_plot.append(self.reg_used + 1)
 
     def __repr__(self):
         return (f"MAC Instructions: {self.MAC_instructions}\n"
@@ -43,7 +53,6 @@ class MetricsCounter:
                 f"Save Instructions: {self.save_instructions}\n"
                 f"Registers Used: {self.reg_used + 1}") # account for 0 register.
 
-metrics_counter = MetricsCounter()
 
 def metrics_counter_dec(func):
     def wrapper(instruction_type, *args, **kwargs):
@@ -182,8 +191,6 @@ def concurrent_cross_product(node):
     batch_gen = batch_vector(vector[1], max_array_len) # generator object seperating each vector slice
     parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
 
-
-
     for _ in range(num_needed_registers):
         batch_index = next(batch_gen)
         write_instruction('load_vector', 0, vector_index,1, batch_index)
@@ -197,36 +204,73 @@ def concurrent_cross_product(node):
 
 # Loop over Nodes
 
-max_array_len = 100
-concurrent = False
+MAC_instructions_plot = []
+loadvec_instructions_plot = []
+add_instructions_plot = []
+save_instructions_plot = []
+reg_used_plot = []
+max_array_len_plot = []
 
+for max_array_len in range(25,1001, 25):
+    max_array_len_plot.append(max_array_len)
+    metrics_counter = MetricsCounter()
+    concurrent = True
 
-for order, node in enumerate(raw_json["nodes"]):
-    # Null instructions - N:
-    if contains(node, 'null'):
-        parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
+    for order, node in enumerate(raw_json["nodes"]):
+        # Null instructions - N:
+        if contains(node, 'null'):
+            parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
 
-    # Dense instructions
-    elif contains(node, 'dense'):
-        parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
+        # Dense instructions
+        elif contains(node, 'dense'):
+            parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
 
-        # get vector index and shapes
-        vector_index, matrix_index = get_shape_index(node)
-        vector = raw_json['attrs']['shape'][1][vector_index]
-        matrix = raw_json['attrs']['shape'][1][matrix_index]
+            # get vector index and shapes
+            vector_index, matrix_index = get_shape_index(node)
+            vector = raw_json['attrs']['shape'][1][vector_index]
+            matrix = raw_json['attrs']['shape'][1][matrix_index]
 
-        if concurrent == False:
-            sequential_cross_product(node)
+            if concurrent == False:
+                sequential_cross_product(node)
+            else:
+                concurrent_cross_product(node)
+
+        # Catch all
         else:
-            concurrent_cross_product(node)
-
-    # Catch all
-    else:
-        parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
-        input_index = get_shape_index(node)
-        if input_index:
-            parsed_txt.write(f"   [read] {input_index}\n")
+            parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
+            input_index = get_shape_index(node)
+            if input_index:
+                parsed_txt.write(f"   [read] {input_index}\n")
 
 
+    metrics_counter.plot_add_data()
 
-print(metrics_counter)
+
+print(reg_used_plot)
+
+# Plotting Metrics
+fig, ax = plt.subplots()
+fig.subplots_adjust(right=0.75)
+
+twin1 = ax.twinx()
+twin2 = ax.twinx()
+
+twin2.spines.right.set_position(("axes", 1.2))
+
+p1, = ax.plot(max_array_len_plot, MAC_instructions_plot, label='MAC Instructions')
+p2, = ax.plot(max_array_len_plot, loadvec_instructions_plot, label='Loadvec Instructions')
+p3, = ax.plot(max_array_len_plot, add_instructions_plot, label='Add Instructions')
+
+p4, = twin1.plot(max_array_len_plot, reg_used_plot, color='orange', label='Register Used')
+
+p5, = twin2.plot(max_array_len_plot, save_instructions_plot, color='green', label='Save Instructions')
+
+ax.set_xlabel("Max Vector Size")
+ax.set_ylabel("Instructions")
+twin1.set_ylabel("Register Used")
+twin2.set_ylabel("Save Instructions")
+
+# ax.legend(handles=[p1, p2, p3, p4, p5])
+
+plt.title('Concurrent Cross Product')
+plt.show()
