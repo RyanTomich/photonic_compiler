@@ -22,6 +22,7 @@ class MetricsCounter:
         self.loadvec_instructions = 0
         self.add_instructions = 0
         self.save_instructions = 0
+        self.reg_used = 0
 
     def increment(self, instruction_type):
         if instruction_type == 'add':
@@ -32,21 +33,36 @@ class MetricsCounter:
             self.loadvec_instructions += 1
         elif instruction_type == 'save':
             self.save_instructions += 1
-
+    def num_reg_used(self, max_register):
+        self.reg_used = max(self.reg_used, max_register)
 
     def __repr__(self):
         return (f"MAC Instructions: {self.MAC_instructions}\n"
                 f"Load vector Instructions: {self.loadvec_instructions}\n"
                 f"Add Instructions: {self.add_instructions}\n"
-                f"Save Instructions: {self.save_instructions}\n")
+                f"Save Instructions: {self.save_instructions}\n"
+                f"Registers Used: {self.reg_used + 1}") # account for 0 register.
 
 metrics_counter = MetricsCounter()
-
 
 def metrics_counter_dec(func):
     def wrapper(instruction_type, *args, **kwargs):
         metrics_counter.increment(instruction_type)
-        return func(instruction_type, *args, **kwargs)
+
+        # Extracting the max register used
+        if instruction_type in ['add', 'MAC']:
+            a1, a2, a3 = args
+            max_register = max(a1, a2, a3)
+            metrics_counter.num_reg_used(max_register)
+        elif instruction_type == 'load_vector':
+            a1 = args[0]
+            metrics_counter.num_reg_used(a1)
+        elif instruction_type == 'save':
+            a1 = args[2]
+            metrics_counter.num_reg_used(a1)
+
+        result =  func(instruction_type, *args, **kwargs)
+        return result
     return wrapper
 
 #endregion
@@ -62,7 +78,7 @@ output_file_path = os.path.join(current_directory, 'simple_LeNet_parsed.txt')
 parsed_txt = open(output_file_path, "w") # creates the write file in write mode append ('a') mode also exists
 #endregion
 
-#region Node helpter Functions
+#region Node helper Functions
 
 def contains(node, val):
     """recursively searches for val in each node
@@ -112,22 +128,18 @@ def write_instruction(instruction_type, *args):
     if instruction_type == 'add':
         a1, a2, a3 = args
         parsed_txt.write(f"E: add: a{a1}, a{a2}, a{a3}\n")
-        # metrics_counter.increment('add')
 
     elif instruction_type == "MAC":
         a1, a2, a3 = args
         parsed_txt.write(f"P: MAC: a{a1}, a{a2}, a{a3}\n")
-        # metrics_counter.increment('MAC')
 
     elif instruction_type == 'load_vector':
-        a1, matrix_index, batch = args
-        parsed_txt.write(f"E: load vector: a{a1}, {matrix_index}{batch}\n")
-        # metrics_counter.increment('load_vector')
+        a1, matrix, matrix_index, batch = args
+        parsed_txt.write(f"E: load vector: a{a1}, {matrix}[{matrix_index}]{batch}\n")
 
     elif instruction_type == 'save':
         vector, matrix_row, a1 = args
         parsed_txt.write(f"E: save:{vector}[{matrix_row}], a{a1}\n")
-        # metrics_counter.increment('save')
 
 
 def sequential_cross_product(node):
@@ -142,8 +154,7 @@ def sequential_cross_product(node):
     batch_gen = batch_vector(vector[1], max_array_len) # generator object seperating each vector slice
 
     for register in range(num_needed_registers):
-        # write_instruction('load_vector', register, 1, next(batch_gen))
-        parsed_txt.write(f"E: load vector: a{register}, {1}{next(batch_gen)}\n")
+        write_instruction('load_vector', register, vector_index, 1, next(batch_gen))
 
     # Dot products
     parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
@@ -156,20 +167,30 @@ def sequential_cross_product(node):
         batch_gen = batch_vector(vector[1], max_array_len)
         working_register = accumulate_register + 1
         for register in range(num_needed_registers):
-            write_instruction('load_vector', working_register, matrix_index, next(batch_gen))
+            write_instruction('load_vector', working_register, matrix_index, matrix_row, next(batch_gen))
             write_instruction('MAC', working_register, working_register, register)
             write_instruction('add', accumulate_register, accumulate_register, working_register)
 
-
-        # parsed_txt.write(f"E: save:{vector}[{matrix_row}], a{accumulate_register}\n")
         write_instruction('save', vector, matrix_row, accumulate_register)
 
     parsed_txt.write(f"E: [relu] {vector}\n")
 
 
 def concurrent_cross_product(node):
-    pass
-    # TODO
+    parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
+    num_needed_registers = math.ceil(vector[1] / max_array_len) # number of registers needed to hold vector
+    batch_gen = batch_vector(vector[1], max_array_len) # generator object seperating each vector slice
+    parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
+
+
+
+    for _ in range(num_needed_registers):
+        batch_index = next(batch_gen)
+        write_instruction('load_vector', 0, vector_index,1, batch_index)
+        for matrix_row in range(matrix[0]):
+            write_instruction('load_vector', 1, matrix_index, matrix_row, batch_index)
+            write_instruction('MAC', 1, 0, 1)
+            write_instruction('save', vector, matrix_row, 1)
 
 
 #endregion
@@ -177,6 +198,7 @@ def concurrent_cross_product(node):
 # Loop over Nodes
 
 max_array_len = 100
+concurrent = False
 
 
 for order, node in enumerate(raw_json["nodes"]):
@@ -193,7 +215,10 @@ for order, node in enumerate(raw_json["nodes"]):
         vector = raw_json['attrs']['shape'][1][vector_index]
         matrix = raw_json['attrs']['shape'][1][matrix_index]
 
-        sequential_cross_product(node)
+        if concurrent == False:
+            sequential_cross_product(node)
+        else:
+            concurrent_cross_product(node)
 
     # Catch all
     else:
