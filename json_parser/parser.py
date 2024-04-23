@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 
 #region Metrics
 
-
 class MetricsCounter:
     def __init__(self):
         self.MAC_instructions = 0
@@ -36,40 +35,22 @@ class MetricsCounter:
         elif instruction_type == 'save':
             self.save_instructions += 1
 
-    def num_reg_used(self, max_register):
-        self.reg_used = max(self.reg_used, max_register)
-
     def plot_add_data(self):
         MAC_instructions_plot.append(self.MAC_instructions)
         loadvec_instructions_plot.append(self.loadvec_instructions)
         add_instructions_plot.append(self.add_instructions)
         save_instructions_plot.append(self.save_instructions)
-        reg_used_plot.append(self.reg_used + 1)
 
     def __repr__(self):
         return (f"MAC Instructions: {self.MAC_instructions}\n"
                 f"Load vector Instructions: {self.loadvec_instructions}\n"
                 f"Add Instructions: {self.add_instructions}\n"
-                f"Save Instructions: {self.save_instructions}\n"
-                f"Registers Used: {self.reg_used + 1}") # account for 0 register.
+                f"Save Instructions: {self.save_instructions}\n")
 
 
 def metrics_counter_dec(func):
     def wrapper(instruction_type, *args, **kwargs):
         metrics_counter.increment(instruction_type)
-
-        # Extracting the max register used
-        if instruction_type in ['add', 'MAC']:
-            a1, a2, a3 = args
-            max_register = max(a1, a2, a3)
-            metrics_counter.num_reg_used(max_register)
-        elif instruction_type == 'load_vector':
-            a1 = args[0]
-            metrics_counter.num_reg_used(a1)
-        elif instruction_type == 'save':
-            a1 = args[2]
-            metrics_counter.num_reg_used(a1)
-
         result =  func(instruction_type, *args, **kwargs)
         return result
     return wrapper
@@ -128,10 +109,25 @@ def batch_vector(vector_size, batch_size):
     for i in range(num_needed_registers):
         if temp < batch_size:
             end = start + temp
-        yield f"[{start}:{end}]"
+        yield [start, end]
         start += batch_size
         end += batch_size
         temp -= batch_size
+
+
+def looper(num_photonic_hardware):
+    """contunoously loops over a numer n
+        1,2,3,1,2,3,1,2,3 ...
+
+    Args:
+        num_photonic_hardware (int): loop length
+
+    Yields:
+        int: num between 1 to num_photonic_hardware
+    """
+    while True:
+        for i in range(1, num_photonic_hardware+1, 1):
+            yield i
 
 
 @metrics_counter_dec
@@ -141,8 +137,8 @@ def write_instruction(instruction_type, *args):
         parsed_txt.write(f"E: add: a{a1}, a{a2}, a{a3}\n")
 
     elif instruction_type == "MAC":
-        a1, a2, a3 = args
-        parsed_txt.write(f"P: MAC: a{a1}, a{a2}, a{a3}\n")
+        num_hardware, write, vector, matrix, row = args
+        parsed_txt.write(f"P{num_hardware}: MAC: {write}, {vector}, {matrix}{row}\n")
 
     elif instruction_type == 'load_vector':
         a1, matrix, matrix_index, batch = args
@@ -213,12 +209,48 @@ def concurrent_cross_product(node):
     parsed_txt.write(f"E: [relu] {vector}\n")
 
 
+def task_parallel(num_photon_hardware, node):
+    vector_index, matrix_index = get_shape_index(node)
+    vector = raw_json['attrs']['shape'][1][vector_index]
+    matrix = raw_json['attrs']['shape'][1][matrix_index]
+
+    parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
+    parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
+
+    P_computer_num_gen = looper(num_photon_hardware)
+
+    for matrix_row in range(matrix[0]):
+        write_instruction('MAC',next(P_computer_num_gen), vector, vector, matrix, matrix_row)
+
+    parsed_txt.write(f"E: [relu] {vector}\n")
+
+
+def data_parrellel(num_photon_hardware,node):
+    vector_index, matrix_index = get_shape_index(node)
+    vector = raw_json['attrs']['shape'][1][vector_index]
+    matrix = raw_json['attrs']['shape'][1][matrix_index]
+    P_computer_num_gen = looper(num_photon_hardware)
+
+
+    parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
+    for matrix_row in range(matrix[0]):
+        batch_gen = batch_vector(matrix[0], num_photon_hardware) # generator object seperating each vector slice
+        for batch in batch_gen:
+            batch = f"[{batch[0]}:{batch[1]}]"
+            vector_range = f"{vector}{batch}"
+            matrix_range = f"[{matrix_row}]{batch}"
+            write_instruction('MAC',next(P_computer_num_gen), 'a1', vector_range, matrix, matrix_range)
+            write_instruction("add",0, 0, 1)
+        write_instruction("save",vector, matrix_row, 0)
+
+    parsed_txt.write(f"E: [relu] {vector}\n")
+
 
 #endregion
 
 
 # Loop over Nodes
-def main(max_array_len, concurrent = False):
+def main(num_photon_hardware, optimization = ""):
     for order, node in enumerate(raw_json["nodes"]):
         # Null instructions - N:
         if contains(node, 'null'):
@@ -228,10 +260,10 @@ def main(max_array_len, concurrent = False):
         elif contains(node, 'dense'):
             parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
 
-            if concurrent == False:
-                sequential_cross_product(node)
-            else:
-                concurrent_cross_product(node)
+            if optimization =='task_parrellel':
+                task_parallel(num_photon_hardware, node)
+            elif optimization == 'data_parrellel':
+                data_parrellel(num_photon_hardware, node)
 
         # Catch all
         else:
@@ -243,46 +275,53 @@ def main(max_array_len, concurrent = False):
 
     metrics_counter.plot_add_data()
 
-
 #region Metric Ploting
+
 MAC_instructions_plot = []
 loadvec_instructions_plot = []
 add_instructions_plot = []
 save_instructions_plot = []
-reg_used_plot = []
 max_array_len_plot = []
 
+metrics_counter = MetricsCounter()
+num_photon_hardware = 100
+main(num_photon_hardware, optimization = "data_parrellel")
+print(metrics_counter)
 
-for max_array_len in range(25,1001, 25):
-    metrics_counter = MetricsCounter()
-    max_array_len_plot.append(max_array_len)
-    main(max_array_len)
 
-# Plotting Metrics
-fig, ax = plt.subplots()
-fig.subplots_adjust(right=0.75)
+# for max_array_len in range(1,11, 1):
+#     metrics_counter = MetricsCounter()
+#     max_array_len_plot.append(max_array_len)
+#     run_concurent = True
+#     main(max_array_len, concurrent = run_concurent)
 
-twin1 = ax.twinx()
-twin2 = ax.twinx()
+# # Plotting Metrics
+# fig, ax = plt.subplots()
+# fig.subplots_adjust(right=0.75)
+# twin1 = ax.twinx()
+# twin2 = ax.twinx()
+# twin2.spines.right.set_position(("axes", 1.2))
 
-twin2.spines.right.set_position(("axes", 1.2))
+# p1, = ax.plot(max_array_len_plot, MAC_instructions_plot, label='MAC Instructions')
+# p2, = ax.plot(max_array_len_plot, loadvec_instructions_plot, label='Loadvec Instructions')
+# p3, = ax.plot(max_array_len_plot, add_instructions_plot, label='Add Instructions')
+# p4, = twin1.plot(max_array_len_plot, reg_used_plot, color='orange', label='Register Used')
+# p5, = twin2.plot(max_array_len_plot, save_instructions_plot, color='green', label='Save Instructions')
 
-p1, = ax.plot(max_array_len_plot, MAC_instructions_plot, label='MAC Instructions')
-p2, = ax.plot(max_array_len_plot, loadvec_instructions_plot, label='Loadvec Instructions')
-p3, = ax.plot(max_array_len_plot, add_instructions_plot, label='Add Instructions')
-
-p4, = twin1.plot(max_array_len_plot, reg_used_plot, color='orange', label='Register Used')
-
-p5, = twin2.plot(max_array_len_plot, save_instructions_plot, color='green', label='Save Instructions')
-
-ax.set_xlabel("Max Vector Size")
-ax.set_ylabel("Instructions")
-twin1.set_ylabel("Register Used")
-twin2.set_ylabel("Save Instructions")
+# ax.set_xlabel("Max Vector Size")
+# ax.set_ylabel("Instructions")
+# twin1.set_ylabel("Register Used")
+# twin2.set_ylabel("Save Instructions")
 
 # ax.legend(handles=[p1, p2, p3, p4, p5])
 
-plt.title('Concurrent Cross Product')
-plt.show()
+
+# if run_concurent == True:
+#     plt.title('Concurrent Cross Product')
+# else:
+#     plt.title('Sequential Cross Product')
+
+
+# plt.show()
 
 #endregion
