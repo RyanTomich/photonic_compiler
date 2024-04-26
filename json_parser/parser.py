@@ -20,30 +20,24 @@ import matplotlib.pyplot as plt
 class MetricsCounter:
     def __init__(self):
         self.MAC_instructions = 0
-        self.loadvec_instructions = 0
         self.add_instructions = 0
         self.save_instructions = 0
-        self.reg_used = 0
 
-    def increment(self, instruction_type):
+    def increment(self, instruction_type, amount = 1):
         if instruction_type == 'add':
             self.add_instructions += 1
         elif instruction_type == 'MAC':
             self.MAC_instructions += 1
-        elif instruction_type == 'load_vector':
-            self.loadvec_instructions += 1
         elif instruction_type == 'save':
             self.save_instructions += 1
 
     def plot_add_data(self):
         MAC_instructions_plot.append(self.MAC_instructions)
-        loadvec_instructions_plot.append(self.loadvec_instructions)
         add_instructions_plot.append(self.add_instructions)
         save_instructions_plot.append(self.save_instructions)
 
     def __repr__(self):
         return (f"MAC Instructions: {self.MAC_instructions}\n"
-                f"Load vector Instructions: {self.loadvec_instructions}\n"
                 f"Add Instructions: {self.add_instructions}\n"
                 f"Save Instructions: {self.save_instructions}\n")
 
@@ -94,19 +88,19 @@ def get_shape_index(node):
     return[input[0] for input in node["inputs"]]
 
 
-def batch_vector(vector_size, batch_size):
+def batch_vector(vector_size, num_batches):
     """Generator object that groups vectors into batches
     Args:
-        vector_size (int): size of iriginal vector
-        batch_size (int): size of each batch
+        vector_size (int): size of original vector
+        batch_size (int): num hardware
     Yields:
         str: "[start_index: end index]"
     """
     temp = vector_size
-    num_needed_registers = math.ceil(vector_size / batch_size)
+    batch_size = math.ceil(vector_size/ num_batches)
     start = 0
     end = batch_size
-    for i in range(num_needed_registers):
+    for i in range(num_batches):
         if temp < batch_size:
             end = start + temp
         yield [start, end]
@@ -118,12 +112,8 @@ def batch_vector(vector_size, batch_size):
 def looper(num_photonic_hardware):
     """contunoously loops over a numer n
         1,2,3,1,2,3,1,2,3 ...
-
-    Args:
-        num_photonic_hardware (int): loop length
-
-    Yields:
-        int: num between 1 to num_photonic_hardware
+    Args: num_photonic_hardware (int): loop length
+    Yields: int: num between 1 to num_photonic_hardware
     """
     while True:
         for i in range(1, num_photonic_hardware+1, 1):
@@ -137,120 +127,61 @@ def write_instruction(instruction_type, *args):
         parsed_txt.write(f"E: add: a{a1}, a{a2}, a{a3}\n")
 
     elif instruction_type == "MAC":
-        num_hardware, write, vector, matrix, row = args
-        parsed_txt.write(f"P{num_hardware}: MAC: {write}, {vector}, {matrix}{row}\n")
+        computerID, write, v1, v2 = args
+        parsed_txt.write(f"P{computerID}: MAC: {write}, {v1}, {v2}\n")
 
     elif instruction_type == 'load_vector':
         a1, matrix, matrix_index, batch = args
         parsed_txt.write(f"E: load vector: a{a1}, {matrix}[{matrix_index}]{batch}\n")
 
     elif instruction_type == 'save':
-        vector, matrix_row, a1 = args
-        parsed_txt.write(f"E: save:{vector}[{matrix_row}], a{a1}\n")
+        write, read = args
+        parsed_txt.write(f"E: save:{write}, {read}\n")
 
 
-def sequential_cross_product(node):
-    """Prioritized finishing each row of output entirely before moving to next. Breaks crossproduct into instructions.
-    Args:
-        node (dict): one node of thejson graph representing a layer and relu
-    """
-    # get vector index and shapes
-    vector_index, matrix_index = get_shape_index(node)
-    vector = raw_json['attrs']['shape'][1][vector_index]
-    matrix = raw_json['attrs']['shape'][1][matrix_index]
+def opt_strat(node, optimization):
 
-    # vector registration
-    parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
-    num_needed_registers = math.ceil(vector[1] / max_array_len) # number of registers needed to hold vector
-    batch_gen = batch_vector(vector[1], max_array_len) # generator object seperating each vector slice
-
-    for register in range(num_needed_registers):
-        write_instruction('load_vector', register, vector_index, 1, next(batch_gen))
-
-    # Dot products
-    parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
-    accumulate_register = register + 1
-    parsed_txt.write(f"   Accumulate register: a{accumulate_register}\n")
-
-    for matrix_row in range(matrix[0]):
-        parsed_txt.write(f"   {vector} . {matrix}[{matrix_row}]\n")
-
-        batch_gen = batch_vector(vector[1], max_array_len)
-        working_register = accumulate_register + 1
-        for register in range(num_needed_registers):
-            write_instruction('load_vector', working_register, matrix_index, matrix_row, next(batch_gen))
-            write_instruction('MAC', working_register, working_register, register)
-            write_instruction('add', accumulate_register, accumulate_register, working_register)
-
-        write_instruction('save', vector, matrix_row, accumulate_register)
-
-    parsed_txt.write(f"E: [relu] {vector}\n")
-
-
-def concurrent_cross_product(node):
-    # get vector index and shapes
-    vector_index, matrix_index = get_shape_index(node)
-    vector = raw_json['attrs']['shape'][1][vector_index]
-    matrix = raw_json['attrs']['shape'][1][matrix_index]
-
-    parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
-    num_needed_registers = math.ceil(vector[1] / max_array_len) # number of registers needed to hold vector
-    batch_gen = batch_vector(vector[1], max_array_len) # generator object seperating each vector slice
-    parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
-
-    for _ in range(num_needed_registers):
-        batch_index = next(batch_gen)
-        write_instruction('load_vector', 0, vector_index,1, batch_index)
+    def task_parallel(num_photon_hardware, node):
+        # one hardware per matrix row
         for matrix_row in range(matrix[0]):
-            write_instruction('load_vector', 1, matrix_index, matrix_row, batch_index)
-            write_instruction('MAC', 1, 0, 1)
-            write_instruction('save', vector, matrix_row, 1)
+            write = f'[1:{matrix[0]}][{matrix_row}]'
+            v1 = f'{vector}'
+            v2 = f'{matrix}[{matrix_row}]'
+            write_instruction('MAC',next(P_computer_num_gen), write, v1, v2)
 
-    parsed_txt.write(f"E: [relu] {vector}\n")
+    def data_parrellel(num_photon_hardware,node):
+        for matrix_row in range(matrix[0]):
+            # generator object seperating each vector slice
+            batch_gen = batch_vector(matrix[1], num_photon_hardware)
+            for batch in batch_gen:
+                batch = f"[{batch[0]}:{batch[1]}]"
+                v1 = f"{vector}{batch}"
+                v2 = f"{matrix}[{matrix_row}]{batch}"
+                write_instruction('MAC',next(P_computer_num_gen), 'a1', v1, v2)
+                write_instruction("add",0, 0, 1)
+            write = f'[1:{matrix[0]}][{matrix_row}]'
+            write_instruction("save",write, 'a0')
 
-
-def task_parallel(num_photon_hardware, node):
     vector_index, matrix_index = get_shape_index(node)
     vector = raw_json['attrs']['shape'][1][vector_index]
     matrix = raw_json['attrs']['shape'][1][matrix_index]
 
     parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
     parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
-
     P_computer_num_gen = looper(num_photon_hardware)
 
-    for matrix_row in range(matrix[0]):
-        write_instruction('MAC',next(P_computer_num_gen), vector, vector, matrix, matrix_row)
+    if optimization =='task_parrellel':
+        task_parallel(num_photon_hardware, node)
+    elif optimization == 'data_parrellel':
+        data_parrellel(num_photon_hardware, node)
 
-    parsed_txt.write(f"E: [relu] {vector}\n")
-
-
-def data_parrellel(num_photon_hardware,node):
-    vector_index, matrix_index = get_shape_index(node)
-    vector = raw_json['attrs']['shape'][1][vector_index]
-    matrix = raw_json['attrs']['shape'][1][matrix_index]
-    P_computer_num_gen = looper(num_photon_hardware)
-
-
-    parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
-    for matrix_row in range(matrix[0]):
-        batch_gen = batch_vector(matrix[0], num_photon_hardware) # generator object seperating each vector slice
-        for batch in batch_gen:
-            batch = f"[{batch[0]}:{batch[1]}]"
-            vector_range = f"{vector}{batch}"
-            matrix_range = f"[{matrix_row}]{batch}"
-            write_instruction('MAC',next(P_computer_num_gen), 'a1', vector_range, matrix, matrix_range)
-            write_instruction("add",0, 0, 1)
-        write_instruction("save",vector, matrix_row, 0)
-
-    parsed_txt.write(f"E: [relu] {vector}\n")
-
+    parsed_txt.write(f"E: [relu] [1:{matrix[0]}]\n")
 
 #endregion
 
 
 # Loop over Nodes
-def main(num_photon_hardware, optimization = ""):
+def main_loop(num_photon_hardware, optimization = ""):
     for order, node in enumerate(raw_json["nodes"]):
         # Null instructions - N:
         if contains(node, 'null'):
@@ -259,12 +190,7 @@ def main(num_photon_hardware, optimization = ""):
         # Dense instructions
         elif contains(node, 'dense'):
             parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
-
-            if optimization =='task_parrellel':
-                task_parallel(num_photon_hardware, node)
-            elif optimization == 'data_parrellel':
-                data_parrellel(num_photon_hardware, node)
-
+            opt_strat(node, optimization)
         # Catch all
         else:
             parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
@@ -275,53 +201,33 @@ def main(num_photon_hardware, optimization = ""):
 
     metrics_counter.plot_add_data()
 
-#region Metric Ploting
 
 MAC_instructions_plot = []
-loadvec_instructions_plot = []
 add_instructions_plot = []
 save_instructions_plot = []
-max_array_len_plot = []
+cycles_plot = []
+num_photonic_hardware_plot = []
+
 
 metrics_counter = MetricsCounter()
-num_photon_hardware = 100
-main(num_photon_hardware, optimization = "data_parrellel")
+num_photon_hardware = 300
+main_loop(num_photon_hardware, optimization = "data_parrellel")
 print(metrics_counter)
 
-
-# for max_array_len in range(1,11, 1):
+# region plotting
+# for num_photon_hardware in range(10, 1000, 10): # 1000 photonic hardware
 #     metrics_counter = MetricsCounter()
-#     max_array_len_plot.append(max_array_len)
-#     run_concurent = True
-#     main(max_array_len, concurrent = run_concurent)
-
-# # Plotting Metrics
-# fig, ax = plt.subplots()
-# fig.subplots_adjust(right=0.75)
-# twin1 = ax.twinx()
-# twin2 = ax.twinx()
-# twin2.spines.right.set_position(("axes", 1.2))
-
-# p1, = ax.plot(max_array_len_plot, MAC_instructions_plot, label='MAC Instructions')
-# p2, = ax.plot(max_array_len_plot, loadvec_instructions_plot, label='Loadvec Instructions')
-# p3, = ax.plot(max_array_len_plot, add_instructions_plot, label='Add Instructions')
-# p4, = twin1.plot(max_array_len_plot, reg_used_plot, color='orange', label='Register Used')
-# p5, = twin2.plot(max_array_len_plot, save_instructions_plot, color='green', label='Save Instructions')
-
-# ax.set_xlabel("Max Vector Size")
-# ax.set_ylabel("Instructions")
-# twin1.set_ylabel("Register Used")
-# twin2.set_ylabel("Save Instructions")
-
-# ax.legend(handles=[p1, p2, p3, p4, p5])
+#     num_photonic_hardware_plot.append(num_photon_hardware)
+#     main_loop(num_photon_hardware, optimization = "task_parrellel")
 
 
-# if run_concurent == True:
-#     plt.title('Concurrent Cross Product')
-# else:
-#     plt.title('Sequential Cross Product')
+# plt.plot(num_photonic_hardware_plot,MAC_instructions_plot, label = "MAC's")
+# plt.xlabel('X-axis')
+# plt.ylabel('Y-axis')
+# plt.legend()
+# plt.title('Simple Plot')
 
-
-# plt.show()
+# # plt.show()
+# plt.savefig('plot.png')
 
 #endregion
