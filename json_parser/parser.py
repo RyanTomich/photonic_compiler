@@ -129,7 +129,19 @@ def looper(num_photonic_hardware):
 
 @metrics_counter_dec
 def write_instruction(instruction_type, *args):
-    if instruction_type == 'add':
+    if instruction_type == 'null':
+        order = int(args[0])
+        if write_to_file: parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
+
+    elif instruction_type == 'dense':
+        order = int(args[0])
+        if write_to_file: parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
+
+    elif instruction_type == 'other':
+        order = int(args[0])
+        if write_to_file: parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
+
+    elif instruction_type == 'add':
         a1, a2, a3 = args
         if write_to_file: parsed_txt.write(f"E: add: a{a1}, a{a2}, a{a3}\n")
 
@@ -173,20 +185,20 @@ def opt_strat(node, optimization):
             write = f'[1:{matrix[0]}][{matrix_row}]'
             write_instruction("save",write, 'a0')
 
+    optimization_algs = {'task_parrellel': task_parallel, 'data_parrellel': data_parrellel}
+
     vector_index, matrix_index = get_shape_index(node)
     vector = raw_json['attrs']['shape'][1][vector_index]
     matrix = raw_json['attrs']['shape'][1][matrix_index]
 
-    parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
-    parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
+    if write_to_file:
+        parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
+        parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
+
     P_computer_num_gen = looper(num_photon_hardware)
+    optimization_algs[optimization](num_photon_hardware, node)
 
-    if optimization =='task_parrellel':
-        task_parallel(num_photon_hardware, node)
-    elif optimization == 'data_parrellel':
-        data_parrellel(num_photon_hardware, node)
-
-    parsed_txt.write(f"E: [relu] [1:{matrix[0]}]\n")
+    if write_to_file: parsed_txt.write(f"E: [relu] [1:{matrix[0]}]\n")
 
 #endregion
 
@@ -194,22 +206,15 @@ def opt_strat(node, optimization):
 # Loop over Nodes
 def main_loop(num_photon_hardware, optimization = ""):
     for order, node in enumerate(raw_json["nodes"]):
-        # Null instructions - N:
-        if contains(node, 'null'):
-            if write_to_file: parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
+        if contains(node, 'null'):  # Null instructions - N:
+            write_instruction('null', order)
 
-        # Dense instructions
-        elif contains(node, 'dense'):
-            if write_to_file: parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
+        elif contains(node, 'dense'): # Dense instructions
+            write_instruction('dense', order)
             opt_strat(node, optimization)
 
-        # Catch all
-        else:
-            if write_to_file: parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
-            input_index = get_shape_index(node)
-            if input_index:
-                if write_to_file: parsed_txt.write(f"   [read] {input_index}\n")
-
+        else: # Catch all
+            write_instruction('null', order)
 
     metrics_counter.plot_add_data()
 
@@ -220,15 +225,17 @@ save_instructions_plot = []
 time_plot = []
 num_photonic_hardware_plot = []
 
-num_photon_hardware = 1
+num_photon_hardware = 100
+write_to_file = False
 
-write_to_file = True
-opt = 'data_parrellel'
+
+opt = 'task_parrellel'
 metrics_counter = MetricsCounter(opt)
 main_loop(num_photon_hardware, optimization = opt)
 print(metrics_counter)
+print('\n')
 
-opt = 'task_parrellel'
+opt = 'data_parrellel'
 metrics_counter = MetricsCounter(opt)
 main_loop(num_photon_hardware, optimization = opt)
 print(metrics_counter)
