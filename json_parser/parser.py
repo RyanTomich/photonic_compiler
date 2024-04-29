@@ -59,18 +59,6 @@ def metrics_counter_dec(func):
 #endregion
 
 
-#region File access
-current_directory = os.path.dirname(os.path.abspath(__file__))
-
-read_json_path = os.path.join(current_directory, '..', 'Pytorch-LeNet', 'simple_LeNet_graph.json')
-with open(read_json_path)  as json_file:
-    raw_json = json.load(json_file) # returns json file as dict
-
-output_file_path = os.path.join(current_directory, 'simple_LeNet_parsed.txt')
-parsed_txt = open(output_file_path, "w") # creates the write file in write mode append ('a') mode also exists
-#endregion
-
-
 #region Node helper Functions
 
 def contains(node, val):
@@ -133,6 +121,10 @@ def write_instruction(instruction_type, *args):
         order = int(args[0])
         if write_to_file: parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
 
+    if instruction_type == 'other':
+        order = int(args[0])
+        if write_to_file: parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
+
     elif instruction_type == 'dense':
         order = int(args[0])
         if write_to_file: parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
@@ -185,7 +177,7 @@ def opt_strat(node, optimization):
             write = f'[1:{matrix[0]}][{matrix_row}]'
             write_instruction("save",write, 'a0')
 
-    optimization_algs = {'task_parrellel': task_parallel, 'data_parrellel': data_parrellel}
+    optimization_algs = {'task_para': task_parallel, 'data_para': data_parrellel}
 
     vector_index, matrix_index = get_shape_index(node)
     vector = raw_json['attrs']['shape'][1][vector_index]
@@ -214,9 +206,21 @@ def main_loop(num_photon_hardware, optimization = ""):
             opt_strat(node, optimization)
 
         else: # Catch all
-            write_instruction('null', order)
+            write_instruction('other', order)
 
     metrics_counter.plot_add_data()
+
+
+#region File access
+current_directory = os.path.dirname(os.path.abspath(__file__))
+
+read_json_path = os.path.join(current_directory, '..', 'Pytorch-LeNet', 'simple_LeNet_graph.json')
+with open(read_json_path)  as json_file:
+    raw_json = json.load(json_file) # returns json file as dict
+
+output_file_path = os.path.join(current_directory, 'simple_LeNet_parsed.txt')
+parsed_txt = open(output_file_path, "w") # creates the write file in write mode append ('a') mode also exists
+#endregion
 
 
 MAC_instructions_plot = []
@@ -226,16 +230,18 @@ time_plot = []
 num_photonic_hardware_plot = []
 
 num_photon_hardware = 100
-write_to_file = False
+write_to_file = True
 
 
-opt = 'task_parrellel'
+opt = 'task_para'
 metrics_counter = MetricsCounter(opt)
 main_loop(num_photon_hardware, optimization = opt)
 print(metrics_counter)
 print('\n')
 
-opt = 'data_parrellel'
+write_to_file = False
+
+opt = 'data_para'
 metrics_counter = MetricsCounter(opt)
 main_loop(num_photon_hardware, optimization = opt)
 print(metrics_counter)
