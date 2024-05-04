@@ -15,6 +15,7 @@ import os
 import matplotlib.pyplot as plt
 
 
+
 #region Metrics
 
 class MetricsCounter:
@@ -23,22 +24,30 @@ class MetricsCounter:
         self.MAC_instructions = 0
         self.sum_instructions = 0
         self.save_instructions = 0
+        self.registers = 0
         self.time = 0
 
-    def increment(self, instruction_type, amount = 1):
-        if instruction_type == 'sum':
-            self.sum_instructions += 1
-        elif instruction_type == 'MAC':
-            self.MAC_instructions += 1
-        elif instruction_type == 'save':
-            self.save_instructions += 1
-        elif instruction_type == 'time':
-            self.time += amount
+        self.instruction_types = {
+            'sum': 'sum_instructions',
+            'MAC': 'MAC_instructions',
+            'save': 'save_instructions',
+            'register': 'registers',
+            'time': 'time'
+        }
+
+    def increment(self, instruction_type, function=sum, amount=1):
+        if instruction_type in self.instruction_types:
+            attr_name = self.instruction_types[instruction_type]
+            current_value = getattr(self, attr_name)
+            new_value = function((current_value, amount))
+            setattr(self, attr_name, new_value)
+
 
     def plot_add_data(self):
         MAC_instructions_plot.append(self.MAC_instructions)
         sum_instructions_plot.append(self.sum_instructions)
         save_instructions_plot.append(self.save_instructions)
+        registers_plot.append(self.registers)
         time_plot.append(self.time)
 
     def __str__(self):
@@ -46,11 +55,19 @@ class MetricsCounter:
                 f"MAC Instructions: {self.MAC_instructions}\n"
                 f"Sum Instructions: {self.sum_instructions}\n"
                 f"Save Instructions: {self.save_instructions}\n"
+                f"registres used: {self.registers}\n"
                 f"time: {self.time}")
-
 
 def metrics_counter_dec(func):
     def wrapper(instruction_type, *args, **kwargs):
+        if instruction_type == 'MAC':
+            computerID, *_, size = args
+            if computerID == 1:
+                metrics_counter.increment('time', amount=size * 10**-10) # photonic is 10 Ghz
+        elif instruction_type == 'sum':
+            largest_register = max(args)
+            metrics_counter.increment('register', function = max, amount=largest_register) # photonic is 10 Ghz
+
         metrics_counter.increment(instruction_type)
         result = func(instruction_type, *args, **kwargs)
         return result
@@ -134,18 +151,12 @@ def write_instruction(instruction_type, *args):
         order = int(args[0])
         if write_to_file: parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
 
-    elif instruction_type == 'other':
-        order = int(args[0])
-        if write_to_file: parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
-
     elif instruction_type == 'sum':
         a1, a2, a3 = args
         if write_to_file: parsed_txt.write(f"E: sum: a{a1}, [a{a2}: a{a3}]\n")
 
     elif instruction_type == "MAC":
         computerID, write, v1, v2, size = args
-        if computerID == 1:
-            metrics_counter.increment('time', size * 10**-10) # photonic is 10 Ghz
         if write_to_file: parsed_txt.write(f"P{computerID}: MAC: {write}, {v1}, {v2}\n")
 
     elif instruction_type == 'load_vector':
@@ -185,7 +196,7 @@ def opt_strat(node, optimization):
             write = f'[1:{matrix[0]}][{matrix_row}]'
             write_instruction("save",write, 'a0')
 
-        metrics_counter.increment('time', math.log2(num_photon_hardware)* 10**-8)  #-8 electronic is 0.1 Ghz
+        metrics_counter.increment('time', amount = math.log2(num_photon_hardware)* 10**-8)  #-8 electronic is 0.1 Ghz
 
     # def dynamic_parallel()
     #     pass #TODO
@@ -240,48 +251,73 @@ parsed_txt = open(output_file_path, "w") # creates the write file in write mode 
 MAC_instructions_plot = []
 sum_instructions_plot = []
 save_instructions_plot = []
+registers_plot = []
 time_plot = []
 num_photonic_hardware_plot = []
 
-num_photon_hardware = 100
-write_to_file = True
+graph = True
 
-# opt = 'task_para'
-# metrics_counter = MetricsCounter(opt)
-# main_loop(num_photon_hardware, optimization = opt)
-# print(metrics_counter)
-# print('\n')
+if graph == False:
 
-# opt = 'data_para'
-# metrics_counter = MetricsCounter(opt)
-# main_loop(num_photon_hardware, optimization = opt)
-# print(metrics_counter)
-
-
-# region plotting
-optimizations = ['task_para', 'data_para']
-for opt in optimizations:
-    MAC_instructions_plot = []
-    add_instructions_plot = []
-    save_instructions_plot = []
-    time_plot = []
-    num_photonic_hardware_plot = []
+    num_photon_hardware = 100
     write_to_file = False
 
-    for num_photon_hardware in range(10, 1000, 10): # 1000 photonic hardware
-        metrics_counter = MetricsCounter(opt)
-        num_photonic_hardware_plot.append(num_photon_hardware)
-        main_loop(num_photon_hardware, optimization = opt)
+    opt = 'task_para'
+    metrics_counter = MetricsCounter(opt)
+    main_loop(num_photon_hardware, optimization = opt)
+    print(metrics_counter)
+    print('\n')
 
-    # plt.plot(num_photonic_hardware_plot,MAC_instructions_plot, label = f"MAC's: {opt}")
-    # plt.plot(num_photonic_hardware_plot,add_instructions_plot, label = f"ADD's: {opt}")
-    # plt.plot(num_photonic_hardware_plot,save_instructions_plot, label = f"SAVE's: {opt}")
-    plt.plot(num_photonic_hardware_plot,time_plot, label = f"time: {opt}")
+    opt = 'data_para'
+    metrics_counter = MetricsCounter(opt)
+    main_loop(num_photon_hardware, optimization = opt)
+    print(metrics_counter)
 
-plt.xlabel('# photonic Hardware')
-plt.ylabel('')
-plt.legend()
-plt.title(f'both optimization (overlap time)')
+else:
+    # region plotting
+    optimizations = ['task_para', 'data_para']
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
 
-plt.savefig('plot.png')
-#endregion
+    for opt in optimizations:
+        MAC_instructions_plot = []
+        sum_instructions_plot = []
+        save_instructions_plot = []
+        registers_plot = []
+        time_plot = []
+        num_photonic_hardware_plot = []
+
+        write_to_file = False
+
+        for num_photon_hardware in range(10, 1001, 10): # 1000 photonic hardware
+            metrics_counter = MetricsCounter(opt)
+            num_photonic_hardware_plot.append(num_photon_hardware)
+            main_loop(num_photon_hardware, optimization = opt)
+
+        # color = 'tab:red'
+        ax1.set_xlabel('time (s)')
+        ax1.set_ylabel('other')
+        # ax1.plot(num_photonic_hardware_plot,MAC_instructions_plot, label = f"MACs: {opt}")
+        # ax1.plot(num_photonic_hardware_plot,sum_instructions_plot, label = f"ADDs: {opt}")
+        # ax1.plot(num_photonic_hardware_plot,save_instructions_plot, label = f"SAVEs: {opt}")
+        ax1.plot(num_photonic_hardware_plot,registers_plot, label = f"REGISTERs: {opt}")
+        ax1.tick_params(axis='y')
+
+        # ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+        # color = 'tab:blue'
+        ax2.set_ylabel('Time')  # we already handled the x-label with ax1
+        ax2.plot(num_photonic_hardware_plot,time_plot, label = f"time: {opt}")
+        ax2.tick_params(axis='y')
+
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    fig.legend(lines + lines2, labels + labels2)
+
+    plt.title(f'both optimization (overlap time)')
+    plt.savefig('plot.png')
+
+    #endregion
