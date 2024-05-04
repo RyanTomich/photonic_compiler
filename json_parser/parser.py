@@ -139,39 +139,43 @@ def looper(num_photonic_hardware):
 
 @metrics_counter_dec
 def write_instruction(instruction_type, *args):
-    if instruction_type == 'null':
-        order = int(args[0])
-        if write_to_file: parsed_txt.write(f"N: [null] {raw_json['nodes'][order]}\n")
+    """Write abstraction to be called elswhere. Also where metrics are caught
+    Args:
+        instruction_type (int): name of instruction.
+    """
+    instruction_format = { # name: (fsrt, (args) )
+        'null': ("N: [null] {order}\n",
+                ('order',)),
+        'other': ("E: [other] {order}\n",
+                ('order',)),
+        'dense': ("   [relu/MAC][{order}]\n",
+                ('order',)),
+        'sum': ("E: sum: a{a1}, [a{a2}: a{a3}]\n",
+                ('a1', 'a2', 'a3')),
+        'MAC': ("P{computerID}: MAC: {write}, {v1}, {v2}\n",
+                ('computerID', 'write', 'v1', 'v2', 'size')),
+        'load_vector': ("E: load vector: a{a1}, {matrix}[{matrix_index}]{batch}\n",
+                ('a1', 'matrix', 'matrix_index', 'batch')),
+        'save': ("E: save:{write}, {read}\n",
+                ('write', 'read'))
+    }
 
-    if instruction_type == 'other':
-        order = int(args[0])
-        if write_to_file: parsed_txt.write(f"E: [other] {raw_json['nodes'][order]}\n")
+    if instruction_type in instruction_format and write_to_file:
+        format_string, format_args = instruction_format[instruction_type]
+        argument_dict = dict(zip(format_args, args))
+        if instruction_type in ['null', 'other', 'dense']:
+            argument_dict['order'] = raw_json['nodes'][args[0]]
+        parsed_txt.write(format_string.format(**argument_dict))
 
-    elif instruction_type == 'dense':
-        order = int(args[0])
-        if write_to_file: parsed_txt.write(f"   [relu/MAC]{raw_json['nodes'][order]}\n")
 
-    elif instruction_type == 'sum':
-        a1, a2, a3 = args
-        if write_to_file: parsed_txt.write(f"E: sum: a{a1}, [a{a2}: a{a3}]\n")
 
-    elif instruction_type == "MAC":
-        computerID, write, v1, v2, size = args
-        if write_to_file: parsed_txt.write(f"P{computerID}: MAC: {write}, {v1}, {v2}\n")
 
-    elif instruction_type == 'load_vector':
-        a1, matrix, matrix_index, batch = args
-        if write_to_file: parsed_txt.write(f"E: load vector: a{a1}, {matrix}[{matrix_index}]{batch}\n")
-
-    elif instruction_type == 'save':
-        write, read = args
-        if write_to_file: parsed_txt.write(f"E: save:{write}, {read}\n")
 
 
 def opt_strat(node, optimization):
 
     def task_parallel(num_photon_hardware, node):
-        # one hardware per matrix row
+        # start prioritize - one hardware per matrix row
         for matrix_row in range(matrix[0]):
             write = f'[1:{matrix[0]}][{matrix_row}]'
             v1 = f'{vector}'
@@ -180,6 +184,7 @@ def opt_strat(node, optimization):
             write_instruction('MAC',next(P_computer_num_gen), write, v1, v2, size)
 
     def data_parrellel(num_photon_hardware,node):
+        # Finish prioritize - all hardware per matrix row.
         for matrix_row in range(matrix[0]):
             # generator object seperating each vector slice
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
@@ -222,6 +227,11 @@ def opt_strat(node, optimization):
 
 # Loop over Nodes
 def main_loop(num_photon_hardware, optimization = ""):
+    """Loops over Relay IR Json nodes and catagorizes them
+    Args:
+        num_photon_hardware (int ): numer of hardware to simulate
+        optimization (str, optional): optimization to run for generation. Defaults to "".
+    """
     for order, node in enumerate(raw_json["nodes"]):
         if contains(node, 'null'):  # Null instructions - N:
             write_instruction('null', order)
@@ -248,19 +258,19 @@ parsed_txt = open(output_file_path, "w") # creates the write file in write mode 
 #endregion
 
 
-MAC_instructions_plot = []
-sum_instructions_plot = []
-save_instructions_plot = []
-registers_plot = []
-time_plot = []
-num_photonic_hardware_plot = []
-
-graph = True
+graph = False
 
 if graph == False:
+    MAC_instructions_plot = []
+    sum_instructions_plot = []
+    save_instructions_plot = []
+    registers_plot = []
+    time_plot = []
+    num_photonic_hardware_plot = []
+
 
     num_photon_hardware = 100
-    write_to_file = False
+    write_to_file = True
 
     opt = 'task_para'
     metrics_counter = MetricsCounter(opt)
