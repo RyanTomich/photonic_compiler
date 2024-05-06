@@ -184,6 +184,7 @@ def opt_strat(node, optimization):
         write = f'[1:{matrix[0]}][{row}]'
         write_instruction("save",write, 'a0')
 
+
     def task_parallel(num_photon_hardware, node):
         # start prioritize - one hardware per matrix row
         for matrix_row in range(matrix[0]):
@@ -241,6 +242,9 @@ def opt_strat(node, optimization):
                 _batching_rows(num_photon_hardware, batch_gen, matrix[0] - rows_left)
                 rows_larger -= 1
                 rows_left -= 1
+
+            metrics_counter.increment('time', amount = math.log2(num_photon_hardware/ small)* 10**-8)  #-8 electronic is 0.1 Ghz
+
 
     def memory_limp():
         """ data_parallel untill memory limit, then task parallel """
@@ -300,7 +304,7 @@ parsed_txt = open(output_file_path, "w") # creates the write file in write mode 
 #endregion
 
 
-graph = False
+graph = True
 
 if graph == False:
     MAC_instructions_plot = []
@@ -326,7 +330,7 @@ if graph == False:
     print(metrics_counter)
     print('\n')
 
-    write_to_file = True
+    write_to_file = False
     opt = 'dynamic_para'
     metrics_counter = MetricsCounter(opt)
     main_loop(num_photon_hardware, optimization = opt)
@@ -359,7 +363,7 @@ else:
         # ax1.plot(num_photonic_hardware_plot,MAC_instructions_plot, label = f"MACs: {opt}")
         # ax1.plot(num_photonic_hardware_plot,sum_instructions_plot, label = f"ADDs: {opt}")
         # ax1.plot(num_photonic_hardware_plot,save_instructions_plot, label = f"SAVEs: {opt}")
-        ax1.plot(num_photonic_hardware_plot,registers_plot, label = f"REGISTERs: {opt}")
+        # ax1.plot(num_photonic_hardware_plot,registers_plot, label = f"REGISTERs: {opt}")
         ax1.tick_params(axis='y')
 
         # ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
