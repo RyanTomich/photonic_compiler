@@ -162,17 +162,27 @@ def write_instruction(instruction_type, *args):
 
     if instruction_type in instruction_format and write_to_file:
         format_string, format_args = instruction_format[instruction_type]
-        argument_dict = dict(zip(format_args, args))
+        argument_dict = dict(zip(format_args, args)) # dictionary mapping term name to value
         if instruction_type in ['null', 'other', 'dense']:
             argument_dict['order'] = raw_json['nodes'][args[0]]
         parsed_txt.write(format_string.format(**argument_dict))
 
-
-
-
-
-
 def opt_strat(node, optimization):
+
+    def _batching_rows(num_photon_hardware, batch_gen, row):
+        # generator object seperating each vector slice
+        largest_batch = 0
+        for batch in batch_gen:
+            size = batch[1]-batch[0]
+            largest_batch = max(largest_batch, size)
+            batch = f"[{batch[0]}:{batch[1]}]"
+            v1 = f"{vector}{batch}"
+            v2 = f"{matrix}[{row}]{batch}"
+            photonic_hardware_id = next(P_computer_num_gen)
+            write_instruction('MAC',photonic_hardware_id, f'a{photonic_hardware_id-1}', v1, v2, size)
+        write_instruction("sum", 0, 0, num_photon_hardware)
+        write = f'[1:{matrix[0]}][{row}]'
+        write_instruction("save",write, 'a0')
 
     def task_parallel(num_photon_hardware, node):
         # start prioritize - one hardware per matrix row
@@ -183,31 +193,63 @@ def opt_strat(node, optimization):
             size = vector[1]
             write_instruction('MAC',next(P_computer_num_gen), write, v1, v2, size)
 
-    def data_parrellel(num_photon_hardware,node):
+    def data_parrellel(num_photon_hardware, node):
         # Finish prioritize - all hardware per matrix row.
         for matrix_row in range(matrix[0]):
             # generator object seperating each vector slice
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
-            largest_batch = 0
-            for batch in batch_gen:
-                size = batch[1]-batch[0]
-                largest_batch = max(largest_batch, size)
-                batch = f"[{batch[0]}:{batch[1]}]"
-                v1 = f"{vector}{batch}"
-                v2 = f"{matrix}[{matrix_row}]{batch}"
-                photonic_hardware_id = next(P_computer_num_gen)
-                write_instruction('MAC',photonic_hardware_id, f'a{photonic_hardware_id-1}', v1, v2, size)
-            write_instruction("sum", 0, 0, num_photon_hardware)
-            write = f'[1:{matrix[0]}][{matrix_row}]'
-            write_instruction("save",write, 'a0')
+            _batching_rows(num_photon_hardware, batch_gen, matrix_row)
+            # largest_batch = 0
+            # for batch in batch_gen:
+            #     size = batch[1]-batch[0]
+            #     largest_batch = max(largest_batch, size)
+            #     batch = f"[{batch[0]}:{batch[1]}]"
+            #     v1 = f"{vector}{batch}"
+            #     v2 = f"{matrix}[{matrix_row}]{batch}"
+            #     photonic_hardware_id = next(P_computer_num_gen)
+            #     write_instruction('MAC',photonic_hardware_id, f'a{photonic_hardware_id-1}', v1, v2, size)
+            # write_instruction("sum", 0, 0, num_photon_hardware)
+            # write = f'[1:{matrix[0]}][{matrix_row}]'
+            # write_instruction("save",write, 'a0')
 
         metrics_counter.increment('time', amount = math.log2(num_photon_hardware)* 10**-8)  #-8 electronic is 0.1 Ghz
 
-    # def dynamic_parallel()
-    #     pass #TODO
+    def dynamic_parallel(num_photon_hardware, node):
+        """ Task_para untill oversipll. Then data paralelize """
+        rows_left = matrix[0]
+        while rows_left >= num_photon_hardware:
+            for _ in range(num_photon_hardware):
+                write = f'[1:{matrix[0]}][{matrix[0] - rows_left}]'
+                v1 = f'{vector}'
+                v2 = f'{matrix}[{matrix[0] - rows_left}]'
+                size = vector[1]
+                write_instruction('MAC',next(P_computer_num_gen), write, v1, v2, size)
+                rows_left -= 1
+        if rows_left:
+            larger = math.ceil(num_photon_hardware / rows_left)
+            small= math.floor(num_photon_hardware / rows_left)
+            rows_larger = num_photon_hardware % rows_left
+            while rows_larger:
+                batch_gen = batch_vector(matrix[1], larger)
+                _batching_rows(num_photon_hardware, batch_gen, matrix[0] - rows_left)
+                rows_larger -= 1
+                rows_left -= 1
+
+            # for _ in range(rows_left - (num_photon_hardware % rows_left)):
+            while rows_left:
+                batch_gen = batch_vector(matrix[1], small)
+                _batching_rows(num_photon_hardware, batch_gen, matrix[0] - rows_left)
+                rows_larger -= 1
+                rows_left -= 1
+
+    def memory_limp():
+        """ data_parallel untill memory limit, then task parallel """
+        pass
 
 
-    optimization_algs = {'task_para': task_parallel, 'data_para': data_parrellel}
+    optimization_algs = {'task_para': task_parallel,
+                        'data_para': data_parrellel,
+                        'dynamic_para': dynamic_parallel}
 
     vector_index, matrix_index = get_shape_index(node)
     vector = raw_json['attrs']['shape'][1][vector_index]
@@ -268,24 +310,31 @@ if graph == False:
     time_plot = []
     num_photonic_hardware_plot = []
 
+    num_photon_hardware = 40
 
-    num_photon_hardware = 100
-    write_to_file = True
-
+    write_to_file = False
     opt = 'task_para'
     metrics_counter = MetricsCounter(opt)
     main_loop(num_photon_hardware, optimization = opt)
     print(metrics_counter)
     print('\n')
 
+    write_to_file = False
     opt = 'data_para'
+    metrics_counter = MetricsCounter(opt)
+    main_loop(num_photon_hardware, optimization = opt)
+    print(metrics_counter)
+    print('\n')
+
+    write_to_file = True
+    opt = 'dynamic_para'
     metrics_counter = MetricsCounter(opt)
     main_loop(num_photon_hardware, optimization = opt)
     print(metrics_counter)
 
 else:
     # region plotting
-    optimizations = ['task_para', 'data_para']
+    optimizations = ['task_para', 'data_para', 'dynamic_para']
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
 
@@ -299,7 +348,7 @@ else:
 
         write_to_file = False
 
-        for num_photon_hardware in range(10, 1001, 10): # 1000 photonic hardware
+        for num_photon_hardware in range(25, 1000, 25): # 1000 photonic hardware
             metrics_counter = MetricsCounter(opt)
             num_photonic_hardware_plot.append(num_photon_hardware)
             main_loop(num_photon_hardware, optimization = opt)
