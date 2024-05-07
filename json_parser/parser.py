@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 class MetricsCounter:
     def __init__(self, opp):
         self.optimization = opp
+        self.num_write = 0
+        self.num_read = 0
         self.MAC_instructions = 0
         self.sum_instructions = 0
         self.save_instructions = 0
@@ -28,6 +30,8 @@ class MetricsCounter:
         self.time = 0
 
         self.instruction_types = {
+            'read': 'num_write',
+            'write': 'num_write',
             'sum': 'sum_instructions',
             'MAC': 'MAC_instructions',
             'save': 'save_instructions',
@@ -44,6 +48,8 @@ class MetricsCounter:
 
 
     def plot_add_data(self):
+        num_read_plot.append(self.num_read)
+        num_write_plot.append(self.num_write)
         MAC_instructions_plot.append(self.MAC_instructions)
         sum_instructions_plot.append(self.sum_instructions)
         save_instructions_plot.append(self.save_instructions)
@@ -52,6 +58,8 @@ class MetricsCounter:
 
     def __str__(self):
         return (f"optimization: {self.optimization}\n"
+                f"num_read: {self.num_read}\n"
+                f"num_write: {self.num_write}\n"
                 f"MAC Instructions: {self.MAC_instructions}\n"
                 f"Sum Instructions: {self.sum_instructions}\n"
                 f"Save Instructions: {self.save_instructions}\n"
@@ -152,10 +160,10 @@ def write_instruction(instruction_type, *args):
                 ('order',)),
         'sum': ("E: sum: a{a1}, [a{a2}: a{a3}]\n",
                 ('a1', 'a2', 'a3')),
-        'MAC': ("P{computerID}: MAC: {write}, {v1}, {v2}\n",
+        'MAC': ("P{computerID}: MAC: {write}, SRAM: {v1}, DRAM: {v2}\n",
                 ('computerID', 'write', 'v1', 'v2', 'size')),
-        'load_vector': ("E: load vector: a{a1}, {matrix}[{matrix_index}]{batch}\n",
-                ('a1', 'matrix', 'matrix_index', 'batch')),
+        # 'load_vector': ("E: load vector: a{a1}, {matrix}[{matrix_index}]{batch}\n",
+        #         ('a1', 'matrix', 'matrix_index', 'batch')),
         'save': ("E: save:{write}, {read}\n",
                 ('write', 'read'))
     }
@@ -246,7 +254,7 @@ def opt_strat(node, optimization):
     matrix = raw_json['attrs']['shape'][1][matrix_index]
 
     if write_to_file:
-        parsed_txt.write(f"   [read] {vector_index}, {matrix_index}\n") # indicies
+        parsed_txt.write(f"   [read] SRAM:{vector_index}, DRAM:{matrix_index}\n") # indicies
         parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
 
     P_computer_num_gen = looper(num_photon_hardware)
@@ -299,6 +307,8 @@ num_photon_hardware = 3
 opts = ['task_para', 'data_para', 'dynamic_para']
 
 if graph == False:
+    num_read_plot = []
+    num_write_plot = []
     MAC_instructions_plot = []
     sum_instructions_plot = []
     save_instructions_plot = []
@@ -325,6 +335,8 @@ else:
     ax2 = ax1.twinx()
 
     for opt in optimizations:
+        num_read_plot = []
+        num_write_plot = []
         MAC_instructions_plot = []
         sum_instructions_plot = []
         save_instructions_plot = []
