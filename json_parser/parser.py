@@ -63,10 +63,10 @@ def metrics_counter_dec(func):
         if instruction_type == 'MAC':
             computerID, *_, size = args
             if computerID == 1:
-                metrics_counter.increment('time', amount=size * 10**-10) # photonic is 10 Ghz
+                metrics_counter.increment('time', amount=size * photonic_time_multiplier)
         elif instruction_type == 'sum':
             largest_register = max(args)
-            metrics_counter.increment('register', function = max, amount=largest_register) # photonic is 10 Ghz
+            metrics_counter.increment('register', function = max, amount=largest_register)
 
         metrics_counter.increment(instruction_type)
         result = func(instruction_type, *args, **kwargs)
@@ -115,10 +115,10 @@ def batch_vector(vector_size, num_batches):
     end = batch_size
     for i in range(num_batches):
         if remainder == 0:
-            batch_size = batch_size-1
-            end = end-1
-        # if temp < batch_size:
-        #     end = start + temp
+            batch_size = batch_size
+            end = end
+        if temp < batch_size:
+            end = start + temp
         yield [start, end]
         start += batch_size
         end += batch_size
@@ -184,7 +184,6 @@ def opt_strat(node, optimization):
         write = f'[1:{matrix[0]}][{row}]'
         write_instruction("save",write, 'a0')
 
-
     def task_parallel(num_photon_hardware, node):
         # start prioritize - one hardware per matrix row
         for matrix_row in range(matrix[0]):
@@ -200,20 +199,7 @@ def opt_strat(node, optimization):
             # generator object seperating each vector slice
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
             _batching_rows(num_photon_hardware, batch_gen, matrix_row)
-            # largest_batch = 0
-            # for batch in batch_gen:
-            #     size = batch[1]-batch[0]
-            #     largest_batch = max(largest_batch, size)
-            #     batch = f"[{batch[0]}:{batch[1]}]"
-            #     v1 = f"{vector}{batch}"
-            #     v2 = f"{matrix}[{matrix_row}]{batch}"
-            #     photonic_hardware_id = next(P_computer_num_gen)
-            #     write_instruction('MAC',photonic_hardware_id, f'a{photonic_hardware_id-1}', v1, v2, size)
-            # write_instruction("sum", 0, 0, num_photon_hardware)
-            # write = f'[1:{matrix[0]}][{matrix_row}]'
-            # write_instruction("save",write, 'a0')
-
-        metrics_counter.increment('time', amount = math.log2(num_photon_hardware)* 10**-8)  #-8 electronic is 0.1 Ghz
+        metrics_counter.increment('time', amount = math.log2(num_photon_hardware)* electronic_time_multiplier)
 
     def dynamic_parallel(num_photon_hardware, node):
         """ Task_para untill oversipll. Then data paralelize """
@@ -227,27 +213,27 @@ def opt_strat(node, optimization):
                 write_instruction('MAC',next(P_computer_num_gen), write, v1, v2, size)
                 rows_left -= 1
         if rows_left:
-            larger = math.ceil(num_photon_hardware / rows_left)
-            small= math.floor(num_photon_hardware / rows_left)
+            larger_batch_size = math.ceil(num_photon_hardware / rows_left)
+            small_batch_size = math.floor(num_photon_hardware / rows_left)
             rows_larger = num_photon_hardware % rows_left
             while rows_larger:
-                batch_gen = batch_vector(matrix[1], larger)
+                batch_gen = batch_vector(matrix[1], larger_batch_size)
                 _batching_rows(num_photon_hardware, batch_gen, matrix[0] - rows_left)
                 rows_larger -= 1
                 rows_left -= 1
 
             # for _ in range(rows_left - (num_photon_hardware % rows_left)):
             while rows_left:
-                batch_gen = batch_vector(matrix[1], small)
+                batch_gen = batch_vector(matrix[1], small_batch_size)
                 _batching_rows(num_photon_hardware, batch_gen, matrix[0] - rows_left)
                 rows_larger -= 1
                 rows_left -= 1
 
-            metrics_counter.increment('time', amount = math.log2(num_photon_hardware/ small)* 10**-8)  #-8 electronic is 0.1 Ghz
-
+            metrics_counter.increment('time', amount = math.log2(num_photon_hardware/ larger_batch_size)* electronic_time_multiplier)
 
     def memory_limp():
         """ data_parallel untill memory limit, then task parallel """
+        # TODO
         pass
 
 
@@ -304,7 +290,13 @@ parsed_txt = open(output_file_path, "w") # creates the write file in write mode 
 #endregion
 
 
-graph = True
+graph = False
+write = 'dynamic_para'
+photonic_time_multiplier = 10**-10 # photonic is 10 Ghz
+electronic_time_multiplier = 10**-8 # electronic is .1Ghz
+num_photon_hardware = 3
+
+opts = ['task_para', 'data_para', 'dynamic_para']
 
 if graph == False:
     MAC_instructions_plot = []
@@ -314,27 +306,17 @@ if graph == False:
     time_plot = []
     num_photonic_hardware_plot = []
 
-    num_photon_hardware = 40
-
     write_to_file = False
-    opt = 'task_para'
-    metrics_counter = MetricsCounter(opt)
-    main_loop(num_photon_hardware, optimization = opt)
-    print(metrics_counter)
-    print('\n')
 
-    write_to_file = False
-    opt = 'data_para'
-    metrics_counter = MetricsCounter(opt)
-    main_loop(num_photon_hardware, optimization = opt)
-    print(metrics_counter)
-    print('\n')
+    for opt in opts:
+        if opt == write:
+            write_to_file = True
+        metrics_counter = MetricsCounter(opt)
+        main_loop(num_photon_hardware, optimization = opt)
+        print(metrics_counter)
+        print('\n')
+        write_to_file = False
 
-    write_to_file = False
-    opt = 'dynamic_para'
-    metrics_counter = MetricsCounter(opt)
-    main_loop(num_photon_hardware, optimization = opt)
-    print(metrics_counter)
 
 else:
     # region plotting
@@ -352,7 +334,7 @@ else:
 
         write_to_file = False
 
-        for num_photon_hardware in range(25, 1000, 25): # 1000 photonic hardware
+        for num_photon_hardware in range(30, 150, 1): # 1000 photonic hardware
             metrics_counter = MetricsCounter(opt)
             num_photonic_hardware_plot.append(num_photon_hardware)
             main_loop(num_photon_hardware, optimization = opt)
@@ -378,7 +360,8 @@ else:
 
     lines, labels = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    fig.legend(lines + lines2, labels + labels2)
+    fig.legend(lines + lines2, labels + labels2, loc=(.6,.8 ))
+
 
     plt.title(f'both optimization (overlap time)')
     plt.savefig('plot.png')
