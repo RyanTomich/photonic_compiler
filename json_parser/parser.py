@@ -1,12 +1,6 @@
 '''
 Author: Ryan Tomich
 Project: Photonic-Compiler: Dense Liner Parser
-
-N = null
-E = nonliner, electronic
-P = liner, photonic
-
-Asumes dense Multilayer perceptron. No convolutions
 '''
 
 import json
@@ -19,6 +13,7 @@ import matplotlib.pyplot as plt
 #region Metrics
 
 class MetricsCounter:
+    """Keeps track of metrics with incrament, plot, print"""
     def __init__(self, opp):
         self.optimization = opp
         self.num_write = 0
@@ -40,6 +35,12 @@ class MetricsCounter:
         }
 
     def increment(self, instruction_type, function=sum, amount=1):
+        """add amount to the metric
+        Args:
+            instruction_type (str): from the instruction_types dict
+            function (function): what to do with new and old metric. Defaults to sum.
+            amount (int): the amount to incrament. Defaults to 1.
+        """
         if instruction_type in self.instruction_types:
             attr_name = self.instruction_types[instruction_type]
             current_value = getattr(self, attr_name)
@@ -48,6 +49,7 @@ class MetricsCounter:
 
 
     def plot_add_data(self):
+        """appends all metrics to globally defined plots"""
         num_read_plot.append(self.num_read)
         num_write_plot.append(self.num_write)
         MAC_instructions_plot.append(self.MAC_instructions)
@@ -67,11 +69,15 @@ class MetricsCounter:
                 f"time: {self.time}")
 
 def metrics_counter_dec(func):
+    """decorator for colecting metrics. Goes around write
+    Args:
+        func (write functions): collects args and extracts time consideration
+    """
     def wrapper(instruction_type, *args, **kwargs):
         if instruction_type == 'MAC':
-            computerID, *_, size = args
-            if computerID == 1:
-                metrics_counter.increment('time', amount=size * photonic_time_multiplier)
+            computer_id, *_, size = args
+            if computer_id == 1:
+                metrics_counter.increment('time', amount=size * PHOTONIC_TIME_MULTIPLIER)
         elif instruction_type == 'sum':
             largest_register = max(args)
             metrics_counter.increment('register', function = max, amount=largest_register)
@@ -94,17 +100,18 @@ def contains(node, val):
     Returns:
         bool: True = found  word
     """
-    # where node is a nesded dictionary
-    if type(node) == dict:
+    if isinstance(node, dict):
         for key in node:
             if contains(node[key], val):
                 return True
     else:
         if val in node:
             return True
+    return False
 
 
 def get_shape_index(node):
+    '''abstracts how to get index's'''
     return[input[0] for input in node["inputs"]]
 
 
@@ -122,9 +129,6 @@ def batch_vector(vector_size, num_batches):
     start = 0
     end = batch_size
     for i in range(num_batches):
-        if remainder == 0:
-            batch_size = batch_size
-            end = end
         if temp < batch_size:
             end = start + temp
         yield [start, end]
@@ -168,7 +172,7 @@ def write_instruction(instruction_type, *args):
                 ('write', 'read'))
     }
 
-    if instruction_type in instruction_format and write_to_file:
+    if instruction_type in instruction_format and WRITE_TO_FILE:
         format_string, format_args = instruction_format[instruction_type]
         argument_dict = dict(zip(format_args, args)) # dictionary mapping term name to value
         if instruction_type in ['null', 'other', 'dense']:
@@ -187,7 +191,8 @@ def opt_strat(node, optimization):
             v1 = f"{vector}{batch}"
             v2 = f"{matrix}[{row}]{batch}"
             photonic_hardware_id = next(P_computer_num_gen)
-            write_instruction('MAC',photonic_hardware_id, f'a{photonic_hardware_id-1}', v1, v2, size)
+            write_instruction('MAC',photonic_hardware_id,
+                                f'a{photonic_hardware_id-1}', v1, v2, size)
         write_instruction("sum", 0, 0, num_photon_hardware)
         write = f'[1:{matrix[0]}][{row}]'
         write_instruction("save",write, 'a0')
@@ -207,7 +212,8 @@ def opt_strat(node, optimization):
             # generator object seperating each vector slice
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
             _batching_rows(num_photon_hardware, batch_gen, matrix_row)
-        metrics_counter.increment('time', amount = math.log2(num_photon_hardware)* electronic_time_multiplier)
+        adder_time = math.log2(num_photon_hardware)* ELECTRONIC_TIME_MULTIPLIER
+        metrics_counter.increment('time', amount = adder_time)
 
     def dynamic_parallel(num_photon_hardware, node):
         """ Task_para untill oversipll. Then data paralelize """
@@ -237,11 +243,12 @@ def opt_strat(node, optimization):
                 rows_larger -= 1
                 rows_left -= 1
 
-            metrics_counter.increment('time', amount = math.log2(num_photon_hardware/ larger_batch_size)* electronic_time_multiplier)
+            adder_time = math.log2(num_photon_hardware/
+                                    larger_batch_size) * ELECTRONIC_TIME_MULTIPLIER
+            metrics_counter.increment('time', amount = adder_time)
 
     def memory_limp():
         """ data_parallel untill memory limit, then task parallel """
-        # TODO
         pass
 
 
@@ -253,14 +260,14 @@ def opt_strat(node, optimization):
     vector = raw_json['attrs']['shape'][1][vector_index]
     matrix = raw_json['attrs']['shape'][1][matrix_index]
 
-    if write_to_file:
+    if WRITE_TO_FILE:
         parsed_txt.write(f"   [read] SRAM:{vector_index}, DRAM:{matrix_index}\n") # indicies
         parsed_txt.write(f"   [MAC] {vector} x {matrix}\n")
 
-    P_computer_num_gen = looper(num_photon_hardware)
-    optimization_algs[optimization](num_photon_hardware, node)
+    P_computer_num_gen = looper(NUM_PHOTON_HARDWARE)
+    optimization_algs[optimization](NUM_PHOTON_HARDWARE, node)
 
-    if write_to_file: parsed_txt.write(f"E: [relu] [1:{matrix[0]}]\n")
+    if WRITE_TO_FILE: parsed_txt.write(f"E: [relu] [1:{matrix[0]}]\n")
 
 #endregion
 
@@ -294,19 +301,20 @@ with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
 output_file_path = os.path.join(current_directory, 'simple_LeNet_parsed.txt')
-parsed_txt = open(output_file_path, "w") # creates the write file in write mode append ('a') mode also exists
+# creates the write file in write mode append ('a') mode also exists
+parsed_txt = open(output_file_path, "w")
 #endregion
 
 
-graph = False
-write = 'dynamic_para'
-photonic_time_multiplier = 10**-10 # photonic is 10 Ghz
-electronic_time_multiplier = 10**-8 # electronic is .1Ghz
-num_photon_hardware = 3
+GRAPH = True
+WRITE = 'dynamic_para'
+PHOTONIC_TIME_MULTIPLIER = 10**-10 # photonic is 10 Ghz
+ELECTRONIC_TIME_MULTIPLIER = 10**-8 # electronic is .1Ghz
+NUM_PHOTON_HARDWARE = 10_000
 
 opts = ['task_para', 'data_para', 'dynamic_para']
 
-if graph == False:
+if GRAPH is False:
     num_read_plot = []
     num_write_plot = []
     MAC_instructions_plot = []
@@ -316,17 +324,16 @@ if graph == False:
     time_plot = []
     num_photonic_hardware_plot = []
 
-    write_to_file = False
+    WRITE_TO_FILE = False
 
     for opt in opts:
-        if opt == write:
-            write_to_file = True
+        if opt == WRITE:
+            WRITE_TO_FILE = True
         metrics_counter = MetricsCounter(opt)
-        main_loop(num_photon_hardware, optimization = opt)
+        main_loop(NUM_PHOTON_HARDWARE, optimization = opt)
         print(metrics_counter)
         print('\n')
-        write_to_file = False
-
+        WRITE_TO_FILE = False
 
 else:
     # region plotting
@@ -344,12 +351,12 @@ else:
         time_plot = []
         num_photonic_hardware_plot = []
 
-        write_to_file = False
+        WRITE_TO_FILE = False
 
-        for num_photon_hardware in range(30, 150, 1): # 1000 photonic hardware
+        for NUM_PHOTON_HARDWARE in range(1, 1000, 50): # 1000 photonic hardware
             metrics_counter = MetricsCounter(opt)
-            num_photonic_hardware_plot.append(num_photon_hardware)
-            main_loop(num_photon_hardware, optimization = opt)
+            num_photonic_hardware_plot.append(NUM_PHOTON_HARDWARE)
+            main_loop(NUM_PHOTON_HARDWARE, optimization = opt)
 
         # color = 'tab:red'
         ax1.set_xlabel('time (s)')
@@ -375,7 +382,7 @@ else:
     fig.legend(lines + lines2, labels + labels2, loc=(.6,.8 ))
 
 
-    plt.title(f'both optimization (overlap time)')
+    plt.title('all optimization (overlap time)')
     plt.savefig('plot.png')
 
     #endregion
