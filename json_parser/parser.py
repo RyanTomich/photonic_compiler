@@ -126,9 +126,16 @@ def batch_vector(vector_size, num_batches):
     temp = vector_size
     batch_size = math.ceil(vector_size/ num_batches)
     remainder = vector_size % num_batches
+    is_remainder = False
+    if remainder:
+        is_remainder = True
     start = 0
     end = batch_size
+    print(temp, batch_size, remainder)
     for i in range(num_batches):
+        if remainder == 0 and is_remainder:
+            batch_size -= 1
+            end -= 1
         if temp < batch_size:
             end = start + temp
         yield [start, end]
@@ -137,13 +144,13 @@ def batch_vector(vector_size, num_batches):
         temp -= batch_size
         remainder -= 1
 
-
 def looper(num_photonic_hardware):
     """contunoously loops over a numer n
         1,2,3,1,2,3,1,2,3 ...
     Args: num_photonic_hardware (int): loop length
     Yields: int: num between 1 to num_photonic_hardware
     """
+    assert num_photonic_hardware > 0, 'num_photonic_hardware was less than 1'
     while True:
         for i in range(1, num_photonic_hardware+1, 1):
             yield i
