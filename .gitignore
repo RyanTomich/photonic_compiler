@@ -1,3 +1,4 @@
 # Ignore all onnx files
 **/*.onnx
 try_stuff.py
+plot.png
