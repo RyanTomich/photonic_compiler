@@ -129,7 +129,7 @@ def batch_vector(vector_size, num_batches):
         is_remainder = True
     start = 0
     end = batch_size
-    for i in range(num_batches):
+    for _ in range(num_batches):
         if remainder == 0 and is_remainder:
             batch_size -= 1
             end -= 1
@@ -149,8 +149,7 @@ def looper(num_photonic_hardware):
     """
     assert num_photonic_hardware > 0, 'num_photonic_hardware was less than 1'
     while True:
-        for i in range(1, num_photonic_hardware+1, 1):
-            yield i
+        yield from range(1, num_photonic_hardware+1, 1)
 
 
 @metrics_counter_dec
@@ -170,8 +169,6 @@ def write_instruction(instruction_type, *args):
                 ('a1', 'a2', 'a3')),
         'MAC': ("P{computerID}: MAC: {write}, SRAM: {v1}, DRAM: {v2}\n",
                 ('computerID', 'write', 'v1', 'v2', 'size')),
-        # 'load_vector': ("E: load vector: a{a1}, {matrix}[{matrix_index}]{batch}\n",
-        #         ('a1', 'matrix', 'matrix_index', 'batch')),
         'save': ("E: save:{write}, {read}\n",
                 ('write', 'read'))
     }
@@ -185,15 +182,21 @@ def write_instruction(instruction_type, *args):
 
 def opt_strat(node, optimization):
 
+    def _complete_row(row):
+        write = f'[1:{matrix[0]}][{row}]'
+        v1 = f'{vector}'
+        v2 = f'{matrix}[{row}]'
+        size = vector[1]
+        write_instruction('MAC',next(P_computer_num_gen), write, v1, v2, size)
 
-    def _batching_rows(batch_gen, row):
+    def _batching_row(batch_gen, row):
         """Generate instructions for a batched row
         Args:
             batch_gen (generator): Decides how to batch a row
             row (int): row the function is batching
         """
-        if not hasattr(_batching_rows, 'last_hardware'):
-            _batching_rows.last_hardware = 0
+        if not hasattr(_batching_row, 'last_hardware'):
+            _batching_row.last_hardware = 0
         largest_batch = 0
         for batch in batch_gen:
             size = batch[1]-batch[0]
@@ -204,31 +207,28 @@ def opt_strat(node, optimization):
             photonic_hardware_id = next(P_computer_num_gen)
             write_instruction('MAC',photonic_hardware_id,
                                 f'a{photonic_hardware_id-1}', v1, v2, size)
-        write_instruction("sum", photonic_hardware_id, _batching_rows.last_hardware, photonic_hardware_id)
-        _batching_rows.last_hardware = photonic_hardware_id
+        write_instruction("sum", photonic_hardware_id,
+                          _batching_row.last_hardware, photonic_hardware_id)
+        _batching_row.last_hardware = photonic_hardware_id
         write = f'[1:{matrix[0]}][{row}]'
         write_instruction("save",write, f'a{photonic_hardware_id}')
 
     def task_parallel(num_photon_hardware, node):
         # start prioritize - one hardware per matrix row
         for matrix_row in range(matrix[0]):
-            write = f'[1:{matrix[0]}][{matrix_row}]'
-            v1 = f'{vector}'
-            v2 = f'{matrix}[{matrix_row}]'
-            size = vector[1]
-            write_instruction('MAC',next(P_computer_num_gen), write, v1, v2, size)
+            _complete_row(matrix_row)
 
     def data_parrellel(num_photon_hardware, node):
         # Finish prioritize - all hardware per matrix row.
         for matrix_row in range(matrix[0]):
             # generator object seperating each vector slice
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
-            _batching_rows(batch_gen, matrix_row)
+            _batching_row(batch_gen, matrix_row)
 
         adder_time = math.log2(num_photon_hardware)* ELECTRONIC_TIME_MULTIPLIER
         metrics_counter.increment('time', amount = adder_time)
 
-    def dynamic_parallel(num_photon_hardware, node):
+    def dynamic_parallel(num_photon_hardware, node, memory_limit = None):
         """ Task_para untill oversipll. Then data paralelize """
         rows_left = matrix[0]
         while rows_left >= num_photon_hardware:
@@ -245,24 +245,28 @@ def opt_strat(node, optimization):
             rows_larger = num_photon_hardware % rows_left
             while rows_larger:
                 batch_gen = batch_vector(matrix[1], larger_batch_size)
-                _batching_rows(batch_gen, matrix[0] - rows_left)
+                _batching_row(batch_gen, matrix[0] - rows_left)
                 rows_larger -= 1
                 rows_left -= 1
 
             # for _ in range(rows_left - (num_photon_hardware % rows_left)):
-            while rows_left:
-                batch_gen = batch_vector(matrix[1], small_batch_size)
-                _batching_rows(batch_gen, matrix[0] - rows_left)
-                rows_larger -= 1
-                rows_left -= 1
+            if small_batch_size == 1:
+                while rows_left:
+                    _complete_row(matrix[0] - rows_left)
+                    rows_larger -= 1
+                    rows_left -= 1
+
+            else:
+                while rows_left:
+                    batch_gen = batch_vector(matrix[1], small_batch_size)
+                    _batching_row(batch_gen, matrix[0] - rows_left)
+                    rows_larger -= 1
+                    rows_left -= 1
 
             adder_time = math.log2(num_photon_hardware/
                                     larger_batch_size) * ELECTRONIC_TIME_MULTIPLIER
             metrics_counter.increment('time', amount = adder_time)
 
-    def memory_limp():
-        """ data_parallel untill memory limit, then task parallel """
-        pass
 
 
     optimization_algs = {'task_para': task_parallel,
@@ -319,11 +323,11 @@ parsed_txt = open(output_file_path, "w")
 #endregion
 
 
-GRAPH = False
+GRAPH = True
 WRITE = 'dynamic_para'
 PHOTONIC_TIME_MULTIPLIER = 10**-10 # photonic is 10 Ghz
 ELECTRONIC_TIME_MULTIPLIER = 10**-8 # electronic is .1Ghz
-NUM_PHOTON_HARDWARE = 150
+NUM_PHOTON_HARDWARE = 15
 optimizations = ['task_para', 'data_para', 'dynamic_para']
 
 if GRAPH is False:
@@ -364,14 +368,14 @@ else:
 
         WRITE_TO_FILE = False
 
-        for NUM_PHOTON_HARDWARE in range(25, 1000, 25): # 1000 photonic hardware
+        for NUM_PHOTON_HARDWARE in range(50, 1000, 1): # 1000 photonic hardware
             metrics_counter = MetricsCounter(opt)
             num_photonic_hardware_plot.append(NUM_PHOTON_HARDWARE)
             main_loop(NUM_PHOTON_HARDWARE, optimization = opt)
 
         # color = 'tab:red'
-        ax1.set_xlabel('time (s)')
-        ax1.set_ylabel('other')
+        ax1.set_xlabel('Number of photonic Hardware)')
+        ax1.set_ylabel('Registers')
         # ax1.plot(num_photonic_hardware_plot,MAC_instructions_plot, label = f"MACs: {opt}")
         # ax1.plot(num_photonic_hardware_plot,sum_instructions_plot, label = f"ADDs: {opt}")
         # ax1.plot(num_photonic_hardware_plot,save_instructions_plot, label = f"SAVEs: {opt}")
@@ -382,7 +386,7 @@ else:
 
         # color = 'tab:blue'
         ax2.set_ylabel('Time')  # we already handled the x-label with ax1
-        # ax2.plot(num_photonic_hardware_plot,time_plot, label = f"time: {opt}")
+        ax2.plot(num_photonic_hardware_plot,time_plot, label = f"time: {opt}")
         ax2.tick_params(axis='y')
 
 
