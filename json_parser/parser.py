@@ -267,11 +267,18 @@ def opt_strat(node, optimization):
                 rows_larger -= 1
                 rows_left -= 1
 
+            adder_time = math.log2(num_photon_hardware/
+                    larger_batch_size) * ELECTRONIC_TIME_MULTIPLIER
+
             if small_batch_size == 1:
                 while rows_left:
                     _complete_row(matrix[0] - rows_left)
                     rows_larger -= 1
                     rows_left -= 1
+
+                # when the photonic takes more time than addition from photonic spillover
+                pho_time = matrix[0] * PHOTONIC_TIME_MULTIPLIER
+                metrics_counter.increment('time', amount = max(0,pho_time - adder_time))
 
             else:
                 while rows_left:
@@ -288,6 +295,7 @@ def opt_strat(node, optimization):
             adder_time = math.log2(num_photon_hardware/
                                     larger_batch_size) * ELECTRONIC_TIME_MULTIPLIER
             metrics_counter.increment('time', amount = adder_time)
+
 
 
 
