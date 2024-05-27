@@ -74,16 +74,20 @@ def metrics_counter_dec(func):
         func (write functions): collects args and extracts time consideration
     """
     def wrapper(instruction_type, *args, **kwargs):
+        result = func(instruction_type, *args, **kwargs) # get current start time before incrament
         if instruction_type == 'MAC':
             computer_id, *_, size = args
-            if computer_id == 1:
-                metrics_counter.increment('time', amount=size * PHOTONIC_TIME_MULTIPLIER)
+            if computer_id == 1: # clacs how much time it will take
+                wrapper.time_taken = size * PHOTONIC_TIME_MULTIPLIER
+            if computer_id == NUM_PHOTON_HARDWARE: # waits untill after it happens to apply time # TODO work when not all used
+                metrics_counter.increment('time', amount=wrapper.time_taken)
+                wrapper.time_taken = 0
+                # metrics_counter.increment('time', amount=size * PHOTONIC_TIME_MULTIPLIER)
         elif instruction_type == 'sum':
             largest_register = max(args)
             metrics_counter.increment('register', function = max, amount=largest_register)
 
         metrics_counter.increment(instruction_type)
-        result = func(instruction_type, *args, **kwargs)
         return result
     return wrapper
 
@@ -159,25 +163,26 @@ def write_instruction(instruction_type, *args):
         instruction_type (int): name of instruction.
     """
     instruction_format = { # name: (fsrt, (args) )
-        'null': ("N: [null] {order}\n",
-                ('order',)),
-        'other': ("E: [other] {order}\n",
-                ('order',)),
-        'dense': ("   [relu/MAC][{order}]\n",
-                ('order',)),
-        'sum': ("E: sum: a{a1}, [a{a2}: a{a3}]\n",
-                ('a1', 'a2', 'a3')),
-        'MAC': ("P{computerID}: MAC: {write}, SRAM: {v1}, DRAM: {v2}\n",
-                ('computerID', 'write', 'v1', 'v2', 'size')),
-        'save': ("E: save:{write}, {read}\n",
-                ('write', 'read'))
+        'null': ("{time} N: [null] {order}\n",
+                ('time','order',)),
+        'other': ("{time} E: [other] {order}\n",
+                ('time','order',)),
+        'dense': ("{time}    [relu/MAC][{order}]\n",
+                ('time','order',)),
+        'sum': ("{time} E: sum: a{a1}, [a{a2}: a{a3}]\n",
+                ('time','a1', 'a2', 'a3')),
+        'MAC': ("{time} P{computerID}: MAC: {write}, SRAM: {v1}, DRAM: {v2}\n",
+                ('time','computerID', 'write', 'v1', 'v2', 'size')),
+        'save': ("{time} E: save:{write}, {read}\n",
+                ('time','write', 'read'))
     }
 
+    args = (metrics_counter.time,) + args
     if instruction_type in instruction_format and WRITE_TO_FILE:
         format_string, format_args = instruction_format[instruction_type]
         argument_dict = dict(zip(format_args, args)) # dictionary mapping term name to value
         if instruction_type in ['null', 'other', 'dense']:
-            argument_dict['order'] = raw_json['nodes'][args[0]]
+            argument_dict['order'] = raw_json['nodes'][args[1]]
         parsed_txt.write(format_string.format(**argument_dict))
 
 def opt_strat(node, optimization):
@@ -323,11 +328,11 @@ parsed_txt = open(output_file_path, "w")
 #endregion
 
 
-GRAPH = True
+GRAPH = False
 WRITE = 'dynamic_para'
 PHOTONIC_TIME_MULTIPLIER = 10**-10 # photonic is 10 Ghz
 ELECTRONIC_TIME_MULTIPLIER = 10**-8 # electronic is .1Ghz
-NUM_PHOTON_HARDWARE = 15
+NUM_PHOTON_HARDWARE = 150
 optimizations = ['task_para', 'data_para', 'dynamic_para']
 
 if GRAPH is False:
