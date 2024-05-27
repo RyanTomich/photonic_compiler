@@ -176,8 +176,8 @@ def write_instruction(instruction_type, *args):
         'save': ("{time} E: save:{write}, {read}\n",
                 ('time','write', 'read'))
     }
-
-    args = (metrics_counter.time,) + args
+    time = format(metrics_counter.time, ".3e")
+    args = (time,) + args
     if instruction_type in instruction_format and WRITE_TO_FILE:
         format_string, format_args = instruction_format[instruction_type]
         argument_dict = dict(zip(format_args, args)) # dictionary mapping term name to value
@@ -201,8 +201,6 @@ def opt_strat(node, optimization):
             row (int): row the function is batching
             returns the size of each batch
         """
-        # if not hasattr(_batching_row, 'last_hardware'):
-        #     _batching_row.last_hardware = 0
         num_partitions = 0
         largest_batch = 0
         for batch in batch_gen:
@@ -216,15 +214,6 @@ def opt_strat(node, optimization):
                                 f'a{photonic_hardware_id-1}', v1, v2, size)
             num_partitions += 1
         return num_partitions
-
-        # _batching_row.last_hardware = photonic_hardware_id
-
-        # # sum registers and write to highest register
-        # write_instruction("sum", photonic_hardware_id-1,
-        #                   _batching_row.last_hardware, photonic_hardware_id)
-        # _batching_row.last_hardware = photonic_hardware_id
-        # write = f'[1:{matrix[0]}][{row}]'
-        # write_instruction("save",write, f'a{photonic_hardware_id-1}')
 
     def _batch_row_add(num_partitions, num_hardwaer_add = NUM_PHOTON_HARDWARE):
         start = 0
@@ -374,16 +363,14 @@ if GRAPH is False:
     time_plot = []
     num_photonic_hardware_plot = []
 
-    WRITE_TO_FILE = False
-
     for opt in optimizations:
+        WRITE_TO_FILE = False
         if opt == WRITE:
             WRITE_TO_FILE = True
         metrics_counter = MetricsCounter(opt)
         main_loop(NUM_PHOTON_HARDWARE, optimization = opt)
         print(metrics_counter)
         print('\n')
-        WRITE_TO_FILE = False
 
 else:
     # region plotting
