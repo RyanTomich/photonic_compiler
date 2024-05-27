@@ -33,3 +33,10 @@ Everything related to code generation and parsing of TVM Relay IR .json files
 understanding TVm's Tensor Expression language to find uses in code generation
 - **Test_model:**
 Practicing making arbitrary size Neural Networks with Tensorflow
+
+## File sections and definitions
+To recreate the Relay IR, run the followig for each model
+- [LeNet_simple.py](Pytorch-LeNet/LeNet_simple.py)
+
+To run optimization analysis and create RISC-Photonic instructions
+- [parser.py](json_parser/parser.py)
