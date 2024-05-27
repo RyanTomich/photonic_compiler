@@ -82,7 +82,6 @@ def metrics_counter_dec(func):
             if computer_id == NUM_PHOTON_HARDWARE: # waits untill after it happens to apply time # TODO work when not all used
                 metrics_counter.increment('time', amount=wrapper.time_taken)
                 wrapper.time_taken = 0
-                # metrics_counter.increment('time', amount=size * PHOTONIC_TIME_MULTIPLIER)
         elif instruction_type == 'sum':
             largest_register = max(args)
             metrics_counter.increment('register', function = max, amount=largest_register)
