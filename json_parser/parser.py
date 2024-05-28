@@ -112,12 +112,13 @@ def contains(node, val):
             return True
     return False
 
-def get_shape_index(node):
-    '''abstracts how to get index's'''
-    return[input[0] for input in node["inputs"]]
+# def get_shape_index(node):
+#     '''abstracts how to get index's'''
+#     return[input[0] for input in node["inputs"]]
 
 def batch_vector(vector_size, num_batches):
     """Generator object that groups vectors into batches
+    [0:10], [10:20], [20:22]
     Args:
         vector_size (int): size of original vector
         num_batches (int): num of batches
@@ -185,8 +186,12 @@ def write_instruction(instruction_type, *args):
         parsed_txt.write(format_string.format(**argument_dict))
 
 def opt_strat(node, optimization):
-
+    # helpers
     def _complete_row(row):
+        """Assigns one photonic hardware to a row
+        Args:
+            row (int): row number optimizing on
+        """
         write = f'[1:{matrix[0]}][{row}]'
         v1 = f'{vector}'
         v2 = f'{matrix}[{row}]'
@@ -194,11 +199,11 @@ def opt_strat(node, optimization):
         write_instruction('MAC',next(P_computer_num_gen), write, v1, v2, size)
 
     def _batching_row(batch_gen, row):
-        """Generate instructions for a batched row
+        """Generate photonic instructions for a batched row
         Args:
             batch_gen (generator): Decides how to batch a row
             row (int): row the function is batching
-            returns the size of each batch
+            returns the number of batches in each row
         """
         num_partitions = 0
         largest_batch = 0
@@ -209,32 +214,46 @@ def opt_strat(node, optimization):
             v1 = f"{vector}{batch}"
             v2 = f"{matrix}[{row}]{batch}"
             photonic_hardware_id = next(P_computer_num_gen)
-            write_instruction('MAC',photonic_hardware_id,
-                                f'a{photonic_hardware_id-1}', v1, v2, size)
+            register = f'a{photonic_hardware_id-1}'
+            write_instruction('MAC',photonic_hardware_id, register, v1, v2, size)
             num_partitions += 1
         return num_partitions
 
     def _batch_row_add(num_partitions, num_hardwaer_add = NUM_PHOTON_HARDWARE):
+        """Generates the addition instructions for batched rows
+        Args:
+            num_partitions (int): the number of batches in each row
+            num_hardwaer_add (int, optional): number of photonic hardware needed. Defaults to NUM_PHOTON_HARDWARE.
+        """
+        print(num_partitions)
         start = 0
         row = 0
-        row_coutner = num_partitions
+        partition_counter = num_partitions
         for end in range(num_partitions, num_hardwaer_add+1, num_partitions):
             write_instruction("sum", end-1, start, end)
-            write = f'[1:{matrix[0]}][{row}]'
-            write_instruction("save",write, f'a{end-1}')
+            write_instruction("save", f'[1:{matrix[0]}][{row}]', f'a{end-1}')
             start = end
-            row_coutner -= 1
-            if row_coutner == 0:
+            partition_counter -= 1
+            if partition_counter == 0: # finished a row
                 row += 1
-                row_coutner = num_partitions
+                partition_counter = num_partitions
 
+    # Optimizations
     def task_parallel(num_photon_hardware, node):
-        # start prioritize - one hardware per matrix row
+        """ start prioritize - one hardware per matrix row
+        Args:
+            num_photon_hardware (int): number of hardware allocated
+            node (dict): node type from json
+        """
         for matrix_row in range(matrix[0]):
             _complete_row(matrix_row)
 
     def data_parrellel(num_photon_hardware, node):
-        # Finish prioritize - all hardware per matrix row.
+        """ Finish prioritize - all hardware per matrix row.
+        Args:
+            num_photon_hardware (int): number of hardware allocated
+            node (dict): node type from json
+        """
         for matrix_row in range(matrix[0]):
             # generator object seperating each vector slice
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
@@ -248,37 +267,46 @@ def opt_strat(node, optimization):
         wait_time = (matrix[0]-1) * max(0, pho_time - adder_time)
         metrics_counter.increment('time', amount = adder_time + wait_time)
 
-    def dynamic_parallel(num_photon_hardware, node, memory_limit = None):
-        """ Task_para untill oversipll. Then data paralelize """
+    def dynamic_parallel(num_photon_hardware, node):
+        """Task_para untill oversipll. Then data paralelize
+        Args:
+            num_photon_hardware (int): number of hardware allocated
+            node (dict): node type from json
+        """
+        # Task parallel untill overflow
         rows_left = matrix[0]
         while rows_left >= num_photon_hardware:
             for _ in range(num_photon_hardware):
                 row = matrix[0] - rows_left
                 _complete_row(row)
                 rows_left -= 1
+
+        # Data Parallel as needed
         if rows_left:
-            # large_batch_size - smaller_batch_size = 1
-            larger_batch_size = math.ceil(num_photon_hardware / rows_left)
-            smaller_batch_size = math.floor(num_photon_hardware / rows_left)
+            # larger_partition_num - smaller_partition_num = 1
+            # partitions
+            larger_partition_num = math.ceil(num_photon_hardware / rows_left)
+            smaller_partition_num = math.floor(num_photon_hardware / rows_left)
             rows_larger = num_photon_hardware % rows_left
-            large_num_hardware_add = rows_larger*larger_batch_size
-            smaller_num_hardware_add = (rows_left-rows_larger)*smaller_batch_size
-            large_num_partitions = 0
-            small_num_partitions = 0
+
+            # num hardware
+            large_num_hardware_add = rows_larger*larger_partition_num
+            smaller_num_hardware_add = (rows_left-rows_larger)*smaller_partition_num
+
             while rows_larger:
-                batch_gen = batch_vector(matrix[1], larger_batch_size)
-                large_num_partitions = _batching_row(batch_gen, matrix[0] - rows_left)
+                batch_gen = batch_vector(matrix[1], larger_partition_num)
+                _batching_row(batch_gen, matrix[0] - rows_left)
                 rows_larger -= 1
                 rows_left -= 1
 
-            large_adder_time = math.log2(larger_batch_size) * ELECTRONIC_TIME_MULTIPLIER
-            smaller_adder_time = math.log2(smaller_batch_size) * ELECTRONIC_TIME_MULTIPLIER
-            larger_split_pho_time = math.ceil(matrix[1]/larger_batch_size) * PHOTONIC_TIME_MULTIPLIER
-            smaller_split_pho_time = math.ceil(matrix[1]/smaller_batch_size) * PHOTONIC_TIME_MULTIPLIER
+            large_adder_time = math.log2(larger_partition_num) * ELECTRONIC_TIME_MULTIPLIER
+            smaller_adder_time = math.log2(smaller_partition_num) * ELECTRONIC_TIME_MULTIPLIER
+            larger_split_pho_time = math.ceil(matrix[1]/larger_partition_num) * PHOTONIC_TIME_MULTIPLIER
+            smaller_split_pho_time = math.ceil(matrix[1]/smaller_partition_num) * PHOTONIC_TIME_MULTIPLIER
 
 
 
-            if smaller_batch_size == 1:
+            if smaller_partition_num == 1:
                 while rows_left:
                     _complete_row(matrix[0] - rows_left)
                     rows_larger -= 1
@@ -290,18 +318,18 @@ def opt_strat(node, optimization):
 
             else:
                 while rows_left:
-                    batch_gen = batch_vector(matrix[1], smaller_batch_size)
-                    small_num_partitions = _batching_row(batch_gen, matrix[0] - rows_left)
+                    batch_gen = batch_vector(matrix[1], smaller_partition_num)
+                    _batching_row(batch_gen, matrix[0] - rows_left)
                     rows_larger -= 1
                     rows_left -= 1
 
                 metrics_counter.increment('time', amount = max(0,smaller_split_pho_time + smaller_adder_time - large_adder_time - larger_split_pho_time))
 
 
-            if large_num_partitions:
-                _batch_row_add(large_num_partitions,large_num_hardware_add)
-            if small_num_partitions:
-                _batch_row_add(small_num_partitions,smaller_num_hardware_add)
+            if larger_partition_num:
+                _batch_row_add(larger_partition_num,large_num_hardware_add)
+            if smaller_partition_num:
+                _batch_row_add(smaller_partition_num,smaller_num_hardware_add)
 
             metrics_counter.increment('time', amount = large_adder_time)
 
@@ -310,7 +338,7 @@ def opt_strat(node, optimization):
                         'data_para': data_parrellel,
                         'dynamic_para': dynamic_parallel}
 
-    vector_index, matrix_index = get_shape_index(node)
+    vector_index, matrix_index = [input[0] for input in node["inputs"]]
     vector = raw_json['attrs']['shape'][1][vector_index]
     matrix = raw_json['attrs']['shape'][1][matrix_index]
 
@@ -364,7 +392,7 @@ GRAPH = False
 WRITE = 'dynamic_para'
 PHOTONIC_TIME_MULTIPLIER = 10**-10 # photonic is 10 Ghz
 ELECTRONIC_TIME_MULTIPLIER = 10**-8 # electronic is .1Ghz
-NUM_PHOTON_HARDWARE = 175
+NUM_PHOTON_HARDWARE = 150
 optimizations = ['task_para', 'data_para', 'dynamic_para']
 
 if GRAPH is False:
