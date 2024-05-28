@@ -219,24 +219,26 @@ def opt_strat(node, optimization):
             num_partitions += 1
         return num_partitions
 
-    def _batch_row_add(num_partitions, num_hardwaer_add = NUM_PHOTON_HARDWARE):
+    def _batch_row_add(num_partitions, hardware_start=0, hardware_num=NUM_PHOTON_HARDWARE):
         """Generates the addition instructions for batched rows
         Args:
             num_partitions (int): the number of batches in each row
             num_hardwaer_add (int, optional): number of photonic hardware needed. Defaults to NUM_PHOTON_HARDWARE.
         """
-        print(num_partitions)
-        start = 0
-        row = 0
-        partition_counter = num_partitions
-        for end in range(num_partitions, num_hardwaer_add+1, num_partitions):
+        start = hardware_start
+        end = hardware_start + num_partitions
+        for _ in range(math.floor(hardware_num/num_partitions)):
             write_instruction("sum", end-1, start, end)
-            write_instruction("save", f'[1:{matrix[0]}][{row}]', f'a{end-1}')
             start = end
-            partition_counter -= 1
-            if partition_counter == 0: # finished a row
+            end += num_partitions
+
+    def _batch_row_save(num_partitions, row = None, num_hardwaer_add = NUM_PHOTON_HARDWARE):
+        if row is None:
+            row = 0
+        for end in range(num_partitions, num_hardwaer_add+1, num_partitions):
+            write_instruction("save", f'[1:{matrix[0]}][{row}]', f'a{end-1}')
+            if row is None:
                 row += 1
-                partition_counter = num_partitions
 
     # Optimizations
     def task_parallel(num_photon_hardware, node):
@@ -259,6 +261,7 @@ def opt_strat(node, optimization):
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
             num_partitions = _batching_row(batch_gen, matrix_row)
             _batch_row_add(num_partitions)
+            _batch_row_save(num_partitions, row=matrix_row)
 
         # for ending sum opporation
         adder_time = math.log2(num_photon_hardware) * ELECTRONIC_TIME_MULTIPLIER
@@ -326,10 +329,16 @@ def opt_strat(node, optimization):
                 metrics_counter.increment('time', amount = max(0,smaller_split_pho_time + smaller_adder_time - large_adder_time - larger_split_pho_time))
 
 
-            if larger_partition_num:
-                _batch_row_add(larger_partition_num,large_num_hardware_add)
-            if smaller_partition_num:
-                _batch_row_add(smaller_partition_num,smaller_num_hardware_add)
+            if larger_partition_num>1:
+                _batch_row_add(larger_partition_num, hardware_start=0, hardware_num=large_num_hardware_add)
+            if smaller_partition_num>1:
+                _batch_row_add(smaller_partition_num, hardware_start=large_num_hardware_add+1, hardware_num=smaller_num_hardware_add)
+
+            # if larger_partition_num:
+            #     _batch_row_save(larger_partition_num,large_num_hardware_add)
+            # if smaller_partition_num:
+            #     _batch_row_save(smaller_partition_num,smaller_num_hardware_add)
+
 
             metrics_counter.increment('time', amount = large_adder_time)
 
@@ -389,10 +398,10 @@ parsed_txt = open(output_file_path, "w")
 
 
 GRAPH = False
-WRITE = 'dynamic_para'
+WRITE = 'data_para'
 PHOTONIC_TIME_MULTIPLIER = 10**-10 # photonic is 10 Ghz
 ELECTRONIC_TIME_MULTIPLIER = 10**-8 # electronic is .1Ghz
-NUM_PHOTON_HARDWARE = 150
+NUM_PHOTON_HARDWARE = 250
 optimizations = ['task_para', 'data_para', 'dynamic_para']
 
 if GRAPH is False:
