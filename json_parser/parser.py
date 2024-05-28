@@ -228,17 +228,22 @@ def opt_strat(node, optimization):
         start = hardware_start
         end = hardware_start + num_partitions
         for _ in range(math.floor(hardware_num/num_partitions)):
+            if end > hardware_num:
+                end = hardware_num+1
             write_instruction("sum", end-1, start, end)
             start = end
             end += num_partitions
 
-    def _batch_row_save(num_partitions, row = None, num_hardwaer_add = NUM_PHOTON_HARDWARE):
-        if row is None:
-            row = 0
-        for end in range(num_partitions, num_hardwaer_add+1, num_partitions):
+    def _batch_row_save(num_partitions, start_row = 0, hardware_start=0, hardware_num=NUM_PHOTON_HARDWARE):
+        row = start_row
+        end = hardware_start + num_partitions
+        for _ in range(math.floor(hardware_num/num_partitions)):
+            if end > hardware_num:
+                end = hardware_num+1
             write_instruction("save", f'[1:{matrix[0]}][{row}]', f'a{end-1}')
-            if row is None:
-                row += 1
+            end += num_partitions
+            row += 1
+        return row
 
     # Optimizations
     def task_parallel(num_photon_hardware, node):
@@ -261,7 +266,7 @@ def opt_strat(node, optimization):
             batch_gen = batch_vector(matrix[1], num_photon_hardware)
             num_partitions = _batching_row(batch_gen, matrix_row)
             _batch_row_add(num_partitions)
-            _batch_row_save(num_partitions, row=matrix_row)
+            _batch_row_save(num_partitions, start_row=matrix_row)
 
         # for ending sum opporation
         adder_time = math.log2(num_photon_hardware) * ELECTRONIC_TIME_MULTIPLIER
@@ -291,15 +296,13 @@ def opt_strat(node, optimization):
             larger_partition_num = math.ceil(num_photon_hardware / rows_left)
             smaller_partition_num = math.floor(num_photon_hardware / rows_left)
             rows_larger = num_photon_hardware % rows_left
+            rows_smaller = rows_left-rows_larger
+            rows_larger_counter = rows_larger
 
-            # num hardware
-            large_num_hardware_add = rows_larger*larger_partition_num
-            smaller_num_hardware_add = (rows_left-rows_larger)*smaller_partition_num
-
-            while rows_larger:
+            while rows_larger_counter:
                 batch_gen = batch_vector(matrix[1], larger_partition_num)
                 _batching_row(batch_gen, matrix[0] - rows_left)
-                rows_larger -= 1
+                rows_larger_counter -= 1
                 rows_left -= 1
 
             large_adder_time = math.log2(larger_partition_num) * ELECTRONIC_TIME_MULTIPLIER
@@ -307,12 +310,10 @@ def opt_strat(node, optimization):
             larger_split_pho_time = math.ceil(matrix[1]/larger_partition_num) * PHOTONIC_TIME_MULTIPLIER
             smaller_split_pho_time = math.ceil(matrix[1]/smaller_partition_num) * PHOTONIC_TIME_MULTIPLIER
 
-
-
             if smaller_partition_num == 1:
                 while rows_left:
                     _complete_row(matrix[0] - rows_left)
-                    rows_larger -= 1
+                    rows_larger_counter -= 1
                     rows_left -= 1
 
                 # when the photonic takes more time than addition from photonic spillover
@@ -323,24 +324,32 @@ def opt_strat(node, optimization):
                 while rows_left:
                     batch_gen = batch_vector(matrix[1], smaller_partition_num)
                     _batching_row(batch_gen, matrix[0] - rows_left)
-                    rows_larger -= 1
+                    rows_larger_counter -= 1
                     rows_left -= 1
 
                 metrics_counter.increment('time', amount = max(0,smaller_split_pho_time + smaller_adder_time - large_adder_time - larger_split_pho_time))
 
 
+            # num hardware
+            large_num_hardware_add = rows_larger*larger_partition_num
+            smaller_num_hardware_add = rows_smaller*smaller_partition_num
+
+            # sum instructions
             if larger_partition_num>1:
                 _batch_row_add(larger_partition_num, hardware_start=0, hardware_num=large_num_hardware_add)
             if smaller_partition_num>1:
                 _batch_row_add(smaller_partition_num, hardware_start=large_num_hardware_add+1, hardware_num=smaller_num_hardware_add)
 
-            # if larger_partition_num:
-            #     _batch_row_save(larger_partition_num,large_num_hardware_add)
-            # if smaller_partition_num:
-            #     _batch_row_save(smaller_partition_num,smaller_num_hardware_add)
-
-
             metrics_counter.increment('time', amount = large_adder_time)
+
+            # Save instructions
+            if larger_partition_num>1:
+                last_row = _batch_row_save(larger_partition_num, start_row=0, hardware_start=0, hardware_num=large_num_hardware_add)
+            if smaller_partition_num>1:
+                _batch_row_save(smaller_partition_num, start_row = last_row, hardware_start=large_num_hardware_add+1, hardware_num=smaller_num_hardware_add)
+
+
+
 
 
     optimization_algs = {'task_para': task_parallel,
@@ -398,7 +407,7 @@ parsed_txt = open(output_file_path, "w")
 
 
 GRAPH = False
-WRITE = 'data_para'
+WRITE = 'dynamic_para'
 PHOTONIC_TIME_MULTIPLIER = 10**-10 # photonic is 10 Ghz
 ELECTRONIC_TIME_MULTIPLIER = 10**-8 # electronic is .1Ghz
 NUM_PHOTON_HARDWARE = 250
