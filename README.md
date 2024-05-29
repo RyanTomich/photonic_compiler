@@ -26,13 +26,8 @@ Everything related to code generation and parsing of TVM Relay IR .json files
 - **Pytorch-LeNet:**
  model files/parameters and code for loading LeNet from pytorch
 
-- **Relay_LeNet:**
-<span style="color:red">IN PROGRESS</span>.
- Attempted recreation from [Relay: A New IR for Machine Learning Frameworks](https://dl.acm.org/doi/pdf/10.1145/3211346.3211348) to translate LeNet to IR.
-- **tensor_expression_totorial:**
-understanding TVm's Tensor Expression language to find uses in code generation
-- **Test_model:**
-Practicing making arbitrary size Neural Networks with Tensorflow
+- **inference_pratice:**
+recreating popular modles from scrach using numpy
 
 ## File sections and definitions
 To recreate the Relay IR, run the followig for each model
