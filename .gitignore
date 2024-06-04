@@ -1,4 +1,10 @@
 # Ignore all onnx files
 **/*.onnx
+**/*.json
+**/*.pt
+**/*.so
+**/*.params
+**/*.tar
+**/*.txt
 try_stuff.py
 plot.png
