@@ -61,6 +61,7 @@ import copy
 class MyGPT2():
     def __init__(self, parameters):
         self.parameters = parameters
+        self.emd_cache = np.empty((0, 768)) # embedding size
 
     def get_model_arcatecture(self, model):
         state_dict = model.state_dict()
@@ -121,9 +122,12 @@ class MyGPT2():
 
         # word token embeddings
         tok_emb = self.parameters['transformer.wte.weight'][tok,:]
+        print(f'{tok_emb}: {tok_emb.shape}')
+        self.emd_cache = np.vstack((self.emd_cache, tok_emb))
+        tok_emb = self.emd_cache
 
         # word position embeddings
-        sequence_length = tok.shape[0]
+        sequence_length = tok_emb.shape[0]
         position_ids = np.arange(sequence_length) #indicies
         position_emb = self.parameters['transformer.wpe.weight'][position_ids,:]
 
@@ -298,6 +302,11 @@ class MyGPT2():
         '''
         emb = self.embed(tok) #(tokens, Embedding Size 768)
 
+        # Padding?
+        # tokenizer.pad_token = tokenizer.eos_token
+        # tok = tokenizer.encode(prompt, return_tensors='np', padding='max_length', truncation=True, max_length=max_token_len).squeeze()
+        # prompt_tok_index = np.where(tok == tokenizer.eos_token_id)[0][0]
+
         block_result = copy.deepcopy(emb)
         for block in range(transformer_blocks):
             block_result = self.decode_block(block_result, block) # (tokens, Embedding Size 768)
@@ -314,24 +323,23 @@ class MyGPT2():
         last_logit_distrabution = self.softmax(logit_matrix[-1], temperature = 0.9)
         return self.top_k(40, last_logit_distrabution)
 
-    def generate(self, prompt, tokenizer, max_token_len = 100, num_generate = 10):
+    def generate(self, prompt, tokenizer, max_token_len = 100):
         '''
         creates generation feedback loop
         prompt(srt)
         start_dict(dict): name: paramaters
         '''
 
-        tokenizer.pad_token = tokenizer.eos_token
-        tok = tokenizer.encode(prompt, return_tensors='np', padding='max_length', truncation=True, max_length=max_token_len).squeeze()
+        tok = tokenizer.encode(prompt, return_tensors='np').squeeze()
+        ans = np.array([])
+        for _ in range(max_token_len):
+            if ans.size == 0: #is empty
+                next_tok = self.next_token(tok)
+                ans = np.append(tok, next_tok)
+            else:
+                next_tok = self.next_token(ans[-1])
+                ans = np.append(ans, next_tok)
 
-        prompt_tok_index = np.where(tok == tokenizer.eos_token_id)[0][0]
-        print(prompt_tok_index)
-        for _ in range(num_generate):
-            print(tok[:10])
-            new_tok = self.next_token(tok)
-            tok[prompt_tok_index] = new_tok
-            prompt_tok_index += 1
 
-
-        tok = tokenizer.decode(tok, skip_special_tokens=True)
+        tok = tokenizer.decode(ans, skip_special_tokens=True)
         return tok
