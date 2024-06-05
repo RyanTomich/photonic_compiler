@@ -114,15 +114,9 @@ class MyGPT2():
         tok(np_array): 1d array of toek encodings
         paramaters(dict): dictionary maping names to tensors
         '''
-        # sequence_length = tok.shape[0]
-        # position_ids = torch.tensor(np.arange(sequence_length)) #indicies
-        # tok = torch.tensor(tok)
-        # return (gpt2.transformer.wte(tok) + gpt2.transformer.wpe(position_ids)).detach().numpy()
-
-
         # word token embeddings
         tok_emb = self.parameters['transformer.wte.weight'][tok,:]
-        print(f'{tok_emb}: {tok_emb.shape}')
+        # print(f'{tok_emb}: {tok_emb.shape}')
         self.emd_cache = np.vstack((self.emd_cache, tok_emb))
         tok_emb = self.emd_cache
 
@@ -192,7 +186,7 @@ class MyGPT2():
         context_proj = (context_matrix @ weights) + bias
         return context_proj
 
-    def matrix_self_attn(self, emb, block_num, attn_heads = 12):
+    def matrix_self_attn(self, emb, block_num, attn_heads = 12, mask = None):
         '''
         attention block. 12 heads per block
         emb(np_matrix): (tokens, Embedding Size 768)
@@ -229,8 +223,6 @@ class MyGPT2():
         w = w * 1/np.sqrt(np.float32(v.shape[-1]))
 
         *start, nd, ns = w.shape
-        mask = np.full((nd, ns), float(1))
-        mask[np.triu_indices_from(mask, k=1)] = float(0)
         attn_score_mask = w * mask
         attn_score_norm = np.apply_along_axis(lambda x: self.softmax(x, temperature = 0.9), axis=1, arr=attn_score_mask) # (1024, 1024)
         a = np.matmul(attn_score_norm, v)
@@ -265,10 +257,10 @@ class MyGPT2():
         probs = np.array([vec[i] for i in largest])
         probs = probs / np.sum(probs) # normalize after the selection
         assert 0.975 < np.sum(probs) < 1.025
-        print(np.max(probs))
+        # print(np.max(probs))
         return random.choices(largest, weights=probs, k=1)[0]
 
-    def decode_block(self, emb, block_num):
+    def decode_block(self, emb, block_num, mask = None):
         '''
         runs decode block with ln_1 -> attn -> ln_2 -> mlp
         emb (np_array): (tokens, Embedding Size 768)
@@ -280,10 +272,10 @@ class MyGPT2():
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_1.bias']
         emb_norm1 = self.li_norm(emb, weights, bias)    # ln_1 normalization
 
-        context_matrix = self.matrix_self_attn(emb_norm1, block_num)
+        context_matrix = self.matrix_self_attn(emb_norm1, block_num, mask = mask)
         # context_matrix = self_attn(emb_norm1, block_num)
 
-        context_matrix += emb # Residual Connection
+        context_matrix = context_matrix + emb # Residual Connection
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.bias']
@@ -294,7 +286,7 @@ class MyGPT2():
         emb_mlp = context_matrix + emb_mlp # Residual Connection
         return emb_mlp
 
-    def next_token(self, tok, transformer_blocks = 12):
+    def next_token(self, tok, decode_block = 12):
         '''
         Generates the next token in sequence
         tok (np_array): 1D token encodigns
@@ -307,9 +299,15 @@ class MyGPT2():
         # tok = tokenizer.encode(prompt, return_tensors='np', padding='max_length', truncation=True, max_length=max_token_len).squeeze()
         # prompt_tok_index = np.where(tok == tokenizer.eos_token_id)[0][0]
 
+        mask = np.full((emb.shape[0], emb.shape[0]), float(1))
+        mask[np.triu_indices_from(mask, k=1)] = float(-1e4)
+        print(np.round(mask, 1))
+        print(mask.shape)
+
+
         block_result = copy.deepcopy(emb)
-        for block in range(transformer_blocks):
-            block_result = self.decode_block(block_result, block) # (tokens, Embedding Size 768)
+        for block_num in range(decode_block):
+            block_result = self.decode_block(block_result, block_num, mask = mask) # (tokens, Embedding Size 768)
 
         weights = self.parameters['transformer.ln_f.weight']
         bias = self.parameters['transformer.ln_f.bias']
