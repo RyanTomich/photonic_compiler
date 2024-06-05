@@ -239,18 +239,44 @@ class MyGPT2():
         # multi_headed_attn
         w = np.matmul(Q, np.transpose(K, (0, 2, 1)))
         w = w * 1/np.sqrt(np.float32(V.shape[-1]))
-
         # Attn Weights MATCH
-        *start, nd, ns = w.shape
-        attn_score_mask = w * mask
-        attn_score_norm = np.apply_along_axis(lambda x: self.softmax(x, temperature = 0.9), axis=1, arr=attn_score_mask) # (1024, 1024)
-        a = np.matmul(attn_score_norm, v)
 
-        a = merge_heads(a)
+        *start, nd, ns = w.shape
+        attn_score_mask = w + mask
+
+        # if block_num  == 0:
+        #     print(attn_score_mask.shape)
+        #     print(attn_score_mask)
+
+        # MASK ALMOST MATCHES
+
+        attn_score_norm = np.apply_along_axis(lambda x: self.softmax(x, temperature = 1), axis=-1, arr=attn_score_mask) # (1024, 1024)
+        # if block_num  == 0:
+        #     print(attn_score_norm.shape)
+        #     print(attn_score_norm)
+        # attn_score_norm MATCHES attn_weights
+
+        attn_output = np.matmul(attn_score_norm, V)
+
+        # if block_num  == 0:
+        #     print(attn_output.shape)
+        #     print(attn_output)
+        # attn_output MATCH
+
+        attn_output = merge_heads(attn_output)
+        # if block_num  == 0:
+        #     print(attn_output.shape)
+        #     print(attn_output)
+        # merge_heads MATCH
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.bias']
-        context_proj = (np.matmul(a, weights)) + bias
+        context_proj = np.round(attn_output @ weights + bias, 4) # (4, 2304)
+        # if block_num  == 0:
+        #     print(context_proj.shape)
+        #     print(context_proj)
+        # projection MATCH
+
         return context_proj
 
     def mlp(self, emb, block_num):
@@ -300,13 +326,29 @@ class MyGPT2():
 
         context_matrix = context_matrix + emb # Residual Connection
 
+        # if block_num == 0:
+        #     # print(emb.shape)
+        #     # print(emb)
+        #     print(context_matrix.shape)
+        #     print(context_matrix)
+        # Residual Connection MATCHES
+
         weights = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.bias']
-        emb_norm2 = self.layer_norm(context_matrix, weights, bias, epsilon=1e-5)     # ln_2 normalization
+        ln_2 = np.apply_along_axis(lambda x: self.layer_norm(x, weights, bias), axis=1, arr=context_matrix)
 
-        emb_mlp = self.mlp(emb_norm2, block_num)
+        # if block_num == 0:
+        #     print(ln_2.shape)
+        #     print(ln_2)
+        # ln_2 MATCHES
+
+        emb_mlp = self.mlp(ln_2, block_num)
+        #MLP MATCHES
 
         emb_mlp = context_matrix + emb_mlp # Residual Connection
+        # if block_num == 0:
+        #     print(emb_mlp.shape)
+        #     print(emb_mlp)
         return emb_mlp
 
     def next_token(self, tok, decode_block = 12):
@@ -322,8 +364,9 @@ class MyGPT2():
         # tok = tokenizer.encode(prompt, return_tensors='np', padding='max_length', truncation=True, max_length=max_token_len).squeeze()
         # prompt_tok_index = np.where(tok == tokenizer.eos_token_id)[0][0]
 
-        mask = np.full((emb.shape[0], emb.shape[0]), float(1))
-        mask[np.triu_indices_from(mask, k=1)] = float(-1e4)
+        mask = np.full((emb.shape[0], emb.shape[0]), float(0))
+        mask_value = np.finfo(np.float32).min
+        mask[np.triu_indices_from(mask, k=1)] = mask_value
 
         # EMB MATCHES hidden_states
 
@@ -331,6 +374,10 @@ class MyGPT2():
         block_result = copy.deepcopy(emb)
         for block_num in range(decode_block):
             block_result = self.decode_block(block_result, block_num, mask = mask) # (tokens, Embedding Size 768)
+
+        # print(block_result.shape)
+        # print(block_result)
+        # All blocks MATCHES
 
         weights = self.parameters['transformer.ln_f.weight']
         bias = self.parameters['transformer.ln_f.bias']
