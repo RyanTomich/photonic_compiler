@@ -1,0 +1,3 @@
+[submodule "inference_pratice/huggingface_transformers"]
+	path = inference_pratice/huggingface_transformers
+	url = https://github.com/RyanTomich/huggingface_transformers.git
