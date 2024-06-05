@@ -138,12 +138,15 @@ class MyGPT2():
         beta(np_array): offset paramater vector
         epsilon(float): div_0_error prevention
         '''
-        # print(x.shape)
         u = np.mean(x, axis=-1, keepdims=True)
         # s = np.mean(np.square(x-u))
         s = np.var(x, axis=-1, keepdims=True)
         x = (x - u) / np.sqrt(s + epsilon)
-        return x * gamma + beta
+
+        if len(gamma.shape) == 1:
+            return np.round(x * gamma + beta, 4)
+        else:
+            return np.round(x @ gamma + beta, 4)
 
     def self_attn(self, emb, block_num, attn_heads = 12):
         '''
@@ -217,27 +220,27 @@ class MyGPT2():
         # attn
         attn_weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.weight']
         attn_bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.bias']
-        ln_1 = np.apply_along_axis(lambda x: self.layer_norm(x, attn_weights, attn_bias), axis=1, arr=emb)
+        ln_1 = np.round(emb @ attn_weights + attn_bias,4) # (4, 2304)
+        # ln_1 MATCHES
+        query, key, value = np.hsplit(ln_1,3)
+        # qkv MATCHES
 
-        c = reshape_weights(emb, attn_weights, attn_bias)
-        q,k,v = map(lambda x: split_heads(x, attn_heads), np.split(c, 3, axis=-1))
-        assert q.shape == k.shape == v.shape
+        Q = split_heads(query, attn_heads)
+        K = split_heads(key, attn_heads)
+        V = split_heads(value, attn_heads)
+        assert Q.shape == K.shape == V.shape
 
-        # To validate query vector
-        if block_num == 0:
-            # print(emb.shape)
-            # print(emb)
-            # print(conv1.shape)
-            # print(conv1)
-            # print(q[0].shape)
-            # print(q[0])
-            pass
+        # if block_num  == 0:
+        #     print(V.shape)
+        #     print(V)
 
+        # QKV MATCH
 
         # multi_headed_attn
-        w = np.matmul(q, np.transpose(k, (0, 2, 1)))
-        w = w * 1/np.sqrt(np.float32(v.shape[-1]))
+        w = np.matmul(Q, np.transpose(K, (0, 2, 1)))
+        w = w * 1/np.sqrt(np.float32(V.shape[-1]))
 
+        # Attn Weights MATCH
         *start, nd, ns = w.shape
         attn_score_mask = w * mask
         attn_score_norm = np.apply_along_axis(lambda x: self.softmax(x, temperature = 0.9), axis=1, arr=attn_score_mask) # (1024, 1024)
@@ -286,15 +289,14 @@ class MyGPT2():
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.ln_1.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_1.bias']
-        # emb_norm1 = self.layer_norm(emb, weights, bias)    # ln_1 normalization
         ln_1 = np.apply_along_axis(lambda x: self.layer_norm(x, weights, bias), axis=1, arr=emb)
 
-        if block_num == 0:
-            print(ln_1.shape)
-            print(ln_1)
+        # if block_num == 0:
+        #     print(ln_1.shape)
+        #     print(ln_1)
+        # ln_1 MATCHES
 
-        context_matrix = self.matrix_self_attn(emb_norm1, block_num, mask = mask)
-        # context_matrix = self_attn(emb_norm1, block_num)
+        context_matrix = self.matrix_self_attn(ln_1, block_num, mask = mask)
 
         context_matrix = context_matrix + emb # Residual Connection
 
