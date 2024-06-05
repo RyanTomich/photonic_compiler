@@ -15,6 +15,7 @@
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from torchinfo import summary
 import torch
+import torch.nn.functional as F
 
 def make_transformer_gpt2_inference():
     gpt2 = GPT2LMHeadModel.from_pretrained('gpt2', output_attentions=True, activation_function = 'gelu') # loading gpt2 from transformers library
@@ -68,7 +69,7 @@ class MyGPT2():
         for name, param in state_dict.items():
             ans = param.numpy()
             if 'h.' not in name: # each h.# refers to a transformer blocks
-                print(f'{name}: {param.shape}')
+                # print(f'{name}: {param.shape}')
                 pass
 
         for i in range(36):
@@ -76,7 +77,7 @@ class MyGPT2():
             for name, param in state_dict.items():
                 ans = param.numpy()
                 if 'h.'+ str(i)+ '.' in name and i == 0: # each h.# refers to a transformer block
-                    print(f'{name}: {ans.shape}')
+                    # print(f'{name}: {ans.shape}')
                     counter +=1
             # print(f'h.{i}: {counter}')
 
@@ -128,18 +129,21 @@ class MyGPT2():
         assert tok_emb.shape == position_emb.shape
         return tok_emb + position_emb
 
-    def li_norm(self, x, gamma, beta, epsilon=1e-5):
+    def layer_norm(self, x, gamma, beta, epsilon=1e-5):
         '''
+        for 1D vectors
         layer batch normalization
         x(np_array): array to normalize
         gamma(np_array): scailing paramater vector
         beta(np_array): offset paramater vector
         epsilon(float): div_0_error prevention
         '''
+        # print(x.shape)
         u = np.mean(x, axis=-1, keepdims=True)
-        s = np.mean(np.square(x-u))
+        # s = np.mean(np.square(x-u))
+        s = np.var(x, axis=-1, keepdims=True)
         x = (x - u) / np.sqrt(s + epsilon)
-        return x*gamma + beta
+        return x * gamma + beta
 
     def self_attn(self, emb, block_num, attn_heads = 12):
         '''
@@ -191,7 +195,6 @@ class MyGPT2():
         attention block. 12 heads per block
         emb(np_matrix): (tokens, Embedding Size 768)
         paramaters(dict): dictionary maping names to tensors
-        block_num: current head
         '''
         def reshape_weights(x, w, b):
             *start, nx = x.shape
@@ -214,9 +217,22 @@ class MyGPT2():
         # attn
         attn_weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.weight']
         attn_bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.bias']
+        ln_1 = np.apply_along_axis(lambda x: self.layer_norm(x, attn_weights, attn_bias), axis=1, arr=emb)
+
         c = reshape_weights(emb, attn_weights, attn_bias)
         q,k,v = map(lambda x: split_heads(x, attn_heads), np.split(c, 3, axis=-1))
         assert q.shape == k.shape == v.shape
+
+        # To validate query vector
+        if block_num == 0:
+            # print(emb.shape)
+            # print(emb)
+            # print(conv1.shape)
+            # print(conv1)
+            # print(q[0].shape)
+            # print(q[0])
+            pass
+
 
         # multi_headed_attn
         w = np.matmul(q, np.transpose(k, (0, 2, 1)))
@@ -270,7 +286,12 @@ class MyGPT2():
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.ln_1.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_1.bias']
-        emb_norm1 = self.li_norm(emb, weights, bias)    # ln_1 normalization
+        # emb_norm1 = self.layer_norm(emb, weights, bias)    # ln_1 normalization
+        ln_1 = np.apply_along_axis(lambda x: self.layer_norm(x, weights, bias), axis=1, arr=emb)
+
+        if block_num == 0:
+            print(ln_1.shape)
+            print(ln_1)
 
         context_matrix = self.matrix_self_attn(emb_norm1, block_num, mask = mask)
         # context_matrix = self_attn(emb_norm1, block_num)
@@ -279,7 +300,7 @@ class MyGPT2():
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.bias']
-        emb_norm2 = self.li_norm(context_matrix, weights, bias, epsilon=1e-5)     # ln_2 normalization
+        emb_norm2 = self.layer_norm(context_matrix, weights, bias, epsilon=1e-5)     # ln_2 normalization
 
         emb_mlp = self.mlp(emb_norm2, block_num)
 
@@ -301,8 +322,8 @@ class MyGPT2():
 
         mask = np.full((emb.shape[0], emb.shape[0]), float(1))
         mask[np.triu_indices_from(mask, k=1)] = float(-1e4)
-        print(np.round(mask, 1))
-        print(mask.shape)
+
+        # EMB MATCHES hidden_states
 
 
         block_result = copy.deepcopy(emb)
@@ -311,7 +332,7 @@ class MyGPT2():
 
         weights = self.parameters['transformer.ln_f.weight']
         bias = self.parameters['transformer.ln_f.bias']
-        head_norm = self.li_norm(block_result, weights, bias)  # ln_f
+        head_norm = self.layer_norm(block_result, weights, bias)  # ln_f
 
         # lm_head
         weights = self.parameters['lm_head.weight'] # (50257, 768)
