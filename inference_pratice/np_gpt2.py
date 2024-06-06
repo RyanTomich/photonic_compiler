@@ -15,14 +15,14 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from torchinfo import summary
 import torch
 def transformer_gpt2_model():
-    gpt2 = GPT2LMHeadModel.from_pretrained('gpt2', output_attentions=True, activation_function = 'gelu') # loading gpt2 from transformers library
+    gpt2 = GPT2LMHeadModel.from_pretrained('gpt2', output_attentions=True, activation_function = 'gelu', ) # loading gpt2 from transformers library
     gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2') # loading gpt2 tokenizer from transformers library
     return gpt2, gpt2_tokenizer
 
-def transformer_gpt2_inference(prompt, model, tokenizer):
+def transformer_gpt2_inference(prompt, model, tokenizer, do_sample = False, temperature = 1, max_length = 100):
     # https://huggingface.co/docs/transformers/en/model_doc/gpt2
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
-    gen_tokens = model.generate(input_ids, do_sample=True, temperature=0.9, max_length=100)
+    gen_tokens = model.generate(input_ids, do_sample=do_sample, temperature=temperature, max_length=max_length)
     gen_text = tokenizer.batch_decode(gen_tokens)[0]
     return (gen_text)
 
@@ -141,11 +141,6 @@ class MyGPT2():
 
         return x * gamma + beta if len(gamma.shape) == 1 else x @ gamma + beta
 
-        if len(gamma.shape) == 1:
-            return x * gamma + beta
-        else:
-            return x @ gamma + beta
-
     def matrix_self_attn(self, emb, block_num, mask = None):
         '''
         attention block. 12 heads per block
@@ -212,6 +207,12 @@ class MyGPT2():
         return embl1 @ weights + bias
 
     def top_k(self, logits, k=50):
+        '''
+        Selects top k proabilitie, renormaliaes them and selects a token id based
+        on those proabilities
+        logits(np.array): matrix of logits
+        k(int): top num to be selected
+        '''
         vec = self.softmax(logits[-1])
         largest = heapq.nlargest(k, range(len(vec)), vec.take)
         probs = np.array([vec[i] for i in largest])
@@ -222,9 +223,9 @@ class MyGPT2():
     def decode_block(self, emb, block_num, mask = None):
         '''
         runs decode block with ln_1 -> attn -> ln_2 -> mlp
-        emb (np_array): (tokens, Embedding Size 768)
-        paramaters(dict): dictionary maping names to tensors
+        emb (np_array): (tokens, Embedding Size)
         block_num: current head
+        mask(np.array): attention mask to use
         '''
         weights = self.parameters['transformer.h.'+ str(block_num) + '.ln_1.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_1.bias']
@@ -247,7 +248,6 @@ class MyGPT2():
         '''
         Generates the next token in sequence
         tok (np_array): 1D token encodigns
-        self.parameters(dict): dictionary maping names to tensors
         '''
         emb = self.embed(tok) #(tokens, Embedding Size 768)
 
@@ -276,12 +276,14 @@ class MyGPT2():
         '''
         creates generation feedback loop
         prompt(srt)
-        start_dict(dict): name: paramaters
+        tokenizer
+        max_token_len(int): length of resulting sequence
         '''
 
         tok = tokenizer.encode(prompt, return_tensors='np').squeeze()
         ans = np.array([])
-        for _ in range(max_token_len-tok.shape[0]):
+        for i in range(max_token_len-tok.shape[0]):
+            print('.' * i)
             if ans.size == 0: #is empty
                 next_tok = self.next_token(tok)
                 ans = np.append(tok, next_tok)
