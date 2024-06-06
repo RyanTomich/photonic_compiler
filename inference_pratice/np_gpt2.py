@@ -12,6 +12,7 @@
 
 # For extraction
 import model_trace as trace
+instrucionts_txt = trace.instrucionts_txt
 
 
 # Generic Transformer Library
@@ -60,7 +61,6 @@ def get_parameters(model):
 import numpy as np
 import heapq
 import random
-import copy
 
 @trace.for_all_methods(trace.catch_name)
 class NpGPT2():
@@ -151,7 +151,12 @@ class NpGPT2():
         s = np.var(x, axis=-1, keepdims=True)
         x = (x - u) / np.sqrt(s + epsilon)
 
-        return x * gamma + beta if len(gamma.shape) == 1 else x @ gamma + beta
+        if len(gamma.shape) == 1:
+            instrucionts_txt.write(f'layer_norm_mult:{x.shape}*{gamma.shape}+{beta.shape}\n')
+            return x * gamma + beta
+        else:
+            instrucionts_txt.write(f'layer_norm_mult:{x.shape}@{gamma.shape}+{beta.shape}\n')
+            return x @ gamma + beta
 
     def matrix_self_attn(self, emb, block_num, mask = None):
         '''
@@ -173,6 +178,7 @@ class NpGPT2():
         attn_weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.weight']
         attn_bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.bias']
         ln_1 = emb @ attn_weights + attn_bias  # (t, 2304)
+        instrucionts_txt.write(f'ln_1:{emb.shape}@{attn_weights.shape}+{attn_bias.shape}\n')
 
         query, key, value = np.hsplit(ln_1,3)
 
@@ -184,20 +190,26 @@ class NpGPT2():
         V = split_heads(self.value_cache[block_num])
 
         # multi_headed_attn
-        w = Q @ np.transpose(K, (0, 2, 1))
+        K = np.transpose(K, (0, 2, 1))
+        w = Q @ K
+        instrucionts_txt.write(f'Q@K:{Q.shape}@{K.shape}\n')
+
         w = w * 1/np.sqrt(np.float32(V.shape[-1]))
 
         attn_score_mask = w + mask
+        instrucionts_txt.write(f'app_mask:{w.shape}+{mask.shape}\n')
 
         attn_score_norm = np.apply_along_axis(lambda x: self.softmax(x), axis=-1, arr=attn_score_mask)
 
         attn_output = attn_score_norm @ V
+        instrucionts_txt.write(f'V:{attn_score_norm.shape}@{V.shape}\n')
 
         attn_output = merge_heads(attn_output)
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.bias']
         context_proj = attn_output @ weights + bias
+        instrucionts_txt.write(f'context_proj:{attn_output.shape}@{weights.shape}+{bias.shape}\n')
 
         return context_proj
 
@@ -210,12 +222,14 @@ class NpGPT2():
         '''
         weights = self.parameters['transformer.h.'+ str(block_num) + '.mlp.c_fc.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.mlp.c_fc.bias']
+        instrucionts_txt.write(f'embl1:{emb.shape}@{weights.shape}+{bias.shape}\n')
         embl1 = emb @ weights + bias
 
         embl1 = self.gelu(embl1)
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.mlp.c_proj.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.mlp.c_proj.bias']
+        instrucionts_txt.write(f'embl1:{embl1.shape}@{weights.shape}+{bias.shape}\n')
         return embl1 @ weights + bias
 
     def top_k(self, logits, k=50):
@@ -246,6 +260,7 @@ class NpGPT2():
         context_matrix = self.matrix_self_attn(ln_1, block_num, mask = mask)
 
         context_matrix = context_matrix + emb # Residual Connection
+        instrucionts_txt.write(f'residual:{context_matrix.shape}+{emb.shape}\n')
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.ln_2.bias']
@@ -254,6 +269,7 @@ class NpGPT2():
         emb_mlp = self.mlp(ln_2, block_num)
 
         emb_mlp = context_matrix + emb_mlp # Residual Connection
+        instrucionts_txt.write(f'residual:{context_matrix.shape}+{emb_mlp.shape}\n')
         return emb_mlp
 
     def next_token(self, tok):
@@ -277,6 +293,7 @@ class NpGPT2():
 
         weights = self.parameters['lm_head.weight']
         logit_matrix = ln_f @ weights.T
+        instrucionts_txt.write(f'logit_matrix:{ln_f.shape}@{weights.T.shape}\n')
 
         # Logit selection
         logit_wrappers = {'greedy': lambda x: np.argmax(x[-1]),
