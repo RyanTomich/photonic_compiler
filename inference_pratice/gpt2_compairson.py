@@ -9,18 +9,18 @@ from huggingface_transformers.src.transformers.models.gpt2.tokenization_gpt2 imp
 # GPT2-xl - 48 blocks, 24 heads, emb_size 1600
 
 prompt = "I like music that"
-model = 'GPT2'
-max_length = 25
+model = 'gpt2'
+max_length = 6
 
 # Out of box Transformer package GPT2
 import np_gpt2 as np_gpt2
-print("Out of box Transformer")
-print(np_gpt2.transformer_gpt2_inference(prompt, *np_gpt2.transformer_gpt2_model('GPT2-large'),max_length = max_length))
+# print("Out of box Transformer")
+# print(np_gpt2.transformer_gpt2_inference(prompt, *np_gpt2.transformer_gpt2_model(model),max_length = max_length))
 
 
 # # Edited Transformer Package GPT2
-# t_gpt2 = GPT2LMHeadModel.from_pretrained('gpt2', output_attentions=True, activation_function = 'gelu') # loading gpt2 from forked hf_transformer library
-# t_gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2') # loading gpt2 tokenizer from forked hf_transformer library
+# t_gpt2 = GPT2LMHeadModel.from_pretrained(model, output_attentions=True, activation_function = 'gelu') # loading gpt2 from forked hf_transformer library
+# t_gpt2_tokenizer = GPT2Tokenizer.from_pretrained(model) # loading gpt2 tokenizer from forked hf_transformer library
 
 # input_ids = t_gpt2_tokenizer(prompt, return_tensors="pt").input_ids
 
@@ -28,6 +28,7 @@ print(np_gpt2.transformer_gpt2_inference(prompt, *np_gpt2.transformer_gpt2_model
 # gen_tokens = t_gpt2.generate(input_ids, do_sample=False, max_length=25)
 # t_gen_text = t_gpt2_tokenizer.batch_decode(gen_tokens)[0]
 # t_end_time = time.time()
+# print(t_gen_text)
 
 
 # Custom GPT2
