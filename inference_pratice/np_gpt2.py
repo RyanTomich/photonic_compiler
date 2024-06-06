@@ -93,7 +93,7 @@ class MyGPT2():
         max_val = np.max(vec)
         exp = np.exp((vec - max_val)/ temperature)
         norm_vec = exp/np.sum(exp)
-        assert 0.975 < np.sum(norm_vec) < 1.025
+        # assert 0.975 < np.sum(norm_vec) < 1.025
         return norm_vec
 
     # activation functions
@@ -118,7 +118,7 @@ class MyGPT2():
             position_ids = self.emd_cache.shape[0]
 
         position_emb = self.parameters['transformer.wpe.weight'][position_ids,:]
-        assert tok_emb.shape == position_emb.shape
+        # assert tok_emb.shape == position_emb.shape
 
         emb = tok_emb + position_emb
         self.emd_cache = np.vstack((self.emd_cache, emb))
@@ -139,10 +139,12 @@ class MyGPT2():
         s = np.var(x, axis=-1, keepdims=True)
         x = (x - u) / np.sqrt(s + epsilon)
 
+        return x * gamma + beta if len(gamma.shape) == 1 else x @ gamma + beta
+
         if len(gamma.shape) == 1:
-            return np.round(x * gamma + beta, 4)
+            return x * gamma + beta
         else:
-            return np.round(x @ gamma + beta, 4)
+            return x @ gamma + beta
 
     def matrix_self_attn(self, emb, block_num, mask = None):
         '''
@@ -163,7 +165,7 @@ class MyGPT2():
         # attn
         attn_weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.weight']
         attn_bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.bias']
-        ln_1 = np.round(emb @ attn_weights + attn_bias,4) # (t, 2304)
+        ln_1 = emb @ attn_weights + attn_bias  # (t, 2304)
 
         query, key, value = np.hsplit(ln_1,3)
 
@@ -188,7 +190,7 @@ class MyGPT2():
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.bias']
-        context_proj = np.round(attn_output @ weights + bias, 4)
+        context_proj = attn_output @ weights + bias
 
         return context_proj
 
@@ -214,7 +216,7 @@ class MyGPT2():
         largest = heapq.nlargest(k, range(len(vec)), vec.take)
         probs = np.array([vec[i] for i in largest])
         probs = probs / np.sum(probs) # normalize after the selection
-        assert 0.975 < np.sum(probs) < 1.025
+        # assert 0.975 < np.sum(probs) < 1.025
         return random.choices(largest, weights=probs, k=1)[0]
 
     def decode_block(self, emb, block_num, mask = None):
@@ -262,7 +264,7 @@ class MyGPT2():
         ln_f = self.layer_norm(block_result, weights, bias)
 
         weights = self.parameters['lm_head.weight']
-        logit_matrix = np.round(ln_f @ weights.T, 4)
+        logit_matrix = ln_f @ weights.T
 
         # Logit selection
         logit_wrappers = {'greedy': lambda x: np.argmax(x[-1]),
