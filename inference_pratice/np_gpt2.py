@@ -59,6 +59,7 @@ class MyGPT2():
         self.attn_heads = attn_heads
         self.logit_strat = logit_strat
         self.temperature = temperature
+
         self.emd_cache = np.empty((0, 768)) # embedding size
 
     def get_model_architecture(self, model):
@@ -105,16 +106,19 @@ class MyGPT2():
         '''
         # word token embeddings
         tok_emb = self.parameters['transformer.wte.weight'][tok,:]
-        self.emd_cache = np.vstack((self.emd_cache, tok_emb))
-        tok_emb = self.emd_cache
 
         # word position embeddings
-        sequence_length = tok_emb.shape[0]
-        position_ids = np.arange(sequence_length) #indicies
-        position_emb = self.parameters['transformer.wpe.weight'][position_ids,:]
+        if self.emd_cache.size == 0:
+            sequence_length = tok_emb.shape[0]
+            position_ids = np.arange(sequence_length) #indicies
+        else:
+            position_ids = self.emd_cache.shape[0]
 
+        position_emb = self.parameters['transformer.wpe.weight'][position_ids,:]
         assert tok_emb.shape == position_emb.shape
-        return tok_emb + position_emb
+
+        self.emd_cache = np.vstack((self.emd_cache, tok_emb + position_emb))
+        return self.emd_cache
 
     def layer_norm(self, x, gamma, beta, epsilon=1e-5):
         '''
