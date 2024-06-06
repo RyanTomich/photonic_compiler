@@ -384,27 +384,31 @@ class MyGPT2():
         ln_f = np.apply_along_axis(lambda x: self.layer_norm(x, weights, bias), axis=1, arr=block_result) # 1, 768
         # head_norm = self.layer_norm(block_result, weights, bias)  # ln_f
 
+        # print(ln_f.shape)
         # print(ln_f)
         # ln_f MATCHES
 
-        # lm_head
         # weights MATCH
         weights = self.parameters['lm_head.weight'] # (50257, 768)
+        # print(weights.shape)
+        # print(weights)
         # bias = np.full((1, weights.shape[]), 0)
         # logit_matrix = np.apply_along_axis(lambda x: self.layer_norm(x, weights, bias), axis=1, arr=block_result)
         # logit_matrix = np.round(ln_f @ weights.T,4) # (4, 2304)
         logit_matrix = np.round(np.matmul(ln_f, weights.T),4)
 
-        # print(ln_f.shape)
-        # print(ln_f)
-
-        print('after lm_head.weight')
-        print(weights.shape)
-        print(weights)
+        # print('logit_matrix')
+        # print(logit_matrix.shape)
+        # print(logit_matrix)
 
         # apply softmax to last words logit
-        last_logit_distrabution = self.softmax(logit_matrix[-1], temperature = 0.9)
-        return self.top_k(40, last_logit_distrabution)
+        # print(logit_matrix[-1].shape)
+        # print(logit_matrix[-1])
+        # last_logit_distrabution = self.softmax(logit_matrix[-1], temperature = 0.9) Not needed for max
+        # return self.top_k(40, last_logit_distrabution)
+        next_tok = np.argmax(logit_matrix[-1])
+        print(next_tok)
+        return next_tok
 
     def generate(self, prompt, tokenizer, max_token_len = 100):
         '''

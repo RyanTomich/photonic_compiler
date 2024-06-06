@@ -10,9 +10,10 @@ import my_gpt2
 gpt2 = GPT2LMHeadModel.from_pretrained('gpt2', output_attentions=True, activation_function = 'gelu') # loading gpt2 from forked hf_transformer library
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2') # loading gpt2 tokenizer from forked hf_transformer library
 
-prompt = "my favorite music is"
+prompt = "there once was a dog who "
 input_ids = gpt2_tokenizer(prompt, return_tensors="pt").input_ids
-gen_tokens = gpt2.generate(input_ids, do_sample=False, temperature=0.9, max_length=6)
+# gen_tokens = gpt2.generate(input_ids, do_sample=False, temperature=0.9, max_length=6)
+gen_tokens = gpt2.generate(input_ids, do_sample=False, temperature=0.9, max_length=20+input_ids.shape[1])
 gen_text = gpt2_tokenizer.batch_decode(gen_tokens)[0]
 
 
@@ -23,7 +24,7 @@ for name, val in state_dict.items():
     parameters[name] = np.round(val.numpy().astype(np.float32), 4)
 
 my_model = my_gpt2.MyGPT2(parameters)
-my_result = my_model.generate(prompt, gpt2_tokenizer, max_token_len = 2)
+my_result = my_model.generate(prompt, gpt2_tokenizer, max_token_len = 20 )
 
-# print(f'MY_GPT2:{my_result}')
-# print(f'EDITED_TRANSFORMER_GPT2:{gen_text}')
+print(f'MY_GPT2:{my_result}')
+print(f'EDITED_TRANSFORMER_GPT2:{gen_text}')
