@@ -58,9 +58,10 @@ import heapq
 import random
 import copy
 
-class MyGPT2():
-    def __init__(self, parameters, decode_blocks = 12, attn_heads = 12, logit_strat = 'greedy', temperature = 1, embedding_size = 768):
+class NpGPT2():
+    def __init__(self, parameters, tokenizer, decode_blocks = 12, attn_heads = 12, logit_strat = 'greedy', temperature = 1, embedding_size = 768):
         self.parameters = parameters
+        self.tokenizer = tokenizer
         self.decode_blocks = decode_blocks
         self.attn_heads = attn_heads
         self.logit_strat = logit_strat
@@ -278,7 +279,7 @@ class MyGPT2():
 
         return logit_wrappers[self.logit_strat](logit_matrix)
 
-    def generate(self, prompt, tokenizer, max_token_len = 100):
+    def generate(self, prompt, max_token_len = 100):
         '''
         creates generation feedback loop
         prompt(srt)
@@ -286,7 +287,7 @@ class MyGPT2():
         max_token_len(int): length of resulting sequence
         '''
 
-        tok = tokenizer.encode(prompt, return_tensors='np').squeeze()
+        tok = self.tokenizer.encode(prompt, return_tensors='np').squeeze()
         ans = np.array([])
         for i in range(max_token_len-tok.shape[0]):
             print('.' * i)
@@ -298,5 +299,5 @@ class MyGPT2():
                 ans = np.append(ans, next_tok)
 
 
-        tok = tokenizer.decode(ans, skip_special_tokens=True)
+        tok = self.tokenizer.decode(ans, skip_special_tokens=True)
         return tok
