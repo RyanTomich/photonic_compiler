@@ -59,8 +59,11 @@ class MyGPT2():
         self.attn_heads = attn_heads
         self.logit_strat = logit_strat
         self.temperature = temperature
+        self.embedding_size = 768
 
-        self.emd_cache = np.empty((0, 768)) # embedding size
+        self.key_cache = [np.empty((0, self.embedding_size)) for _ in range(attn_heads)]
+        self.value_cache = [np.empty((0, self.embedding_size)) for _ in range(attn_heads)]
+        self.emd_cache = np.empty((0, self.embedding_size))
 
     def get_model_architecture(self, model):
         state_dict = model.state_dict()
@@ -117,8 +120,11 @@ class MyGPT2():
         position_emb = self.parameters['transformer.wpe.weight'][position_ids,:]
         assert tok_emb.shape == position_emb.shape
 
-        self.emd_cache = np.vstack((self.emd_cache, tok_emb + position_emb))
-        return self.emd_cache
+        emb = tok_emb + position_emb
+        self.emd_cache = np.vstack((self.emd_cache, emb))
+        # return self.emd_cache
+        # return tok_emb + position_emb.reshape(1, -1)
+        return np.asarray(emb).reshape(1, -1) if emb.ndim == 1 else np.asarray(emb)
 
     def layer_norm(self, x, gamma, beta, epsilon=1e-5):
         '''
@@ -157,14 +163,16 @@ class MyGPT2():
         # attn
         attn_weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.weight']
         attn_bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_attn.bias']
-        ln_1 = np.round(emb @ attn_weights + attn_bias,4) # (4, 2304)
+        ln_1 = np.round(emb @ attn_weights + attn_bias,4) # (t, 2304)
 
         query, key, value = np.hsplit(ln_1,3)
 
+        self.key_cache[block_num] = np.vstack( (self.key_cache[block_num], key) )
+        self.value_cache[block_num] = np.vstack( (self.value_cache[block_num],value) )
+
         Q = split_heads(query)
-        K = split_heads(key)
-        V = split_heads(value)
-        assert Q.shape == K.shape == V.shape
+        K = split_heads(self.key_cache[block_num])
+        V = split_heads(self.value_cache[block_num])
 
         # multi_headed_attn
         w = Q @ np.transpose(K, (0, 2, 1))
@@ -180,7 +188,7 @@ class MyGPT2():
 
         weights = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.weight']
         bias = self.parameters['transformer.h.'+ str(block_num) + '.attn.c_proj.bias']
-        context_proj = np.round(attn_output @ weights + bias, 4) # (4, 2304)
+        context_proj = np.round(attn_output @ weights + bias, 4)
 
         return context_proj
 
@@ -245,7 +253,7 @@ class MyGPT2():
         mask_value = np.finfo(np.float32).min
         mask[np.triu_indices_from(mask, k=1)] = mask_value
 
-        block_result = copy.deepcopy(emb)
+        block_result = emb
         for block_num in range(self.decode_blocks):
             block_result = self.decode_block(block_result, block_num, mask = mask)
 
