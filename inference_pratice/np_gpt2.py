@@ -14,9 +14,9 @@
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from torchinfo import summary
 import torch
-def transformer_gpt2_model():
-    gpt2 = GPT2LMHeadModel.from_pretrained('gpt2', output_attentions=True, activation_function = 'gelu', ) # loading gpt2 from transformers library
-    gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2') # loading gpt2 tokenizer from transformers library
+def transformer_gpt2_model(model_name):
+    gpt2 = GPT2LMHeadModel.from_pretrained(model_name, output_attentions=True, activation_function = 'gelu', ) # loading gpt2 from transformers library
+    gpt2_tokenizer = GPT2Tokenizer.from_pretrained(model_name) # loading gpt2 tokenizer from transformers library
     return gpt2, gpt2_tokenizer
 
 def transformer_gpt2_inference(prompt, model, tokenizer, do_sample = False, temperature = 1, max_length = 100):
@@ -45,6 +45,12 @@ def transformer_model_info(model, config = False, summary = False ):
         )
         print(model_summary)
 
+def get_parameters(model):
+    state_dict = model.state_dict()
+    parameters = {}
+    for name, val in state_dict.items():
+        parameters[name] = np.round(val.numpy().astype(np.float32), 4)
+    return parameters
 
 # Inference using Numpy
 import numpy as np
@@ -53,16 +59,16 @@ import random
 import copy
 
 class MyGPT2():
-    def __init__(self, parameters, decode_blocks = 12, attn_heads = 12, logit_strat = 'greedy', temperature = 1):
+    def __init__(self, parameters, decode_blocks = 12, attn_heads = 12, logit_strat = 'greedy', temperature = 1, embedding_size = 768):
         self.parameters = parameters
         self.decode_blocks = decode_blocks
         self.attn_heads = attn_heads
         self.logit_strat = logit_strat
         self.temperature = temperature
-        self.embedding_size = 768
+        self.embedding_size = embedding_size
 
-        self.key_cache = [np.empty((0, self.embedding_size)) for _ in range(attn_heads)]
-        self.value_cache = [np.empty((0, self.embedding_size)) for _ in range(attn_heads)]
+        self.key_cache = [np.empty((0, self.embedding_size)) for _ in range(decode_blocks)]
+        self.value_cache = [np.empty((0, self.embedding_size)) for _ in range(decode_blocks)]
         self.emd_cache = np.empty((0, self.embedding_size))
 
     def get_model_architecture(self, model):
