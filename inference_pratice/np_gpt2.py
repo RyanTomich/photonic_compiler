@@ -100,13 +100,18 @@ class NpGPT2():
         numpy_array = tensor.numpy()
         return numpy_array.copy()
 
-    def softmax(self, vec, temperature = 1):
-        temperature = self.temperature
-        max_val = np.max(vec)
-        exp = np.exp((vec - max_val)/ temperature)
-        norm_vec = exp/np.sum(exp)
-        # assert 0.975 < np.sum(norm_vec) < 1.025
-        return norm_vec
+    def softmax(self, matrix, temperature = 1):
+        def vec_softmax(vec):
+            temperature = self.temperature
+            max_val = np.max(vec)
+            exp = np.exp((vec - max_val)/ temperature)
+            norm_vec = exp/np.sum(exp)
+            assert 0.975 < np.sum(norm_vec) < 1.025
+            return norm_vec
+        if len(matrix.shape) == 1:
+            matrix = matrix.reshape (1, -1)
+        return np.apply_along_axis(lambda x: vec_softmax(x), axis=-1, arr=matrix)
+
 
     # activation functions
     def gelu(self, x):
@@ -199,7 +204,7 @@ class NpGPT2():
         attn_score_mask = w + mask
         instrucionts_txt.write(f'app_mask:{w.shape}+{mask.shape}\n')
 
-        attn_score_norm = np.apply_along_axis(lambda x: self.softmax(x), axis=-1, arr=attn_score_mask)
+        attn_score_norm = self.softmax(attn_score_mask)
 
         attn_output = attn_score_norm @ V
         instrucionts_txt.write(f'V:{attn_score_norm.shape}@{V.shape}\n')
