@@ -46,9 +46,4 @@ np_end_time = time.time()
 
 print(f'np_GPT2:{np_end_time - np_start_time} \n{np_gen_text}')
 
-print(len(trace.dependancy_graph))
-# print(trace.dependancy_graph['START'][0])
-for key, val in trace.dependancy_graph.items():
-    if len(val) > 1:
-        print(len(val))
-        print(val[0])
+print(trace.graph)
