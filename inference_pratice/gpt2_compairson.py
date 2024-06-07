@@ -46,4 +46,8 @@ np_end_time = time.time()
 
 print(f'np_GPT2:{np_end_time - np_start_time} \n{np_gen_text}')
 
-print(trace.graph)
+graph_len = len(trace.graph.dependancy_graph)
+functions_in = trace.file_write.calls
+assert graph_len == functions_in + 1 # +1 for START node
+
+trace.graph.print_instructions()

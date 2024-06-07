@@ -60,6 +60,18 @@ class DependancyGraph():
     def __init__(self):
         self.dependancy_graph = {'START': None}
 
+    def print_instructions(self):
+        group = self.dependancy_graph["START"]
+        while group:
+            if isinstance(group, list):
+                if len(group) == 1:
+                    for node in group:
+                        instrucionts_txt.write(f'{node.name}:{node.size}\n')
+                else:
+                    for node in group:
+                        instrucionts_txt.write(f'   {node.name}:{node.size}\n')
+
+                group = self.dependancy_graph[node]
     def __str__(self):
         return str(len(self.dependancy_graph))
 

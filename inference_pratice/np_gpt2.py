@@ -135,12 +135,10 @@ class NpGPT2():
             position_ids = self.emd_cache.shape[0]
 
         position_emb = self.parameters['transformer.wpe.weight'][position_ids,:]
-        # assert tok_emb.shape == position_emb.shape
 
         emb = tok_emb + position_emb
+        trace.file_write(f'emb_add',f'{tok_emb.shape} + {position_emb.shape}')
         self.emd_cache = np.vstack((self.emd_cache, emb))
-        # return self.emd_cache
-        # return tok_emb + position_emb.reshape(1, -1)
         return np.asarray(emb).reshape(1, -1) if emb.ndim == 1 else np.asarray(emb)
 
     def layer_norm(self, x, gamma, beta, epsilon=1e-5):
@@ -157,10 +155,10 @@ class NpGPT2():
         x = (x - u) / np.sqrt(s + epsilon)
 
         if len(gamma.shape) == 1:
-            trace.file_write(f'layer_norm_mult', f'{x.shape}*{gamma.shape}+{beta.shape}')
+            trace.file_write(f'layer_norm_*mult', f'{x.shape}*{gamma.shape}+{beta.shape}')
             return x * gamma + beta
         else:
-            trace.file_write(f'layer_norm_mult', f'{x.shape}@{gamma.shape}+{beta.shape}')
+            trace.file_write(f'layer_norm_@mult', f'{x.shape}@{gamma.shape}+{beta.shape}')
             return x @ gamma + beta
 
     def matrix_self_attn(self, emb, block_num, mask = None):
@@ -287,6 +285,8 @@ class NpGPT2():
         mask = np.full((emb.shape[0], emb.shape[0]), float(0))
         mask_value = np.finfo(np.float32).min
         mask[np.triu_indices_from(mask, k=1)] = mask_value
+        trace.file_write(f'make_mask',f'{mask.shape}')
+
 
         block_result = emb
         for block_num in range(self.decode_blocks):
@@ -315,6 +315,7 @@ class NpGPT2():
         '''
 
         tok = self.tokenizer.encode(prompt, return_tensors='np').squeeze()
+        trace.file_write(f'encode', f'{tok.shape}')
         ans = np.array([])
         for i in range(max_token_len-tok.shape[0]):
             print('.' * i)
@@ -327,4 +328,5 @@ class NpGPT2():
 
 
         tok = self.tokenizer.decode(ans, skip_special_tokens=True)
+        trace.file_write(f'decode', f'{ans.shape}')
         return tok
