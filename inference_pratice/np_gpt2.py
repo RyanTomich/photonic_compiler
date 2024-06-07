@@ -63,7 +63,15 @@ import random
 
 @trace.for_all_methods(trace.catch_name)
 class NpGPT2():
-    def __init__(self, parameters, tokenizer, decode_blocks = 12, attn_heads = 12, logit_strat = 'greedy', temperature = 1, embedding_size = 768):
+    def __init__(self,
+                 parameters,
+                 tokenizer,
+                 decode_blocks = 12,
+                 attn_heads = 12,
+                 logit_strat = 'greedy',
+                 temperature = 1,
+                 embedding_size = 768):
+
         self.parameters = parameters
         self.tokenizer = tokenizer
         self.decode_blocks = decode_blocks

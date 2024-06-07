@@ -18,11 +18,16 @@ def catch_name(func):
         return result
     return wrapper
 
+
 # making dependancy_graph
 def file_write(name, details=''):
     file_write.calls += 1
     node = DependancyNode(name, file_write.calls, None, details, 'CPU')
-    if name == 'row_softamx':
+    for indicator in photonic_indicators:
+        if indicator in details:
+            node.hardware = 'PH'
+
+    if name in parallelizable:
         file_write.para.append(node)
         graph.dependancy_graph[file_write.prev].append(node)
     else:
@@ -63,15 +68,12 @@ class DependancyGraph():
     def print_instructions(self):
         group = self.dependancy_graph["START"]
         while group:
-            if isinstance(group, list):
-                if len(group) == 1:
-                    for node in group:
-                        instrucionts_txt.write(f'{node.name}:{node.size}\n')
-                else:
-                    for node in group:
-                        instrucionts_txt.write(f'   {node.name}:{node.size}\n')
-
-                group = self.dependancy_graph[node]
+            tab = ''
+            if len(group) > 1:
+                tab = '   '
+            for node in group:
+                instrucionts_txt.write(f'{node.hardware[0]}: {tab}{node.name}:{node.size}\n')
+            group = self.dependancy_graph[node]
     def __str__(self):
         return str(len(self.dependancy_graph))
 
@@ -83,5 +85,7 @@ instrucionts_txt = open(output_file_path, "w")
 file_write.calls = 0
 file_write.prev = 'START'
 file_write.para = []
+parallelizable = ['row_softamx']
+photonic_indicators = ['@']
 
 graph = DependancyGraph()
