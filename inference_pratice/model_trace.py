@@ -1,5 +1,5 @@
 import os
-
+import numpy as np
 
 # Catching functions
 def for_all_methods(decorator):
@@ -21,6 +21,7 @@ def catch_name(func):
 
 # making dependancy_graph
 def file_write(name, opp=None, in_size=()):
+    print(opp) if opp else None
     file_write.calls += 1
     node = DependancyNode(name, file_write.calls, opp, in_size, 'CPU')
     if opp in photonic_indicators:
@@ -48,6 +49,16 @@ class DependancyNode():
         self.opp = opp
         self.input_size = input_size
         self.hardware = hardware
+        time = self._calc_time(opp, input_size)
+
+    def _calc_time(self, opp, inputs):
+        if opp is None:
+            return None
+        if opp == '@':
+            a = np.prod(inputs[0])
+            return a*inputs[1][-1]
+        if opp in ('+-*/'):
+            return np.prod(inputs[0])
 
     def __hash__(self):
         return hash(self.oppid)
