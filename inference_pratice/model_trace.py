@@ -21,14 +21,24 @@ def file_write(name, details=''):
     file_write.calls += 1
     func_calls.setdefault(name, 0)
     node = DependancyNode(name, file_write.calls, None, details, 'CPU')
-    dependancy_graph[node] = None
-    dependancy_graph[file_write.prev] = node
-    file_write.prev = node
-
+    if name == 'row_softamx':
+        file_write.para.append(node)
+        dependancy_graph[file_write.prev].append(node)
+    else:
+        if file_write.para:
+            for para_node in file_write.para:
+                dependancy_graph[para_node] = [node]
+            file_write.para = []
+        else:
+            dependancy_graph[file_write.prev] = [node]
+        dependancy_graph[node] = []
+        file_write.prev = node
     func_calls[name] += 1
     instrucionts_txt.write(f'({file_write.calls}){name}:{details}\n')
+
 file_write.calls = 0
 file_write.prev = 'START'
+file_write.para = []
 
 def catch_name(func):
     def wrapper(*args, **kwargs):
