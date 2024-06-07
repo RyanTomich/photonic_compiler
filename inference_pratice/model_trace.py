@@ -20,12 +20,11 @@ def catch_name(func):
 
 
 # making dependancy_graph
-def file_write(name, details=''):
+def file_write(name, opp=None, in_size=()):
     file_write.calls += 1
-    node = DependancyNode(name, file_write.calls, None, details, 'CPU')
-    for indicator in photonic_indicators:
-        if indicator in details:
-            node.hardware = 'PH'
+    node = DependancyNode(name, file_write.calls, opp, in_size, 'CPU')
+    if opp in photonic_indicators:
+        node.hardware = 'PH'
 
     if name in parallelizable:
         file_write.para.append(node)
@@ -39,15 +38,15 @@ def file_write(name, details=''):
             graph.dependancy_graph[file_write.prev] = [node]
         graph.dependancy_graph[node] = []
         file_write.prev = node
-    # instrucionts_txt.write(f'({file_write.calls}){name}:{details}\n')
+    # instructions_txt.write(f'({file_write.calls}){name}:{details}\n')
 
 
 class DependancyNode():
-    def __init__(self, name, oppid, opp, size, hardware):
+    def __init__(self, name, oppid, opp, input_size, hardware):
         self.name = name
         self.oppid = oppid
         self.opp = opp
-        self.size = size
+        self.input_size = input_size
         self.hardware = hardware
 
     def __hash__(self):
@@ -59,7 +58,7 @@ class DependancyNode():
         return False
 
     def __str__(self):
-        return f'{self.name=} \n{self.oppid=} \n{self.opp=} \n{self.size=} \n{self.hardware=}'
+        return f'{self.name=} \n{self.oppid=} \n{self.opp=} \n{self.input_size=} \n{self.hardware=}'
 
 class DependancyGraph():
     def __init__(self):
@@ -72,15 +71,18 @@ class DependancyGraph():
             if len(group) > 1:
                 tab = '   '
             for node in group:
-                instrucionts_txt.write(f'{node.hardware[0]}: {tab}{node.name}:{node.size}\n')
+                with open(output_file_path, 'a') as instructions:
+                    instructions.write(f'{node.hardware[0]}: {tab}{node.name}:{node.input_size}\n')
             group = self.dependancy_graph[node]
+
     def __str__(self):
         return str(len(self.dependancy_graph))
 
 # Create Write File
 current_directory = os.path.dirname(os.path.abspath(__file__))
 output_file_path = os.path.join(current_directory, 'GPT2_instructions.txt')
-instrucionts_txt = open(output_file_path, "w")
+with open(output_file_path, 'w') as instructions:
+    pass # clear document
 
 file_write.calls = 0
 file_write.prev = 'START'
