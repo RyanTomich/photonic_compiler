@@ -30,6 +30,8 @@ import np_gpt2 as np_gpt2
 # t_end_time = time.time()
 # print(t_gen_text)
 
+import model_trace as trace
+
 
 # Custom GPT2
 gpt2 = GPT2LMHeadModel.from_pretrained(model, output_attentions=True, activation_function = 'gelu') # loading gpt2 from forked hf_transformer library
@@ -43,3 +45,5 @@ np_gen_text = np_gpt2.generate(prompt, max_token_len = max_length)
 np_end_time = time.time()
 
 print(f'np_GPT2:{np_end_time - np_start_time} \n{np_gen_text}')
+
+print(trace.dependancy_graph['START'])
