@@ -175,11 +175,13 @@ class NpGPT2():
         def split_heads(x):
             *start, m = x.shape
             a = np.reshape(x, start + [self.attn_heads, m//self.attn_heads]) # matrix to tensor with heads dimention
+            trace.file_write(f'split_heads', in_size =(x.shape,np.transpose(a, [1, 0, 2]).shape))
             return np.transpose(a, [1, 0, 2]) #[heads, sequence, features]
 
         def merge_heads(x):
             x = np.transpose(x, [1, 0, 2]) #[sequence, heads, features]
             *start, a, b = x.shape
+            trace.file_write(f'merge_heads', in_size =(x.shape,np.reshape(x, start + [a*b]).shape))
             return np.reshape(x, start + [a*b])
 
         # attn
@@ -200,7 +202,7 @@ class NpGPT2():
 
         # multi_headed_attn
         K = np.transpose(K, (0, 2, 1))
-        w = Q @ K
+        w = Q @ K # (head, tok, emd_split) @ (head, emb_split, tok) = (head, tok, tok)
         trace.file_write(f'Q@K','@',(Q.shape,K.shape))
 
         w = w * 1/np.sqrt(np.float32(V.shape[-1]))

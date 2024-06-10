@@ -49,8 +49,53 @@ else:
 
     target = tvm.target.Target("llvm", host="llvm")
     dev = tvm.cpu(0)
-    with tvm.transform.PassContext(opt_level=1):
+    with tvm.transform.PassContext(opt_level=1, config={"relay.FuseOps.max_depth": 0}):
         lib = relay.build(mod, target=target, params=params)
+
+    '''
+    opt_level=0 no optimizations
+    opt_level=1 basic (constant folding)
+    opt_level=2 advanced (operator fusion)
+    opt_level=3 target-specific
+
+    disabled_pass=
+    required_pass=
+    trace=my_trace_callback
+    instrument
+
+    config={"relay.FuseOps.max_depth": 5}
+    config={"relay.backend.use_auto_scheduler": True}):
+    config={"relay.backend.parallel_compiler": True}):
+    '''
+
+    '''
+    # Eliminating fusion for spasific functions
+    def disable_fusion_for_function(func):
+    """Disable fusion for a specific function in the Relay module."""
+    # Traverse the function body and mark each operation as not eligible for fusion
+    def disable_fusion(node):
+        if isinstance(node, relay.Function):
+            return relay.Function(node.params, relay.expr_functor(node.body, disable_fusion), node.ret_type)
+        elif isinstance(node, relay.Call):
+            # Mark the call as not eligible for fusion
+            return relay.Call(disable_fusion(node.op), node.args, node.attrs, node.type_args)
+        else:
+            return node
+
+    return relay.Function(func.params, disable_fusion(func.body), func.ret_type)
+    functions_to_disable_fusion = ["func1", "func2"]
+
+    new_funcs = []
+    for func in mod.functions:
+        if func.name_hint in functions_to_disable_fusion:
+            new_funcs.append(disable_fusion_for_function(func))
+        else:
+            new_funcs.append(func)
+
+    # Create a new Relay module with modified fusion behavior
+    new_mod = relay.Module(new_funcs)
+
+    '''
 
 
     file_path = "GPT2_model.tar"
