@@ -52,6 +52,22 @@ else:
     with tvm.transform.PassContext(opt_level=1, config={"relay.FuseOps.max_depth": 0}):
         lib = relay.build(mod, target=target, params=params)
 
+
+    # Save the graph JSON to a file
+    graph_json_path = "GPT2_graph.json"
+    with open(graph_json_path, "w") as f:
+        f.write(lib.get_graph_json())
+
+    # Create the function library
+    lib.export_library("GPT2_lib.so")
+
+    # Creat paramater library
+    param_dict = lib.get_params()
+    param_bytes_path = "GPT2_params.params"
+    with open(param_bytes_path, "wb") as f:
+        f.write(relay.save_param_dict(param_dict).get_bytearray())
+
+
     '''
     opt_level=0 no optimizations
     opt_level=1 basic (constant folding)
@@ -96,17 +112,3 @@ else:
     new_mod = relay.Module(new_funcs)
 
     '''
-
-
-    file_path = "GPT2_model.tar"
-    lib.export_library(file_path)
-
-    # Save the graph JSON to a file
-    graph_json_path = "GPT2_grap.json"
-    with open(graph_json_path, "w") as f:
-        f.write(lib.get_graph_json())
-
-    # Save the parameters to a file
-    param_dict = lib.get_params()
-    param_bytes_path = "GPT2_params.params"
-    tvm.relay.save_param_dict(param_dict)
