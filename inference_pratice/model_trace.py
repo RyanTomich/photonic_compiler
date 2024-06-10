@@ -21,7 +21,6 @@ def catch_name(func):
 
 # making dependancy_graph
 def file_write(name, opp=None, in_size=()):
-    print(opp) if opp else None
     file_write.calls += 1
     node = DependancyNode(name, file_write.calls, opp, in_size, 'CPU')
     if opp in photonic_indicators:
@@ -83,7 +82,8 @@ class DependancyGraph():
                 tab = '   '
             for node in group:
                 with open(output_file_path, 'a') as instructions:
-                    instructions.write(f'{node.hardware[0]}: {tab}{node.name}:{node.input_size}\n')
+                    opp = 'other' if node.opp is None else '  ' + node.opp + '  '
+                    instructions.write(f'{node.hardware[0]}: {tab}{opp} {node.name}:{node.input_size}\n')
             group = self.dependancy_graph[node]
 
     def __str__(self):

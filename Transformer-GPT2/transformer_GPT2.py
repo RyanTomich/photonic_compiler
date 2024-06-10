@@ -53,7 +53,7 @@ else:
         lib = relay.build(mod, target=target, params=params)
 
 
-    file_path = "GPT2_model.so"
+    file_path = "GPT2_model.tar"
     lib.export_library(file_path)
 
     # Save the graph JSON to a file
