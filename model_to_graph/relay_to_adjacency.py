@@ -41,23 +41,40 @@ class DependancyNode():
         return f"{self.oppid=}\n {self.func=} \n{self.opp=} \n{self.input_size=} \n{self.hardware=}"
 
 # Create every node
-nodes = []
-for index, node in enumerate(raw_json["nodes"]):
-    oppid = index
-    # func = node['attrs']['func_name'] if 'attrs' in
-    func = node['name']
-    opp = None
-    input_size = [raw_json['attrs']['shape'][1][input_index[0]] for input_index in node['inputs']]
-    hardware = "CPU"
-    nodes.append(DependancyNode(oppid, func, opp, input_size, hardware))
+def create_nodes(raw_json):
+    nodes = []
+    for index, node in enumerate(raw_json["nodes"]):
+        oppid = index
+        # func = node['attrs']['func_name'] if 'attrs' in
+        func = node['name']
+        opp = None
+        input_size = [raw_json['attrs']['shape'][1][input_index[0]] for input_index in node['inputs']]
+        hardware = "CPU"
+        nodes.append(DependancyNode(oppid, func, opp, input_size, hardware))
+    return nodes
 
 # Create the Adjancy Matrix for dependancy (from CSR format)
-def csr_to_matrix(csr):
-    print(type(csr))
-    adj_matrix = np.empty((len(csr), max(csr)+1))
-    print(adj_matrix.shape)
-    for index, val in enumerate(csr): # index is row, val is column
-        adj_matrix[index][val] = True
+def creat_dependancy(raw_json):
+    dependancys = []
+    for node_index, node in enumerate(raw_json['nodes']):
+        inputs = node.get('inputs', [])
+        for inp in inputs: # where each input is an index to another node.
+            dependancys.append((inp[0], node_index)) # (1, 2) where 2 takes 1's output
+
+    num_nodes = (len(raw_json['nodes']))
+    adj_matrix = np.empty((num_nodes, num_nodes), int)
+    for dep in dependancys:
+        adj_matrix[dep[0]][dep[1]] = True
     return adj_matrix
 
-print(np.count_nonzero(csr_to_matrix(raw_json["node_row_ptr"])))
+
+
+
+
+node = create_nodes(raw_json)
+dependancy_graph = creat_dependancy(raw_json)
+print(dependancy_graph)
+# print(dependancy_graph)
+print(len(np.nonzero(dependancy_graph)[0]))
+
+np.savetxt('dependancy_graph.txt', dependancy_graph)
