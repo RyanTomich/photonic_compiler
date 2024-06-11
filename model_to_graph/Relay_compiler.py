@@ -7,16 +7,17 @@ import numpy as np
 import onnx
 import os
 import io
-import onnxruntime
+from tvm.contrib import graph_runtime
+
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-def transformer_torch_to_onnx(model_name, tokenizer_torch, prompt, save = False):
+def transformer_torch_to_onnx(model_name, prompt, save = False):
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     model = AutoModelForCausalLM.from_pretrained(model_name, torchscript=True)
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_torch)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     model_onnx = model.eval()  # Change to eval mode
@@ -94,14 +95,55 @@ def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, co
         # f.write(relay.save_param_dict(param_dict).get_bytearray())
         f.write(relay.save_param_dict(param_dict))
 
+def tvm_validation(model_name):
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    model = AutoModelForCausalLM.from_pretrained(model_name, torchscript=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    model = model.eval()  # Change to eval mode
+
+    # Real
+    print("-----Transformer----:")
+    gen_tokens = model.generate(input_ids, do_sample=False, temperature=1, max_length=6)
+    print(gen_tokens)
+    gen_text = tokenizer.batch_decode(gen_tokens)[0]
+    print(gen_text)
+
+
+    # TVM
+    print("-----TVM----:")
+    graph_json_path = f"{model_name}_graph.json"
+    lib_so_path = f"{model_name}_lib.so"
+    param_bytes_path = f"{model_name}_params.params"
+
+    loaded_json = open(graph_json_path).read()
+    loaded_lib = tvm.runtime.load_module(lib_so_path)
+    loaded_params = bytearray(open(param_bytes_path, "rb").read())
+
+    module = graph_runtime.create(loaded_json, loaded_lib, tvm.cpu())
+    module.load_params(loaded_params)
+    module.set_input('input_ids', input_ids)
+    module.run()
+
+    output = module.get_output(0)
+    np_output = output.asnumpy()
+    next_tok = np.argmax(np_output[0][-1])
+    gen_tokens = np.append(input_ids, next_tok)
+    print(gen_tokens)
+    gen_text = tokenizer.batch_decode(gen_tokens)
+    print(gen_text)
+
 
 prompt = "my favorite music is"
 model_name = "gpt2"
 
-model_onnx, input_ids = transformer_torch_to_onnx(model_name, model_name, prompt, save = True)
+# model_onnx, input_ids = transformer_torch_to_onnx(model_name, model_name, prompt, save = True)
 
-onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 3, config = {"relay.FuseOps.max_depth": 5})
+# onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 3, config = {"relay.FuseOps.max_depth": 5})
 
+tvm_validation(model_name)
 
 '''
 "gpt2"
@@ -109,44 +151,6 @@ onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 3, conf
 "google-bert/bert-base-uncased"
 https://huggingface.co/docs/transformers/en/model_doc/auto
 '''
-
-
-
-# #### validation
-# tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-# onnx_model_path = f"{model_name}.onnx"
-# onnx_session = onnxruntime.InferenceSession(onnx_model_path)
-# input_ids = np.array(input_ids)
-
-# # Run inference
-# input_name = onnx_session.get_inputs()[0].name
-# output_name = onnx_session.get_outputs()[0].name
-# result = onnx_session.run([output_name], {input_name: input_ids})
-
-# # Process the output
-# output_data = result[0]
-
-# next_tok = np.argmax(output_data[-1])
-# gen_tokens = np.append(input_ids, next_tok)
-# gen_text = tokenizer.batch_decode(gen_tokens)
-# print(gen_text)
-
-
-# model = AutoModelForCausalLM.from_pretrained(model_name, torchscript=True)
-# input_ids = tokenizer(prompt, return_tensors="pt").input_ids
-# model_onnx = model.eval()  # Change to eval mode
-
-# input_ids = tokenizer(prompt, return_tensors="pt").input_ids
-# gen_tokens = model.generate(input_ids, do_sample=False, temperature=1, max_length=6)
-# print(gen_tokens)
-# print(gen_tokens.shape)
-# gen_text = tokenizer.batch_decode(gen_tokens)[0]
-# print(gen_text)
-
-# incorrect because converting to ONNX is not catching all the things transforemer modles do....
-
-
 
 
 # #### DIRECTLY FROM PYTORCH
