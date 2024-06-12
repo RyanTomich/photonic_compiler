@@ -12,24 +12,67 @@ read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.jso
 with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
-class DependancyNode():
-    def __init__(self, oppid, func, opp, input_size, hardware):
-        self.oppid = oppid
-        self.func = func
-        self.opp = opp
-        self.input_size = input_size
-        self.hardware = hardware
-        time = self._calc_time(opp, input_size)
+def tensor_elements(tensor_shape):
+    ans = 1
+    for dimention in tensor_shape:
+        ans *= dimention
+    return ans
 
-    def _calc_time(self, opp, inputs):
-        return None
-        # if opp is None:
-        #     return None
-        # if opp == '@':
-        #     a = np.prod(inputs[0])
-        #     return a*inputs[1][-1]
-        # if opp in ('+-*/'):
-        #     return np.prod(inputs[0])
+
+# max(out, key=len)
+
+opp_time_func = {
+    'add': lambda i, o: tensor_elements(o),
+    'subtract': lambda i, o: tensor_elements(o),
+    'multiply': lambda i, o: tensor_elements(o),
+    'divide': lambda i, o:  tensor_elements(o),
+    'sqrt': lambda i, o: tensor_elements(o),
+    'rsqrt': lambda i, o: tensor_elements(o),
+    'power': lambda i, o: 0,
+    'mean': lambda i, o: tensor_elements(o), # + 1 division
+    'nop': lambda i, o: 0, #reshape(Non-Computational)
+    'less': lambda i, o: 0,
+    'where': lambda i, o: 0,
+    'take': lambda i, o: 0,
+    'softmax': lambda i, o: 0,
+    'cast': lambda i, o: 0,
+    'matmul': lambda i, o: 0,
+    'transpose': lambda i, o: 0,
+    'split': lambda i, o: 0,
+    'dense': lambda i, o: 0,
+    'null': lambda i, o: 0,
+    'tanh': lambda i, o: 0,
+}
+
+def find_opp(func_name):
+    name_parts = func_name.split('_')
+    for part in reversed(name_parts):
+        try:
+            int(part)
+            continue
+        except:
+            return part
+
+def unfsed_graph_time(node, input_shapes, output_shape):
+    # takes node, returns clock cycles
+    if 'attrs' in node:
+        func_name = node['attrs']['func_name']
+        opp = find_opp(func_name)
+        cycles = opp_time_func[opp](input_shapes, output_shape)
+        return cycles, opp
+    return 0, 'other'
+
+
+##### Woriing with JSON #####
+
+class DependancyNode():
+    def __init__(self, oppid, node, input_shapes,output_shape, hardware):
+        self.oppid = oppid
+        self.func = node['name']
+        self.input_shapes = input_shapes
+        self.output_shape = output_shape
+        self.hardware = hardware
+        self.time, self.opp = unfsed_graph_time(node, input_shapes, output_shape)
 
     def __hash__(self):
         return hash(self.oppid)
@@ -40,19 +83,24 @@ class DependancyNode():
         return False
 
     def __str__(self):
-        return f"{self.oppid=}\n {self.func=} \n{self.opp=} \n{self.input_size=} \n{self.hardware=}"
+        return f"""
+        {self.oppid=}
+        {self.func=}
+        {self.opp=}
+        {self.input_shapes=}
+        {self.output_shape=}
+        {self.hardware=}
+        {self.time=}"""
 
 # Create every node
 def create_nodes(raw_json):
     nodes = []
     for index, node in enumerate(raw_json["nodes"]):
         oppid = index
-        # func = node['attrs']['func_name'] if 'attrs' in
-        func = node['name']
-        opp = None
-        input_size = [raw_json['attrs']['shape'][1][input_index[0]] for input_index in node['inputs']]
+        input_shapes = [raw_json['attrs']['shape'][1][shape_idx[0]] for shape_idx in node['inputs']]
+        output_shape = raw_json['attrs']['shape'][1][index]
         hardware = "CPU"
-        nodes.append(DependancyNode(oppid, func, opp, input_size, hardware))
+        nodes.append(DependancyNode(oppid, node, input_shapes,output_shape, hardware))
     return nodes
 
 # Create the Adjancy Matrix for dependancy (from CSR format)
@@ -86,12 +134,15 @@ def matrix_to_CSR(matrix):
 
 node = create_nodes(raw_json)
 dependancy_matrix = creat_dependancy(raw_json)
-#number of nodes
-print(len(node))
-print(len(raw_json['nodes']))
-print(len(dependancy_matrix))
-
-print(np.nonzero(dependancy_matrix[54])) # what is a dependancy for node 54
-
-print(len(np.nonzero(dependancy_matrix)[0])) # total number of connections
 data, column_offset, node_row_ptr = matrix_to_CSR(dependancy_matrix)
+
+tot = 0
+for n in node:
+    tot += n.time
+
+ELECTRONIC_TIME_MULTIPLIER = 10**-8
+print(f"{tot*ELECTRONIC_TIME_MULTIPLIER} s")
+print(f"{tot*ELECTRONIC_TIME_MULTIPLIER*1000} ms")
+
+
+##### Working with script #####

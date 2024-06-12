@@ -86,7 +86,31 @@ def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, co
     mod, params = relay.frontend.from_onnx(model_onnx, shape_dict) # <class 'tvm.ir.module.IRModule'>
 
     # Relay module optimization
-    mod = relay.transform.FuseOps(1)(mod)
+
+    # TODO Figure out how to allow fusion...
+    # def my_fuse_pattern(op):
+    #     print(op.name)
+    #     if isinstance(op, relay.op.op.Op) and op.name in ["dense", "batch_matmul"]:
+    #         return False
+    #     return True
+
+    # def dense_or_batch_matmul(expr):
+    #     # print(dir(op)) <class 'tvm.relay.function.Function'>
+    #     print('here!')
+    #     func = expr.astext()
+    #     for i in  ["dense", "batch_matmul", 'add']:
+    #         if i in func:
+    #             return False
+    #     return True
+
+    # patterns = [
+    #     ("fuse_all_except_dense_batch_matmul", relay.dataflow_pattern.wildcard(), dense_or_batch_matmul)
+    # ]
+    # mod = relay.transform.MergeComposite(patterns)(mod)
+
+
+    # Apply the custom fusion pattern
+    # mod = relay.transform.FuseOps(-1)(mod)
 
     # Extract and save Relay function source code
     relay_source_path = f"{model_name}_relay_source.txt"
@@ -152,6 +176,8 @@ def tvm_validation(model_name):
 
     print('****MY OUTPUT******')
 
+    print(module.benchmark(tvm.cpu()))
+
     output = module.get_output(0)
     np_output = output.asnumpy()
     next_tok = np.argmax(np_output[0][-1])
@@ -164,14 +190,14 @@ def tvm_validation(model_name):
 prompt = "my favorite music is"
 model_name = "gpt2"
 
-model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = True)
+# model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = True)
 
 config = {"relay.backend.use_auto_scheduler": False,
           "relay.FuseOps.max_depth": 0,
-          "tir.disable_vectorize": True}
-onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 0, config = config)
+          "tir.disable_vectorize": False}
+# onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 0, config = config)
 
-# tvm_validation(model_name)
+tvm_validation(model_name)
 
 
 '''
@@ -190,7 +216,7 @@ https://tvm.apache.org/docs/reference/api/python/graph_executor.html
 print('****MY OUTPUT******')
 print(module.benchmark(tvm.cpu()))
 print(module.benchmark(tvm.cpu(), end_to_end=True))
-benchmark'
+'benchmark'
 'debug_get_output'
 'get_input'
 'get_input_index'
@@ -207,7 +233,7 @@ benchmark'
 
 '''
 <class 'tvm.ir.module.IRModule'>
-astext'
+'astext'
 'attrs'
 'from_expr'
 'functions'
