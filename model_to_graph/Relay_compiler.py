@@ -3,11 +3,12 @@ compile a generic model in any format to relay IR
 """
 import tvm
 from tvm import relay
-import numpy as np
+from tvm.contrib import graph_runtime
 import onnx
+import json
+import numpy as np
 import os
 import io
-from tvm.contrib import graph_runtime
 
 
 import torch
@@ -64,7 +65,6 @@ def transformer_torch_to_onnx(model_name, prompt, save = False):
     model_onnx = onnx.load_model_from_string(model_onnx_bytes)
     return model_onnx, input_ids
 
-
 def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, config = {}):
 
     shape_list = ('input_ids', input_ids.shape) # (name, (1, num_input_ids))
@@ -73,12 +73,19 @@ def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, co
     onnx.checker.check_model(model_onnx)
 
     mod, params = relay.frontend.from_onnx(model_onnx, shape_dict)
+    # <class 'tvm.ir.module.IRModule'>
+    # <class 'dict'>
+
+    # Extract and save Relay function source code
+    relay_source_path = f"{model_name}_relay_source.txt"
+    with open(relay_source_path, "w") as f:
+        f.write(mod.astext(show_meta_data=False))
+
 
     target = tvm.target.Target("llvm", host="llvm")
     dev = tvm.cpu(0)
     with tvm.transform.PassContext(opt_level=opt_level, config=config):
         lib = relay.build(mod, target=target, params=params)
-
 
     # Save the graph JSON to a file
     graph_json_path = f"{model_name}_graph.json"
@@ -95,6 +102,8 @@ def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, co
         # f.write(relay.save_param_dict(param_dict).get_bytearray())
         f.write(relay.save_param_dict(param_dict))
 
+
+
 def tvm_validation(model_name):
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -106,7 +115,7 @@ def tvm_validation(model_name):
 
     # Real
     print("-----Transformer----:")
-    gen_tokens = model.generate(input_ids, do_sample=False, temperature=1, max_length=6)
+    gen_tokens = model.generate(input_ids, do_sample=False, temperature=1, max_length=7)
     print(gen_tokens)
     gen_text = tokenizer.batch_decode(gen_tokens)[0]
     print(gen_text)
@@ -127,6 +136,8 @@ def tvm_validation(model_name):
     module.set_input('input_ids', input_ids)
     module.run()
 
+    print('****MY OUTPUT******')
+
     output = module.get_output(0)
     np_output = output.asnumpy()
     next_tok = np.argmax(np_output[0][-1])
@@ -139,60 +150,37 @@ def tvm_validation(model_name):
 prompt = "my favorite music is"
 model_name = "gpt2"
 
-# model_onnx, input_ids = transformer_torch_to_onnx(model_name, model_name, prompt, save = True)
+model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = True)
 
-# onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 3, config = {"relay.FuseOps.max_depth": 5})
+onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 3, config = {"relay.FuseOps.max_depth": 5})
 
-tvm_validation(model_name)
+# tvm_validation(model_name)
 
 '''
+# modles
 "gpt2"
 "bert-base-uncased"
 "google-bert/bert-base-uncased"
 https://huggingface.co/docs/transformers/en/model_doc/auto
 '''
 
-
-# #### DIRECTLY FROM PYTORCH
-# mmodel_name = "gpt2"
-# gpt2_model = AutoModelForCausalLM.from_pretrained(model_name)
-
-# # Convert PyTorch model to TorchScript
-# input_shape = (1, 10)  # Adjust according to your input shape
-# input_name = np.array('test')
-# input_example = torch.zeros(input_shape).long()  # Create an example input tensor
-# print(input_example)
-# print(input_name)
-# print(input_example.shape)
-# print(input_name.shape)
-# # traced_model = torch.jit.trace(gpt2_model, input_example)
-
-# # Convert TorchScript model to Relay IR
-# mod, params = relay.frontend.from_pytorch(traced_model, [(input_name, input_shape)])
-
-# # Apply optimizations
-# mod = relay.transform.Sequential([relay.transform.RemoveUnusedFunctions(), relay.transform.FoldConstant()]) (mod)
-
-# # Compile Relay IR
-# target = 'llvm'  # Change the target according to your preference
-# target_host = 'llvm'
-# with tvm.transform.PassContext(opt_level=3):
-#     graph, lib, params = relay.build(mod, target=target, target_host=target_host, params=params)
-
-# # Write graph, lib, params to files
-# graph_path = "compiled_graph.json"
-# lib_path = "compiled_lib.tar"
-# params_path = "compiled_params.params"
-
-# # Save graph
-# with open(graph_path, "w") as f:
-#     f.write(graph)
-
-# # Save lib
-# lib.export_library(lib_path)
-
-# # Save params
-# with open(params_path, "wb") as f:
-#     f.write(relay.save_param_dict(params))
-
-# # ERROR: Dictionary inputs to traced functions must have consistent type. Found Tensor and Tuple[Tuple[Tensor, Tensor],
+'''
+# module methods
+https://tvm.apache.org/docs/reference/api/python/graph_executor.html
+print('****MY OUTPUT******')
+print(module.benchmark(tvm.cpu()))
+print(module.benchmark(tvm.cpu(), end_to_end=True))
+benchmark'
+'debug_get_output'
+'get_input'
+'get_input_index'
+'get_input_info'
+'get_num_inputs'
+'get_num_outputs'
+'get_output'
+    print(module.get_output(0).shape) # of whole model
+'load_params'
+'run'
+'set_input'
+'share_params']
+'''
