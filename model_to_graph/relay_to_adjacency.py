@@ -6,8 +6,8 @@ import networkx as nx
 
 
 
-# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
-read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
+read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
+# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
 with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict

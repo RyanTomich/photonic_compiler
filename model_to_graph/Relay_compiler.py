@@ -15,8 +15,14 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 def transformer_torch_to_onnx(model_name, prompt, save = False):
+    ''' Takes transformer models to ONNX
+    model_name (srt)
+    prompt(str)
+    save(bool) samve model to files
+    '''
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+    # get model from transformer library
     model = AutoModelForCausalLM.from_pretrained(model_name, torchscript=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -66,20 +72,26 @@ def transformer_torch_to_onnx(model_name, prompt, save = False):
     return model_onnx, input_ids
 
 def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, config = {}):
-
-    shape_list = ('input_ids', input_ids.shape) # (name, (1, num_input_ids))
+    '''
+    model_onnx - model in onnx format
+    input_ids - tensor with input_ids. Created by the tokenizer
+    model_name(srt)
+    opt_level(int 0-3)- how much to optimize
+    config(dict) - config files
+    '''
     shape_dict = {'input_ids': input_ids.shape}  # Adjust based on your model's input shape
 
     onnx.checker.check_model(model_onnx)
 
-    mod, params = relay.frontend.from_onnx(model_onnx, shape_dict)
-    # <class 'tvm.ir.module.IRModule'>
-    # <class 'dict'>
+    mod, params = relay.frontend.from_onnx(model_onnx, shape_dict) # <class 'tvm.ir.module.IRModule'>
+
+    # Relay module optimization
+    mod = relay.transform.FuseOps(1)(mod)
 
     # Extract and save Relay function source code
     relay_source_path = f"{model_name}_relay_source.txt"
     with open(relay_source_path, "w") as f:
-        f.write(mod.astext(show_meta_data=False))
+        f.write(mod.astext(show_meta_data=False)) # annotate = func
 
 
     target = tvm.target.Target("llvm", host="llvm")
@@ -102,9 +114,11 @@ def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, co
         # f.write(relay.save_param_dict(param_dict).get_bytearray())
         f.write(relay.save_param_dict(param_dict))
 
-
-
 def tvm_validation(model_name):
+    '''
+    model_name(srt)
+    must be local files: mod_graph.json, mod_lib.so, mod_params.params
+    '''
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     model = AutoModelForCausalLM.from_pretrained(model_name, torchscript=True)
@@ -152,12 +166,17 @@ model_name = "gpt2"
 
 model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = True)
 
-onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 3, config = {"relay.FuseOps.max_depth": 5})
+config = {"relay.backend.use_auto_scheduler": False,
+          "relay.FuseOps.max_depth": 0,
+          "tir.disable_vectorize": True}
+onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 0, config = config)
 
 # tvm_validation(model_name)
 
+
 '''
 # modles
+
 "gpt2"
 "bert-base-uncased"
 "google-bert/bert-base-uncased"
@@ -166,6 +185,7 @@ https://huggingface.co/docs/transformers/en/model_doc/auto
 
 '''
 # module methods
+
 https://tvm.apache.org/docs/reference/api/python/graph_executor.html
 print('****MY OUTPUT******')
 print(module.benchmark(tvm.cpu()))
@@ -183,4 +203,86 @@ benchmark'
 'run'
 'set_input'
 'share_params']
+'''
+
+'''
+<class 'tvm.ir.module.IRModule'>
+astext'
+'attrs'
+'from_expr'
+'functions'
+'get_attr'
+'get_constructor'
+'get_global_type_var'
+'get_global_type_vars'
+'get_global_var'
+'get_global_vars'
+'get_type'
+'global_type_var_map_'
+'global_var_map_'
+'handle'
+'import_from_std'
+'same_as'
+'script'
+'show'
+'source_map'
+'type_definitions'
+'update'
+'update_func'
+'with_attr'
+'''
+
+'''
+Configurate options:
+
+relay.ext.ethos-u.options
+relay.ext.ethos-n.options
+relay.fallback_device_type
+relay.backend.use_meta_schedule
+relay.backend.use_auto_scheduler
+relay.backend.tir_converter
+relay.ToMixedPrecision.keep_orig_output_dtype
+relay.FuseOps.max_depth
+relay.collage.byoc_max_depth
+tir.usmp.use_workspace_io
+tir.usmp.enable
+tir.UnrollLoop
+tir.RemoveNoOp
+tir.merge_async_commit_queue_scope
+tir.add_lower_pass
+relay.ext.cmsisnn.options
+tir.disable_assert
+tir.LoopPartition
+tir.use_async_copy
+tir.disable_vectorize
+tir.debug_keep_trivial_loop
+tir.instrument_bound_checkers
+relay.remove_standalone_reshapes.enable
+tir.usmp.custom_algorithm
+tir.disable_storage_rewrite
+tir.vtcm_capacity
+tir.ReduceBranchingThroughOvercompute
+relay.backend.use_meta_schedule_dispatch
+tir.Simplify
+tir.disable_cse_tir
+tir.is_entry_func
+relay.FuseOps.link_params
+relay.collage.tvm_max_depth
+tir.enable_equiv_terms_in_cse_tir
+tir.dma_bypass_cache
+tir.noalias
+tir.lwp_min_height
+tir.instr_siblings
+tir.instrument_lwp
+testing.immutable_module
+tir.contrib.ethos-u.copy_compute_reordering_max_copy_movements
+tir.contrib.ethos-u.copy_compute_reordering_reorder_by_cycles
+tir.lwp_disable_func_prof
+tir.detect_global_barrier
+tir.HoistExpression
+tir.HoistIfThenElse
+tir.InjectDoubleBuffer
+tir.usmp.algorithm
+tir.lwp_max_depth
+tir.reset_start_id
 '''
