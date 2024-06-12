@@ -40,7 +40,6 @@ opp_time_func = {
     'transpose': lambda i, o: 0,
     'split': lambda i, o: 0,
     'dense': lambda i, o: 0,
-    'null': lambda i, o: 0,
     'tanh': lambda i, o: 0,
 }
 
@@ -60,7 +59,7 @@ def unfsed_graph_time(node, input_shapes, output_shape):
         opp = find_opp(func_name)
         cycles = opp_time_func[opp](input_shapes, output_shape)
         return cycles, opp
-    return 0, 'other'
+    return 0, 'null'
 
 
 ##### Woriing with JSON #####
@@ -68,7 +67,7 @@ def unfsed_graph_time(node, input_shapes, output_shape):
 class DependancyNode():
     def __init__(self, oppid, node, input_shapes,output_shape, hardware):
         self.oppid = oppid
-        self.func = node['name']
+        self.func = 'null' if node['op'] == "null" else node['name']
         self.input_shapes = input_shapes
         self.output_shape = output_shape
         self.hardware = hardware
@@ -95,10 +94,13 @@ class DependancyNode():
 # Create every node
 def create_nodes(raw_json):
     nodes = []
+    split_shift = 0
     for index, node in enumerate(raw_json["nodes"]):
+        if 'split' in node['name']:
+            split_shift += 2
         oppid = index
-        input_shapes = [raw_json['attrs']['shape'][1][shape_idx[0]] for shape_idx in node['inputs']]
-        output_shape = raw_json['attrs']['shape'][1][index]
+        input_shapes = [raw_json['attrs']['shape'][1][shape_idx[0] + split_shift] for shape_idx in node['inputs']]
+        output_shape = raw_json['attrs']['shape'][1][index+ split_shift]
         hardware = "CPU"
         nodes.append(DependancyNode(oppid, node, input_shapes,output_shape, hardware))
     return nodes
@@ -131,18 +133,37 @@ def matrix_to_CSR(matrix):
         node_row_ptr.append(row_prt_total)
     return data, column_offset, node_row_ptr
 
+# node opps
+def print_graph(node_list):
+    with open('custon_graph.txt', "w") as f:
+        for node in node_list:
+            if node.opp != 'null':
+                f.write(f'{node.func}\n')
 
-node = create_nodes(raw_json)
+
+node_list = create_nodes(raw_json)
 dependancy_matrix = creat_dependancy(raw_json)
 data, column_offset, node_row_ptr = matrix_to_CSR(dependancy_matrix)
 
-tot = 0
-for n in node:
-    tot += n.time
+for node in node_list:
+    if node.opp == 'matmul':
+        print(node)
 
-ELECTRONIC_TIME_MULTIPLIER = 10**-8
-print(f"{tot*ELECTRONIC_TIME_MULTIPLIER} s")
-print(f"{tot*ELECTRONIC_TIME_MULTIPLIER*1000} ms")
+
+# print(node_list[1030])
+
+# total = 0
+# for node in node_list:
+#     if node.opp in ['dense', 'matmul']:
+#         total += 1
+#         print(node.opp)
+#         print(node.input_shapes)
+#         print(node.output_shape)
+#         print()
+# print(f'{total=}')
+# ELECTRONIC_TIME_MULTIPLIER = 10**-8
+# print(f"{tot*ELECTRONIC_TIME_MULTIPLIER} s")
+# print(f"{tot*ELECTRONIC_TIME_MULTIPLIER*1000} ms")
 
 
 ##### Working with script #####
