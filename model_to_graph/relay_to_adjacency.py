@@ -24,6 +24,7 @@ opp_time_func = {
     'subtract': lambda i, o: tensor_elements(o[0]),
     'multiply': lambda i, o: tensor_elements(o[0]),
     'divide': lambda i, o:  tensor_elements(o[0]),
+    'sqrt': lambda i, o: tensor_elements(o[0]),
     'rsqrt': lambda i, o: tensor_elements(o[0]),
     'tanh': lambda i, o: tensor_elements(o[0]) * 4, #e^x definition
     'power': lambda i, o: tensor_elements(o[0]),
@@ -37,6 +38,7 @@ opp_time_func = {
     'softmax': lambda i, o: 6*i[0][-1]*i[0][-2],
     'matmul': lambda i, o: tensor_elements(i[0])*i[1][-2]*2,
     'dense': lambda i, o: tensor_elements(i[0])*i[1][-2]*2,
+    'pack': lambda i, o: tensor_elements(i[0])*i[1][-2]*2,
 }
 
 def find_opp(func_name):
@@ -184,6 +186,10 @@ print(f"{len(node_row_ptr)=}")
 print(f"{len(graph.raw_json['node_row_ptr'])=}")
 
 graph.total_time()
+
+for node in graph.node_list:
+    if node.opp == 'pack':
+        print(node.input_shapes)
 
 
 

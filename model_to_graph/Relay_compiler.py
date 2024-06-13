@@ -129,7 +129,7 @@ def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt
     mod, params = relay.frontend.from_onnx(model_onnx, shape_dict) # <class 'tvm.ir.module.IRModule'>
 
     # apply optimixations
-    mod = relay.transform.FuseOps(0)(mod)
+    sep_mod = relay.transform.FuseOps(0)(mod)
     # tvm.relay.transform.DefuseOps
     # tvm.relay.transform.ToGraphNormalForm()
 
@@ -139,25 +139,25 @@ def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt
     #       "tir.disable_vectorize": False}
 
 
-    # Custom Pass
-    for func_name, func in mod.functions.items():
-        mod[func_name] = apply_custom_fusion_pass(func)
+    # # Custom Pass
+    # for func_name, func in mod.functions.items():
+    #     mod[func_name] = apply_custom_fusion_pass(func)
 
-    nested_functions = extract_nested_functions(mod)
+    # nested_functions = extract_nested_functions(mod)
 
-    nested_func = nested_functions[200]
+    # nested_func = nested_functions[200]
 
-    sub_mod = tvm.IRModule()
-    sub_mod["main"] = nested_func
-    print(sub_mod)
+    # sub_mod = tvm.IRModule()
+    # sub_mod["main"] = nested_func
+    # print(sub_mod)
 
-    relay.build(sub_mod, target=tvm.target.Target("llvm", host="llvm"))
+    # relay.build(sub_mod, target=tvm.target.Target("llvm", host="llvm"))
 
 
     # Extract and save Relay function source code
     relay_source_path = f"{model_name}_relay_source.txt"
     with open(relay_source_path, "w") as f:
-        f.write(mod.astext(show_meta_data=False)) # annotate = func
+        f.write(sep_mod.astext(show_meta_data=False)) # annotate = func
 
     # Export model graph parts
     target = tvm.target.Target("llvm", host="llvm")
@@ -234,9 +234,9 @@ def tvm_validation(model_name):
 prompt = "my favorite music is"
 model_name = "gpt2"
 
-model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
+# model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
 
-onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 0)
+# onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 3)
 
 tvm_validation(model_name)
 
