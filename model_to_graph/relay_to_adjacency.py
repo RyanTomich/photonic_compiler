@@ -20,19 +20,19 @@ def tensor_elements(tensor_shape):
 
 
 opp_time_func = {
-    'add': lambda i, o: tensor_elements(o),
-    'subtract': lambda i, o: tensor_elements(o),
-    'multiply': lambda i, o: tensor_elements(o),
-    'divide': lambda i, o:  tensor_elements(o),
-    'rsqrt': lambda i, o: tensor_elements(o),
-    'tanh': lambda i, o: tensor_elements(o) * 4, #e^x definition
-    'power': lambda i, o: tensor_elements(o),
+    'add': lambda i, o: tensor_elements(o[0]),
+    'subtract': lambda i, o: tensor_elements(o[0]),
+    'multiply': lambda i, o: tensor_elements(o[0]),
+    'divide': lambda i, o:  tensor_elements(o[0]),
+    'rsqrt': lambda i, o: tensor_elements(o[0]),
+    'tanh': lambda i, o: tensor_elements(o[0]) * 4, #e^x definition
+    'power': lambda i, o: tensor_elements(o[0]),
     'nop': lambda i, o: 0, #reshape(Non-Computational)
     'less': lambda i, o: 1,
     'where': lambda i, o: 1,
     'take': lambda i, o: 1,
     'split': lambda i, o: 3, # for each split
-    'transpose': lambda i, o: tensor_elements(o), # unsture
+    'transpose': lambda i, o: tensor_elements(o[0]), # unsture
     'mean': lambda i, o: (i[0][-1]+1)*i[0][-2],
     'softmax': lambda i, o: 6*i[0][-1]*i[0][-2],
     'matmul': lambda i, o: tensor_elements(i[0])*i[1][-2]*2,
@@ -48,12 +48,12 @@ def find_opp(func_name):
         except:
             return part
 
-def unfsed_graph_time(node, input_shapes, output_shape):
+def unfsed_graph_time(node, input_shapes, output_shapes):
     # takes node, returns clock cycles
     if 'attrs' in node:
         func_name = node['attrs']['func_name']
         opp = find_opp(func_name)
-        cycles = opp_time_func[opp](input_shapes, output_shape)
+        cycles = opp_time_func[opp](input_shapes, output_shapes)
         return cycles, opp
     return 0, 'null'
 
@@ -61,13 +61,13 @@ def unfsed_graph_time(node, input_shapes, output_shape):
 ##### Woriing with JSON #####
 
 class DependancyNode():
-    def __init__(self, oppid, node, input_shapes,output_shape):
+    def __init__(self, oppid, node, input_shapes,output_shapes):
         self.oppid = oppid
         self.func = 'null' if node['op'] == "null" else node['name']
         self.input_shapes = input_shapes
-        self.output_shape = output_shape
+        self.output_shapes = output_shapes
         self.photonic_opps = ['dense', 'matmul']
-        self.cycles, self.opp = unfsed_graph_time(node, input_shapes, output_shape)
+        self.cycles, self.opp = unfsed_graph_time(node, input_shapes, output_shapes)
         self.hardware = 'P' if self.opp in self.photonic_opps else "CPU"
 
     def __hash__(self):
@@ -84,7 +84,7 @@ class DependancyNode():
         {self.func=}
         {self.opp=}
         {self.input_shapes=}
-        {self.output_shape=}
+        {self.output_shapes=}
         {self.hardware=}
         {self.cycles=}"""
 
@@ -95,15 +95,20 @@ class DependancyGraph():
 
     # Create every node
     def create_nodes(self):
-        nodes = []
+        ajusted_shapes = []
         split_shift = 0
         for index, node in enumerate(self.raw_json["nodes"]):
-            oppid = index
-            input_shapes = [self.raw_json['attrs']['shape'][1][shape_idx[0] + split_shift] for shape_idx in node['inputs']]
-            output_shape = self.raw_json['attrs']['shape'][1][index+ split_shift]
+            ajusted_shapes.append(self.raw_json['attrs']['shape'][1][index + split_shift])
             if 'split' in node['name']:
                 split_shift += 2
-            nodes.append(DependancyNode(oppid, node, input_shapes,output_shape))
+
+        nodes = []
+        for index, node in enumerate(self.raw_json["nodes"]):
+            oppid = index
+            num_output = int(node['attrs']['num_outputs']) if 'attrs' in node else 1
+            input_shapes = [ajusted_shapes[shape_idx[0]] for shape_idx in node['inputs']]
+            output_shapes = [ajusted_shapes[index] for i in range(num_output)]
+            nodes.append(DependancyNode(oppid, node, input_shapes, output_shapes))
         return nodes
 
     # Create the Adjancy Matrix for dependancy (from CSR format)
@@ -123,7 +128,7 @@ class DependancyGraph():
     def matrix_to_CSR(self, matrix):
         data = []
         column_offset = []
-        node_row_ptr = [0,]
+        node_row_ptr = [0]
         row_prt_total = 0
         for row_num, row in enumerate(matrix):
             for col_num, cell in enumerate(row):
@@ -155,7 +160,8 @@ class DependancyGraph():
         total = 0
         for node in graph.node_list:
             total += node.cycles
-        ELECTRONIC_TIME_MULTIPLIER = 10**-8
+        clock_speed = 3.5 * 10**9
+        ELECTRONIC_TIME_MULTIPLIER = 1/clock_speed
         print(f"{total} cycles")
         print(f"{total*ELECTRONIC_TIME_MULTIPLIER} s")
         print(f"{total*ELECTRONIC_TIME_MULTIPLIER*1000} ms")
@@ -165,16 +171,20 @@ class DependancyGraph():
 graph = DependancyGraph(raw_json)
 CPU_cost, P_cost = graph.create_cost_vec()
 dep_graph = graph.creat_dependancy()
-print(len(CPU_cost))
-print(len(P_cost))
-print(len(graph.node_list))
-print(len(graph.raw_json['nodes']))
-print(dep_graph.shape)
+print(f"{len(CPU_cost)=}")
+print(f"{len(P_cost)=}")
+print(f"{len(graph.node_list)=}")
+print(f"{len(graph.raw_json['nodes'])=}")
+print(f"{dep_graph.shape=}")
 
+data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
+print(f"{len(data)=}")
+print(f"{len(column_offset)=}")
+print(f"{len(node_row_ptr)=}")
+print(f"{len(graph.raw_json['node_row_ptr'])=}")
 
-# dependancy_matrix = graph.creat_dependancy()
-# data, column_offset, node_row_ptr = graph. matrix_to_CSR(dependancy_matrix)
-# graph.total_time()
+graph.total_time()
+
 
 
 ##### Working with script #####
