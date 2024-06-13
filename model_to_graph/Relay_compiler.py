@@ -13,6 +13,20 @@ import io
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+class CustomFusionPass(relay.ExprMutator):
+    def visit_call(self, call):
+        op_name = call.op.name
+        if op_name in ["nn.dense", "batch_matmul"]:
+            return call
+        else:
+            return super().visit_call(call)
+
+def apply_custom_fusion_pass(func):
+    custom_pass = CustomFusionPass()
+    return custom_pass.visit(func)
+
+
 def extract_nested_functions(mod):
     # Extract nested fuctions
     class NestedFunctionExtractor(tvm.relay.ExprVisitor):
@@ -38,7 +52,7 @@ def extract_nested_functions(mod):
     return extractor.nested_functions
 
     # print(len(extractor.nested_functions))  # 344
-    nested_func = extractor.nested_functions[1]
+    # nested_func = extractor.nested_functions[1]
     # print(type(nested_func)) # <class 'tvm.relay.function.Function'>
     # sub_mod = tvm.IRModule()
     # sub_mod["main"] = nested_func
@@ -112,12 +126,33 @@ def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt
     '''
     shape_dict = {'input_ids': input_ids.shape}  # Adjust based on your model's input shape
     onnx.checker.check_model(model_onnx)
-
     mod, params = relay.frontend.from_onnx(model_onnx, shape_dict) # <class 'tvm.ir.module.IRModule'>
 
-    mod = relay.transform.FuseOps(-1)(mod)
+    # apply optimixations
+    mod = relay.transform.FuseOps(0)(mod)
+    # tvm.relay.transform.DefuseOps
+    # tvm.relay.transform.ToGraphNormalForm()
+
+    config = {"relay.FuseOps.max_depth": 0}
+    # config = {"relay.backend.use_auto_scheduler": True,
+    #       "relay.FuseOps.max_depth": -1,
+    #       "tir.disable_vectorize": False}
+
+
+    # Custom Pass
+    for func_name, func in mod.functions.items():
+        mod[func_name] = apply_custom_fusion_pass(func)
 
     nested_functions = extract_nested_functions(mod)
+
+    nested_func = nested_functions[200]
+
+    sub_mod = tvm.IRModule()
+    sub_mod["main"] = nested_func
+    print(sub_mod)
+
+    relay.build(sub_mod, target=tvm.target.Target("llvm", host="llvm"))
+
 
     # Extract and save Relay function source code
     relay_source_path = f"{model_name}_relay_source.txt"
@@ -126,7 +161,6 @@ def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt
 
     # Export model graph parts
     target = tvm.target.Target("llvm", host="llvm")
-    dev = tvm.cpu(0)
     with tvm.transform.PassContext(opt_level=opt_level, config=config):
         lib = relay.build(mod, target=target, params=params)
 
@@ -200,14 +234,11 @@ def tvm_validation(model_name):
 prompt = "my favorite music is"
 model_name = "gpt2"
 
-model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = True)
+model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
 
-# config = {"relay.backend.use_auto_scheduler": True,
-#           "relay.FuseOps.max_depth": -1,
-#           "tir.disable_vectorize": False}
-onnx_to_relay(model_onnx,input_ids, write = False, model_name = model_name, opt_level = 3)
+onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 0)
 
-# tvm_validation(model_name)
+tvm_validation(model_name)
 
 
 '''
