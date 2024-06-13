@@ -13,6 +13,37 @@ import io
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+def extract_nested_functions(mod):
+    # Extract nested fuctions
+    class NestedFunctionExtractor(tvm.relay.ExprVisitor):
+        def __init__(self):
+            super().__init__()
+            self.nested_functions = []
+
+        def visit_let(self, let):
+            # Visit the value and body of the let expression
+            self.visit(let.value)
+            self.visit(let.body)
+            super().visit_let(let)
+
+        def visit_function(self, func):
+            # Collect the function
+            self.nested_functions.append(func)
+            super().visit_function(func)
+
+    main_func = mod['main']
+    extractor = NestedFunctionExtractor()
+    extractor.visit(main_func)
+
+    return extractor.nested_functions
+
+    # print(len(extractor.nested_functions))  # 344
+    nested_func = extractor.nested_functions[1]
+    # print(type(nested_func)) # <class 'tvm.relay.function.Function'>
+    # sub_mod = tvm.IRModule()
+    # sub_mod["main"] = nested_func
+    # sub_mod[nested_func.name_hint] = nested_func
+    # print(sub_mod)
 
 def transformer_torch_to_onnx(model_name, prompt, save = False):
     ''' Takes transformer models to ONNX
@@ -80,53 +111,20 @@ def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt
     config(dict) - config files
     '''
     shape_dict = {'input_ids': input_ids.shape}  # Adjust based on your model's input shape
-
     onnx.checker.check_model(model_onnx)
 
     mod, params = relay.frontend.from_onnx(model_onnx, shape_dict) # <class 'tvm.ir.module.IRModule'>
 
-    # Apply the custom fusion pattern
     mod = relay.transform.FuseOps(-1)(mod)
 
-    # Extract nested fuctions
-    class NestedFunctionExtractor(tvm.relay.ExprVisitor):
-        def __init__(self):
-            super().__init__()
-            self.nested_functions = []
-
-        def visit_let(self, let):
-            # Visit the value and body of the let expression
-            self.visit(let.value)
-            self.visit(let.body)
-            super().visit_let(let)
-
-        def visit_function(self, func):
-            # Collect the function
-            self.nested_functions.append(func)
-            super().visit_function(func)
-
-    main_func = mod['main']
-    extractor = NestedFunctionExtractor()
-    extractor.visit(main_func)
-
-    # print(len(extractor.nested_functions))  # 344
-    nested_func = extractor.nested_functions[1]
-    # print(type(nested_func)) # <class 'tvm.relay.function.Function'>
-    sub_mod = tvm.IRModule()
-    sub_mod["main"] = nested_func
-    print(sub_mod)
-
-    target = tvm.target.Target("llvm")
-    with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(sub_mod, target=target)
-
+    nested_functions = extract_nested_functions(mod)
 
     # Extract and save Relay function source code
     relay_source_path = f"{model_name}_relay_source.txt"
     with open(relay_source_path, "w") as f:
         f.write(mod.astext(show_meta_data=False)) # annotate = func
 
-
+    # Export model graph parts
     target = tvm.target.Target("llvm", host="llvm")
     dev = tvm.cpu(0)
     with tvm.transform.PassContext(opt_level=opt_level, config=config):
@@ -148,8 +146,7 @@ def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt
             # f.write(relay.save_param_dict(param_dict).get_bytearray())
             f.write(relay.save_param_dict(param_dict))
 
-    graph_json, so, params = lib
-    return graph_json, so, params
+    return lib
 
 def tvm_validation(model_name):
     '''
