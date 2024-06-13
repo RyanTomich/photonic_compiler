@@ -71,7 +71,7 @@ def transformer_torch_to_onnx(model_name, prompt, save = False):
     model_onnx = onnx.load_model_from_string(model_onnx_bytes)
     return model_onnx, input_ids
 
-def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, config = {}):
+def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt_level = 0, config = {}):
     '''
     model_onnx - model in onnx format
     input_ids - tensor with input_ids. Created by the tokenizer
@@ -85,32 +85,41 @@ def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, co
 
     mod, params = relay.frontend.from_onnx(model_onnx, shape_dict) # <class 'tvm.ir.module.IRModule'>
 
-    # Relay module optimization
-
-    # TODO Figure out how to allow fusion...
-    # def my_fuse_pattern(op):
-    #     print(op.name)
-    #     if isinstance(op, relay.op.op.Op) and op.name in ["dense", "batch_matmul"]:
-    #         return False
-    #     return True
-
-    # def dense_or_batch_matmul(expr):
-    #     # print(dir(op)) <class 'tvm.relay.function.Function'>
-    #     print('here!')
-    #     func = expr.astext()
-    #     for i in  ["dense", "batch_matmul", 'add']:
-    #         if i in func:
-    #             return False
-    #     return True
-
-    # patterns = [
-    #     ("fuse_all_except_dense_batch_matmul", relay.dataflow_pattern.wildcard(), dense_or_batch_matmul)
-    # ]
-    # mod = relay.transform.MergeComposite(patterns)(mod)
-
-
     # Apply the custom fusion pattern
-    # mod = relay.transform.FuseOps(-1)(mod)
+    mod = relay.transform.FuseOps(-1)(mod)
+
+    # Extract nested fuctions
+    class NestedFunctionExtractor(tvm.relay.ExprVisitor):
+        def __init__(self):
+            super().__init__()
+            self.nested_functions = []
+
+        def visit_let(self, let):
+            # Visit the value and body of the let expression
+            self.visit(let.value)
+            self.visit(let.body)
+            super().visit_let(let)
+
+        def visit_function(self, func):
+            # Collect the function
+            self.nested_functions.append(func)
+            super().visit_function(func)
+
+    main_func = mod['main']
+    extractor = NestedFunctionExtractor()
+    extractor.visit(main_func)
+
+    # print(len(extractor.nested_functions))  # 344
+    nested_func = extractor.nested_functions[1]
+    # print(type(nested_func)) # <class 'tvm.relay.function.Function'>
+    sub_mod = tvm.IRModule()
+    sub_mod["main"] = nested_func
+    print(sub_mod)
+
+    target = tvm.target.Target("llvm")
+    with tvm.transform.PassContext(opt_level=3):
+        lib = relay.build(sub_mod, target=target)
+
 
     # Extract and save Relay function source code
     relay_source_path = f"{model_name}_relay_source.txt"
@@ -123,20 +132,24 @@ def onnx_to_relay(model_onnx, input_ids, model_name = 'model', opt_level = 0, co
     with tvm.transform.PassContext(opt_level=opt_level, config=config):
         lib = relay.build(mod, target=target, params=params)
 
-    # Save the graph JSON to a file
-    graph_json_path = f"{model_name}_graph.json"
-    with open(graph_json_path, "w") as f:
-        f.write(lib.get_graph_json())
+    if write:
+        # Save the graph JSON to a file
+        graph_json_path = f"{model_name}_graph.json"
+        with open(graph_json_path, "w") as f:
+            f.write(lib.get_graph_json())
 
-    # Create the function library
-    lib.export_library(f"{model_name}_lib.so")
+        # Create the function library
+        lib.export_library(f"{model_name}_lib.so")
 
-    # Creat paramater library
-    param_dict = lib.get_params()
-    param_bytes_path = f"{model_name}_params.params"
-    with open(param_bytes_path, "wb") as f:
-        # f.write(relay.save_param_dict(param_dict).get_bytearray())
-        f.write(relay.save_param_dict(param_dict))
+        # Creat paramater library
+        param_dict = lib.get_params()
+        param_bytes_path = f"{model_name}_params.params"
+        with open(param_bytes_path, "wb") as f:
+            # f.write(relay.save_param_dict(param_dict).get_bytearray())
+            f.write(relay.save_param_dict(param_dict))
+
+    graph_json, so, params = lib
+    return graph_json, so, params
 
 def tvm_validation(model_name):
     '''
@@ -190,14 +203,14 @@ def tvm_validation(model_name):
 prompt = "my favorite music is"
 model_name = "gpt2"
 
-# model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = True)
+model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = True)
 
-config = {"relay.backend.use_auto_scheduler": False,
-          "relay.FuseOps.max_depth": 0,
-          "tir.disable_vectorize": False}
-# onnx_to_relay(model_onnx,input_ids, model_name = model_name, opt_level = 0, config = config)
+# config = {"relay.backend.use_auto_scheduler": True,
+#           "relay.FuseOps.max_depth": -1,
+#           "tir.disable_vectorize": False}
+onnx_to_relay(model_onnx,input_ids, write = False, model_name = model_name, opt_level = 3)
 
-tvm_validation(model_name)
+# tvm_validation(model_name)
 
 
 '''
