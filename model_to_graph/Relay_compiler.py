@@ -234,11 +234,11 @@ def tvm_validation(model_name):
 prompt = "my favorite music is"
 model_name = "gpt2"
 
-# model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
+model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
 
-# onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 3)
+onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 3)
 
-tvm_validation(model_name)
+# tvm_validation(model_name)
 
 
 '''
