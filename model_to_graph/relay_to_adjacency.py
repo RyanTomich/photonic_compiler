@@ -26,21 +26,19 @@ opp_time_func = {
     'subtract': lambda i, o: tensor_elements(o),
     'multiply': lambda i, o: tensor_elements(o),
     'divide': lambda i, o:  tensor_elements(o),
-    'sqrt': lambda i, o: tensor_elements(o),
     'rsqrt': lambda i, o: tensor_elements(o),
-    'power': lambda i, o: 0,
-    'mean': lambda i, o: tensor_elements(o), # + 1 division
+    'power': lambda i, o: tensor_elements(o),
+    'mean': lambda i, o: (i[0][-1]+1)*i[0][-2], # TODO
     'nop': lambda i, o: 0, #reshape(Non-Computational)
-    'less': lambda i, o: 0,
-    'where': lambda i, o: 0,
-    'take': lambda i, o: 0,
-    'softmax': lambda i, o: 0,
-    'cast': lambda i, o: 0,
-    'matmul': lambda i, o: 0,
-    'transpose': lambda i, o: 0,
-    'split': lambda i, o: 0,
-    'dense': lambda i, o: 0,
-    'tanh': lambda i, o: 0,
+    'less': lambda i, o: 1,
+    'where': lambda i, o: 1,
+    'take': lambda i, o: 1,
+    'softmax': lambda i, o: 6*i[0][-1]*i[0][-2],
+    'matmul': lambda i, o: tensor_elements(i[0])*i[1][-2]*2,
+    'transpose': lambda i, o: tensor_elements(o), # unsture
+    'split': lambda i, o: 3, # for each split
+    'dense': lambda i, o: tensor_elements(i[0])*i[1][-2]*2,
+    'tanh': lambda i, o: tensor_elements(o) * 4, #e^x def
 }
 
 def find_opp(func_name):
@@ -96,12 +94,12 @@ def create_nodes(raw_json):
     nodes = []
     split_shift = 0
     for index, node in enumerate(raw_json["nodes"]):
-        if 'split' in node['name']:
-            split_shift += 2
         oppid = index
         input_shapes = [raw_json['attrs']['shape'][1][shape_idx[0] + split_shift] for shape_idx in node['inputs']]
         output_shape = raw_json['attrs']['shape'][1][index+ split_shift]
         hardware = "CPU"
+        if 'split' in node['name']:
+            split_shift += 2
         nodes.append(DependancyNode(oppid, node, input_shapes,output_shape, hardware))
     return nodes
 
@@ -145,25 +143,19 @@ node_list = create_nodes(raw_json)
 dependancy_matrix = creat_dependancy(raw_json)
 data, column_offset, node_row_ptr = matrix_to_CSR(dependancy_matrix)
 
-for node in node_list:
-    if node.opp == 'matmul':
-        print(node)
-
+# for node in node_list:
+#     if node.opp == 'mean':
+#         print(f'{node.input_shapes} ---> {node.output_shape}')
 
 # print(node_list[1030])
 
-# total = 0
-# for node in node_list:
-#     if node.opp in ['dense', 'matmul']:
-#         total += 1
-#         print(node.opp)
-#         print(node.input_shapes)
-#         print(node.output_shape)
-#         print()
-# print(f'{total=}')
-# ELECTRONIC_TIME_MULTIPLIER = 10**-8
-# print(f"{tot*ELECTRONIC_TIME_MULTIPLIER} s")
-# print(f"{tot*ELECTRONIC_TIME_MULTIPLIER*1000} ms")
+total = 0
+for node in node_list:
+    total += node.time
+ELECTRONIC_TIME_MULTIPLIER = 10**-8
+print(f"{total} cycles")
+print(f"{total*ELECTRONIC_TIME_MULTIPLIER} s")
+print(f"{total*ELECTRONIC_TIME_MULTIPLIER*1000} ms")
 
 
 ##### Working with script #####
