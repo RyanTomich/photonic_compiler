@@ -44,16 +44,16 @@ run_cpu_cycles = {
     'split':    constnat(3),
     'mean':     constnat(1),
     'softmax':  constnat(1),
-    'matmul':   constnat(1),
-    'dense':    constnat(1),
+    'matmul':   constnat(1000),
+    'dense':    constnat(1000),
     'where':    constnat(1),
-    'pack':     constnat(1),
+    'pack':     constnat(1000),
 }
 
 run_phu_cycles = {
-    'matmul': lambda i,o: {"CPU":2, "PHU": 1},
-    'dense': lambda i,o: {"CPU":2, "PHU": 1},
-    'pack': lambda i,o: {"CPU":2, "PHU": 1}
+    'matmul': lambda i,o: {"CPU":100, "PHU": 900},
+    'dense': lambda i,o: {"CPU":100, "PHU": 900},
+    'pack': lambda i,o: {"CPU":100, "PHU": 900}
 }
 
 cycle_funcions = {"run_cpu": run_cpu_cycles, "run_phu": run_phu_cycles}

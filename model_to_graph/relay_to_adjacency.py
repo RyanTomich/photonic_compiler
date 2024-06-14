@@ -6,12 +6,6 @@ import networkx as nx
 import operator_calcs as oc
 
 
-read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
-# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
-# read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
-with open(read_json_path)  as json_file:
-    raw_json = json.load(json_file) # returns json file as dict
-
 ##### Woriing with JSON #####
 class DependancyNode():
     def __init__(self, oppid, node, input_shapes,output_shapes):
@@ -21,6 +15,7 @@ class DependancyNode():
         self.output_shapes = output_shapes
         self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
         self.time = self._unfsed_graph_time(node) # (CPU, PHU) time
+        print(self.time)
         self.hardware = None
 
     def __hash__(self):
@@ -54,7 +49,7 @@ class DependancyNode():
         # takes node, returns time for each hardware choice
         if 'attrs' in node:
             return [oc.opp_time_func(self.opp, self.input_shapes, self.output_shapes, run_hardware) for run_hardware in hardware_config]
-        return 0
+        return (0, 0)
 
 class DependancyGraph():
     def __init__ (self, raw_json):
@@ -137,8 +132,8 @@ class DependancyGraph():
         return total
 
     def _transfer_cost(self, node):
-        floats_in = sum(ten_elm(shape) for shape in node.input_shapes)
-        floats_out = sum(ten_elm(shape) for shape in node.output_shapes)
+        floats_in = sum(oc.ten_elm(shape) for shape in node.input_shapes)
+        floats_out = sum(oc. ten_elm(shape) for shape in node.output_shapes)
         return (floats_in + floats_out) * E_PH_COST
 
     def _always_CPU(self, node, CPU_time, PHU_time):
@@ -203,7 +198,7 @@ class DependancyGraph():
 
         order: liner working order for each node
         working_layers_list: nodes that can work on each layer
-        layer_cuont: the amount of layers each node can work on
+        layer_count: the amount of layers each node can work on
         '''
         node_indegree = {}
         node_parents = {}
@@ -216,11 +211,11 @@ class DependancyGraph():
 
         que = []
         order = []
-        layer_cuont = {}
+        layer_count = {}
         for node, val in node_indegree.items():
             if val == 0:
                 que.append(( ['START'] ,node))
-                layer_cuont[node] = 0
+                layer_count[node] = 0
 
         layer = 0
         layers_dic = {}
@@ -240,21 +235,27 @@ class DependancyGraph():
                     node_parents[next_node].append(cur_node)
                     if node_indegree[next_node] == 0:
                         que.append((node_parents[next_node], next_node))
-                        layer_cuont[next_node] = 0
+                        layer_count[next_node] = 0
 
             # print(order)
             # print(node_outdegree)
             for working in order:
                 if node_outdegree[working] != 0:
                     layers_dic[layer].add(working)
-                    layer_cuont[working] += 1
+                    layer_count[working] += 1
 
         assert any(node_indegree.values()) == False
 
         layers_list =  [val for (key, val) in layers_dic.items()]
-        return order, layers_list, layer_cuont
+        return order, layers_list, layer_count
 
 
+
+read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
+# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
+# read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
+with open(read_json_path)  as json_file:
+    raw_json = json.load(json_file) # returns json file as dict
 
 # Constants
 hardware_config = ["run_cpu", "run_phu"]
@@ -264,63 +265,15 @@ E_PH_BIT_COST = 3 /oc.PHU_CLOCK_SPEED
 BITS_PER_FLOAT = 32
 E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 
+# making graph
 graph = DependancyGraph(raw_json)
 CPU_cost, PHU_cost = graph.create_cost_vec()
 adj_matrix = graph.creat_adj_matrix()
 
-
 order, layers_list = graph.kahn_topo_sort(adj_matrix)
-working_order, working_layers_list = graph.kahn_topo_sort_working(adj_matrix)
+working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
-assert order == working_order
-assert len(layers_list) == len(working_layers_list)
 
-parallel =  0
-working_parallel = 0
-for i in range(len(layers_list)):
-    if len(layers_list[i]) > 1:
-        parallel += 1
-    if len(working_layers_list[i]) > 1:
-        working_parallel += 1
-
-print(f'{parallel=}')
-print(f'{working_parallel=}')
-
-# print(parallel)
-
-# print(layers_list)
-
-# dep_graph = graph.creat_dependancy()
-# data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
-# order, layers = graph.kahn_topo_sort(dep_graph)
-
-### Timing
-# print(f"always_CPU: {graph.total_time('always_CPU')}")
-# print(f"min: {graph.total_time('min')}")
-
-### lookin at layers
-# for layer in layers:
-#     if len(layer) > 1:
-#         opps_in_layer = []
-#         for node in layer:
-#             opps_in_layer.append(graph.node_list[node].opp)
-#         print (opps_in_layer)
-
-### length validation
-# print(f"{len(CPU_cost)=}")
-# print(f"{len(P_cost)=}")
-# print(f"{len(graph.node_list)=}")
-# print(f"{len(graph.raw_json['nodes'])=}")
-# print(f"{dep_graph.shape=}")
-
-# print(f"{len(data)=}")
-# print(f"{len(column_offset)=}")
-# print(f"{len(node_row_ptr)=}")
-# print(f"{len(graph.raw_json['node_row_ptr'])=}")
-
-### misc
-# print(graph.get_opp_spread())
-
-# for node in graph.node_list:
-#     if node.opp == 'dense':
-#         print(node.input_shapes)
+## Timing
+print(f"always_CPU: {graph.total_time('always_CPU')}")
+print(f"min: {graph.total_time('min')}")
