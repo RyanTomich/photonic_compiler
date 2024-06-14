@@ -3,7 +3,7 @@ import json
 import numpy as np
 from collections import deque
 import networkx as nx
-from operator_calcs import opp_time_func
+from operator_calcs import opp_time_func, ten_elm
 
 
 read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
@@ -141,9 +141,9 @@ class DependancyGraph():
         return(total)
 
     def _transfer_cost(self, node):
-        floats_in = sum[ten_elm(shape) for shape in node.input_shapes]
-        floats_out = sum[ten_elm(shape) for shape in node.output_shapes]
-        total_floats = (floats_in + floats_out) * E_PH_COST
+        floats_in = sum(ten_elm(shape) for shape in node.input_shapes)
+        floats_out = sum(ten_elm(shape) for shape in node.output_shapes)
+        return (floats_in + floats_out) * E_PH_COST
 
 
     def _always_CPU(self, node, cpu_cycles, phu_cycles):
@@ -152,8 +152,8 @@ class DependancyGraph():
 
     def _min(self, node, cpu_cycles, phu_cycles):
         if cpu_cycles < np.inf and phu_cycles < np.inf:
-            CPU_time = cpu_cycles*CPU_time_multiplier
-            PHU_time = phu_cycles* PHU_time_multiplier + _transfer_cost(node)
+            CPU_time = cpu_cycles * CPU_time_multiplier
+            PHU_time = (phu_cycles * PHU_time_multiplier) + self._transfer_cost(node)
 
             if CPU_time < PHU_time:
                 node.hardwer = 'CPU'
@@ -245,8 +245,11 @@ order, layers = graph.kahn_topo_sort(dep_graph)
 
 ### Timing
 optimization =('always_CPU', 'min')
-print(graph.total_time('always_CPU'))
-print(graph.total_time('min'))
+print(f"always_CPU: {graph.total_time('always_CPU')}")
+print(f"min: {graph.total_time('min')}")
+
+print(graph.cpu_count)
+print(graph.phu_count)
 
 ### misc
 # print(graph.get_opp_spread())
