@@ -131,6 +131,7 @@ class DependancyGraph():
             cycles_per_op[node.opp] += node.cycles[0] # CPU
         return cycles_per_op
 
+    # Time
     def total_time(self, optimization):
         func = self.optimization[optimization]
         total = 0
@@ -139,6 +140,12 @@ class DependancyGraph():
             total += func(node, cpu_cycles, phu_cycles)
         return(total)
 
+    def _transfer_cost(self, node):
+        floats_in = sum[ten_elm(shape) for shape in node.input_shapes]
+        floats_out = sum[ten_elm(shape) for shape in node.output_shapes]
+        total_floats = (floats_in + floats_out) * E_PH_COST
+
+
     def _always_CPU(self, node, cpu_cycles, phu_cycles):
         node.hardware = 'CPU'
         return cpu_cycles*CPU_time_multiplier
@@ -146,7 +153,7 @@ class DependancyGraph():
     def _min(self, node, cpu_cycles, phu_cycles):
         if cpu_cycles < np.inf and phu_cycles < np.inf:
             CPU_time = cpu_cycles*CPU_time_multiplier
-            PHU_time = phu_cycles* PHU_time_multiplier
+            PHU_time = phu_cycles* PHU_time_multiplier + _transfer_cost(node)
 
             if CPU_time < PHU_time:
                 node.hardwer = 'CPU'
@@ -158,6 +165,42 @@ class DependancyGraph():
             node.hardware = 'CPU'
             return cpu_cycles * CPU_time_multiplier
 
+    # scheduling
+    def kahn_topo_sort(self, graph):
+        '''
+        produes a liner order obeying DAG
+        graph(np adjancy matrix): graph to sort
+        order(list): liner order
+        layers_list(list of lists): each entry is a dependancy layer
+        '''
+        node_indegree = {}
+        for col in range(len(graph)):
+            node_indegree[col] = np.sum(graph[:, col] != 0)
+
+        que = []
+        order = []
+        for node, val in node_indegree.items():
+            if val == 0:
+                que.append(node)
+
+        layer = 0
+        layers_dic = {}
+        while que:
+            layer += 1
+            layers_dic[layer] = []
+            for _ in range(len(que)):
+                cur_node = que.pop(0)
+                order.append(cur_node)
+                layers_dic[layer].append(cur_node)
+                for next_node in np.where(graph[cur_node])[0]:
+                    node_indegree[next_node] -= 1
+                    if node_indegree[next_node] == 0:
+                        que.append(next_node)
+
+        assert any(node_indegree.values()) == False
+
+        layers_list =  [val for (key, val) in layers_dic.items()]
+        return order, layers_list
 
 
 # Constants
@@ -166,6 +209,9 @@ CPU_CLOCK_SPEED = 10**8 #.1Ghz
 PHU_CLOCK_SPEED = 10**10 # 10 Ghz
 CPU_time_multiplier = 1/CPU_CLOCK_SPEED
 PHU_time_multiplier = 1/PHU_CLOCK_SPEED
+E_PH_BIT_COST = 3 * PHU_time_multiplier
+BITS_PER_FLOAT = 32
+E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 
 print(CPU_time_multiplier)
 print(PHU_time_multiplier)
@@ -175,8 +221,17 @@ graph = DependancyGraph(raw_json)
 CPU_cost, P_cost = graph.create_cost_vec()
 dep_graph = graph.creat_dependancy()
 data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
+order, layers = graph.kahn_topo_sort(dep_graph)
 
+### lookin at layers
+# for layer in layers:
+#     if len(layer) > 1:
+#         opps_in_layer = []
+#         for node in layer:
+#             opps_in_layer.append(graph.node_list[node].opp)
+#         print (opps_in_layer)
 
+### length validation
 # print(f"{len(CPU_cost)=}")
 # print(f"{len(P_cost)=}")
 # print(f"{len(graph.node_list)=}")
@@ -188,15 +243,17 @@ data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
 # print(f"{len(node_row_ptr)=}")
 # print(f"{len(graph.raw_json['node_row_ptr'])=}")
 
+### Timing
 optimization =('always_CPU', 'min')
 print(graph.total_time('always_CPU'))
 print(graph.total_time('min'))
 
-print(graph.get_opp_spread())
+### misc
+# print(graph.get_opp_spread())
 
-for node in graph.node_list:
-    if node.opp == 'dense':
-        print(node.input_shapes)
+# for node in graph.node_list:
+#     if node.opp == 'dense':
+#         print(node.input_shapes)
 
 
 
