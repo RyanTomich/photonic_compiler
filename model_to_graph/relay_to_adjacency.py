@@ -159,7 +159,7 @@ class DependancyGraph():
             return CPU_time
 
     # scheduling
-    def kahn_topo_sort(self, graph):
+    def kahn_topo_sort_working(graph):
         '''
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
@@ -167,28 +167,41 @@ class DependancyGraph():
         layers_list(list of lists): each entry is a dependancy layer
         '''
         node_indegree = {}
-        for col in range(len(graph)):
-            node_indegree[col] = np.sum(graph[:, col] != 0)
+        node_parents = {}
+        node_outdegree = {'START': np.inf}
+        for idx in range(len(graph)):
+            node_indegree[idx] = np.sum(graph[:, idx] != 0)
+            node_outdegree[idx] = np.sum(graph[idx, :] != 0)
+            node_parents[idx] = []
 
         que = []
         order = []
         for node, val in node_indegree.items():
             if val == 0:
-                que.append(node)
+                que.append(( ['START'] ,node))
 
         layer = 0
         layers_dic = {}
         while que:
             layer += 1
-            layers_dic[layer] = []
+            layers_dic[layer] = set()
+
             for _ in range(len(que)):
-                cur_node = que.pop(0)
+                par_nodes, cur_node = que.pop(0)
+                for par in par_nodes:
+                    node_outdegree[par] -= 1
+
                 order.append(cur_node)
-                layers_dic[layer].append(cur_node)
+                layers_dic[layer].add(cur_node)
                 for next_node in np.where(graph[cur_node])[0]:
                     node_indegree[next_node] -= 1
+                    node_parents[next_node].append(cur_node)
                     if node_indegree[next_node] == 0:
-                        que.append(next_node)
+                        que.append((node_parents[next_node], next_node))
+
+            for working in order:
+                if node_outdegree[working] != 0:
+                    layers_dic[layer].add(working)
 
         assert any(node_indegree.values()) == False
 
@@ -241,7 +254,3 @@ CPU_cost, PHU_cost = graph.create_cost_vec()
 # for node in graph.node_list:
 #     if node.opp == 'dense':
 #         print(node.input_shapes)
-
-
-
-##### Working with script #####
