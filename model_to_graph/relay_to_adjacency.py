@@ -12,39 +12,7 @@ read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.jso
 with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
-# def ten_elm(tensor_shape):
-#     ans = 1
-#     for dimention in tensor_shape:
-#         ans *= dimention
-#     return ans
-
-
-# CPU, PPU
-# opp_time_func = {
-#     'add':      lambda i, o: ( ten_elm(o[0]), np.inf ),
-#     'subtract': lambda i, o: ( ten_elm(o[0]), np.inf),
-#     'multiply': lambda i, o: ( ten_elm(o[0]), np.inf),
-#     'divide':   lambda i, o: (  ten_elm(o[0]), np.inf),
-#     'sqrt':     lambda i, o: ( ten_elm(o[0]), np.inf),
-#     'rsqrt':    lambda i, o: ( ten_elm(o[0]), np.inf),
-#     'tanh':     lambda i, o: ( ten_elm(o[0]) * 4, np.inf), #e^x definition
-#     'power':    lambda i, o: ( ten_elm(o[0]), np.inf),
-#     'nop':      lambda i, o: ( 0, np.inf), #reshape(Non-Computational)
-#     'less':     lambda i, o: ( 1, np.inf),
-#     'where':    lambda i, o: ( 1, np.inf),
-#     'take':     lambda i, o: ( 1, np.inf),
-#     'split':    lambda i, o: ( 3, np.inf), # for each split
-#     'transpose':lambda i, o: ( ten_elm(o[0]), np.inf), # unsture
-#     'mean':     lambda i, o: ( (i[0][-1]+1)*i[0][-2], np.inf),
-#     'softmax':  lambda i, o: ( 6*i[0][-1]*i[0][-2], np.inf),
-#     'matmul':   lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, np.inf),
-#     'dense':    lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, np.inf),
-#     'pack':     lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, np.inf), # another form of dense
-# }
-
-
 ##### Woriing with JSON #####
-
 class DependancyNode():
     def __init__(self, oppid, node, input_shapes,output_shapes):
         self.oppid = oppid
@@ -93,6 +61,7 @@ class DependancyGraph():
     def __init__ (self, raw_json):
         self.raw_json = raw_json
         self.node_list = self.create_nodes()
+        self.optimization = {'always_CPU': self._always_CPU, 'min': self._min}
 
     # Create every node
     def create_nodes(self):
@@ -151,46 +120,83 @@ class DependancyGraph():
         CPU_cost = np.full(shape=(len(self.node_list)), fill_value=np.inf)
         P_cost = np.full(shape=(len(self.node_list)), fill_value=np.inf)
         for index, node in enumerate(self.node_list):
-            print(node.cycles)
-            P_cost[index] = node.cycles[1]
             CPU_cost[index] = node.cycles[0]
+            P_cost[index] = node.cycles[1]
         return (CPU_cost, P_cost)
 
-    def total_time(self):
+    def get_opp_spread(self):
+        cycles_per_op = {}
+        for node in self.node_list:
+            cycles_per_op.setdefault(node.opp, 0)
+            cycles_per_op[node.opp] += node.cycles[0] # CPU
+        return cycles_per_op
+
+    def total_time(self, optimization):
+        func = self.optimization[optimization]
         total = 0
         for node in graph.node_list:
-            total += node.cycles[0]
-        clock_speed = 3.5 * 10**9
-        ELECTRONIC_TIME_MULTIPLIER = 1/clock_speed
-        print(f"{total} cycles")
-        print(f"{total*ELECTRONIC_TIME_MULTIPLIER} s")
-        print(f"{total*ELECTRONIC_TIME_MULTIPLIER*1000} ms")
+            cpu_cycles, phu_cycles = node.cycles
+            total += func(node, cpu_cycles, phu_cycles)
+        return(total)
+
+    def _always_CPU(self, node, cpu_cycles, phu_cycles):
+        node.hardware = 'CPU'
+        return cpu_cycles*CPU_time_multiplier
+
+    def _min(self, node, cpu_cycles, phu_cycles):
+        if cpu_cycles < np.inf and phu_cycles < np.inf:
+            CPU_time = cpu_cycles*CPU_time_multiplier
+            PHU_time = phu_cycles* PHU_time_multiplier
+
+            if CPU_time < PHU_time:
+                node.hardwer = 'CPU'
+                return CPU_time
+            else:
+                node.hardwer = 'PHU'
+                return PHU_time
+        else:
+            node.hardware = 'CPU'
+            return cpu_cycles * CPU_time_multiplier
+
 
 
 # Constants
 photonic_opps = ['dense', 'matmul']
+CPU_CLOCK_SPEED = 10**8 #.1Ghz
+PHU_CLOCK_SPEED = 10**10 # 10 Ghz
+CPU_time_multiplier = 1/CPU_CLOCK_SPEED
+PHU_time_multiplier = 1/PHU_CLOCK_SPEED
+
+print(CPU_time_multiplier)
+print(PHU_time_multiplier)
 
 
 graph = DependancyGraph(raw_json)
 CPU_cost, P_cost = graph.create_cost_vec()
 dep_graph = graph.creat_dependancy()
-print(f"{len(CPU_cost)=}")
-print(f"{len(P_cost)=}")
-print(f"{len(graph.node_list)=}")
-print(f"{len(graph.raw_json['nodes'])=}")
-print(f"{dep_graph.shape=}")
-
 data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
-print(f"{len(data)=}")
-print(f"{len(column_offset)=}")
-print(f"{len(node_row_ptr)=}")
-print(f"{len(graph.raw_json['node_row_ptr'])=}")
 
-graph.total_time()
 
-# for node in graph.node_list:
-#     if node.opp == 'mean':
-#         print(node.input_shapes)
+# print(f"{len(CPU_cost)=}")
+# print(f"{len(P_cost)=}")
+# print(f"{len(graph.node_list)=}")
+# print(f"{len(graph.raw_json['nodes'])=}")
+# print(f"{dep_graph.shape=}")
+
+# print(f"{len(data)=}")
+# print(f"{len(column_offset)=}")
+# print(f"{len(node_row_ptr)=}")
+# print(f"{len(graph.raw_json['node_row_ptr'])=}")
+
+optimization =('always_CPU', 'min')
+print(graph.total_time('always_CPU'))
+print(graph.total_time('min'))
+
+print(graph.get_opp_spread())
+
+for node in graph.node_list:
+    if node.opp == 'dense':
+        print(node.input_shapes)
 
 
 
