@@ -4,7 +4,7 @@ import numpy as np
 photonic_opps = ['dense', 'matmul']
 CPU_CLOCK_SPEED = 10**8 #.1Ghz
 PHU_CLOCK_SPEED = 10**10 # 10 Ghz
-cycle_to_time_funcs = {'CUP': lambda x: x / CPU_CLOCK_SPEED,
+cycle_to_time_funcs = {'CPU': lambda x: x / CPU_CLOCK_SPEED,
                        'PHU': lambda x: x / PHU_CLOCK_SPEED}
 
 def ten_elm(tensor_shape):
@@ -17,16 +17,18 @@ def elm_const(matrix, const = 1):
     return ten_elm(matrix) * const
 
 
+
+all_elm = lambda i, o: {"CPU": ten_elm(o[0])}
+constnat = lambda c: lambda i, o:  {"CPU": c}
+
 # 'mean':     lambda i, o: ( (i[0][-1]+1)* i[0][-2], np.inf),
 # 'softmax':  lambda i, o: ( 6*i[0][-1]*i[0][-2], np.inf),
 # 'matmul':   lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, ten_elm(i[0])*i[1][-2]*2),
 # 'dense':    lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, ten_elm(i[0])*i[1][-2]*2),
 # 'pack':     lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, ten_elm(i[0])*i[1][-2]*2), # another form of dense
 
-all_elm = lambda i, o: {"CPU": ten_elm(o[0])}
-constnat = lambda c: lambda i, o:  {"CPU": c}
-
-CPU_cycles = {
+# Overlay optimization in formulas here
+run_cpu_cycles = {
     'add':      all_elm,
     'subtract': all_elm,
     'multiply': all_elm,
@@ -48,16 +50,15 @@ CPU_cycles = {
     'pack':     constnat(1),
 }
 
-PHU_cycles = {
+run_phu_cycles = {
     'matmul': lambda i,o: {"CPU":2, "PHU": 1},
     'dense': lambda i,o: {"CPU":2, "PHU": 1},
     'pack': lambda i,o: {"CPU":2, "PHU": 1}
 }
 
-cycle_funcions = {"run_cpu": CPU_cycles, "run_phu": PHU_cycles}
+cycle_funcions = {"run_cpu": run_cpu_cycles, "run_phu": run_phu_cycles}
+hardware_format = {"run_cpu": {"CPU": None} ,"run_phu": {"CPU": None, "PHU": None} }
 
-# Constants
-hardware_format = {"run_cpu": {"CPU": []} ,"run_phu": {"CPU":[], "PHU": []} }
 
 def opp_time_func(opp, input_shapes, output_shapes, run_hardware):
     '''
@@ -81,8 +82,10 @@ def opp_time_func(opp, input_shapes, output_shapes, run_hardware):
     if opp in opp_cycle_dict:
         cycles = opp_cycle_dict[opp](input_shapes, output_shapes)
         for hardware, cost in cycles.items():
-            format[hardware].append(cost)
-    else:
-        format = np.inf
+            format[hardware] = cost
+        time_total = 0
+        for hardware, cycles in format.items():
+            time_total += cycle_to_time_funcs[hardware](cycles)
+        return time_total
 
-    return format
+    return np.inf

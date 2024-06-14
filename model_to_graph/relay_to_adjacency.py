@@ -3,7 +3,7 @@ import json
 import numpy as np
 from collections import deque
 import networkx as nx
-from operator_calcs import opp_time_func, ten_elm
+import operator_calcs as oc
 
 
 read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
@@ -20,7 +20,7 @@ class DependancyNode():
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
         self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
-        self.cycles = self._unfsed_graph_time(node)
+        self.time = self._unfsed_graph_time(node) # (CPU, PHU) time
         self.hardware = None
 
     def __hash__(self):
@@ -39,7 +39,7 @@ class DependancyNode():
         {self.input_shapes=}
         {self.output_shapes=}
         {self.hardware=}
-        {self.cycles=}"""
+        {self.time=}"""
 
     def _find_opp(self, func_name):
         name_parts = func_name.split('_')
@@ -51,11 +51,10 @@ class DependancyNode():
                 return part
 
     def _unfsed_graph_time(self, node):
-        # takes node, returns clock cycles
+        # takes node, returns time for each hardware choice
         if 'attrs' in node:
-            cycles = opp_time_func[self.opp](self.input_shapes, self.output_shapes)
-            return cycles
-        return 0, 0
+            return [oc.opp_time_func(self.opp, self.input_shapes, self.output_shapes, run_hardware) for run_hardware in hardware_config]
+        return 0
 
 class DependancyGraph():
     def __init__ (self, raw_json):
@@ -63,7 +62,6 @@ class DependancyGraph():
         self.node_list = self.create_nodes()
         self.optimization = {'always_CPU': self._always_CPU, 'min': self._min}
 
-    # Create every node
     def create_nodes(self):
         ajusted_shapes = []
         split_shift = 0
@@ -117,43 +115,38 @@ class DependancyGraph():
                     f.write(f'{node.func}\n')
 
     def create_cost_vec(self):
-        CPU_cost = np.full(shape=(len(self.node_list)), fill_value=np.inf)
-        P_cost = np.full(shape=(len(self.node_list)), fill_value=np.inf)
-        for index, node in enumerate(self.node_list):
-            CPU_cost[index] = node.cycles[0]
-            P_cost[index] = node.cycles[1]
-        return (CPU_cost, P_cost)
+        CPU_cost = [node.time[0] if isinstance(node.time, list) else node.time for node in self.node_list]
+        PHU_cost = [node.time[1] if isinstance(node.time, list) else node.time for node in self.node_list]
+        return CPU_cost, PHU_cost
 
     def get_opp_spread(self):
         cycles_per_op = {}
         for node in self.node_list:
             cycles_per_op.setdefault(node.opp, 0)
-            cycles_per_op[node.opp] += node.cycles[0] # CPU
+            cycles_per_op[node.opp] += node.time[0] # CPU
         return cycles_per_op
 
     # Time
     def total_time(self, optimization):
+        # TODO traverse weighted adjancy matrix
         func = self.optimization[optimization]
         total = 0
         for node in graph.node_list:
-            cpu_cycles, phu_cycles = node.cycles
-            total += func(node, cpu_cycles, phu_cycles)
-        return(total)
+            CPU_time, PHU_time = node.time
+            total += func(node, CPU_time, PHU_time)
+        return total
 
     def _transfer_cost(self, node):
         floats_in = sum(ten_elm(shape) for shape in node.input_shapes)
         floats_out = sum(ten_elm(shape) for shape in node.output_shapes)
         return (floats_in + floats_out) * E_PH_COST
 
-
-    def _always_CPU(self, node, cpu_cycles, phu_cycles):
+    def _always_CPU(self, node, CPU_time, PHU_time):
         node.hardware = 'CPU'
-        return cpu_cycles*CPU_time_multiplier
+        return CPU_time
 
-    def _min(self, node, cpu_cycles, phu_cycles):
-        if cpu_cycles < np.inf and phu_cycles < np.inf:
-            CPU_time = cpu_cycles * CPU_time_multiplier
-            PHU_time = (phu_cycles * PHU_time_multiplier) + self._transfer_cost(node)
+    def _min(self, node, CPU_time, PHU_time):
+        if CPU_time < np.inf and PHU_time < np.inf:
 
             if CPU_time < PHU_time:
                 node.hardwer = 'CPU'
@@ -163,7 +156,7 @@ class DependancyGraph():
                 return PHU_time
         else:
             node.hardware = 'CPU'
-            return cpu_cycles * CPU_time_multiplier
+            return CPU_time
 
     # scheduling
     def kahn_topo_sort(self, graph):
@@ -204,24 +197,23 @@ class DependancyGraph():
 
 
 # Constants
-photonic_opps = ['dense', 'matmul']
-CPU_CLOCK_SPEED = 10**8 #.1Ghz
-PHU_CLOCK_SPEED = 10**10 # 10 Ghz
-CPU_time_multiplier = 1/CPU_CLOCK_SPEED
-PHU_time_multiplier = 1/PHU_CLOCK_SPEED
-E_PH_BIT_COST = 3 * PHU_time_multiplier
+hardware_config = ["run_cpu", "run_phu"]
+optimization =('always_CPU', 'min')
+
+E_PH_BIT_COST = 3 /oc.PHU_CLOCK_SPEED
 BITS_PER_FLOAT = 32
 E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 
-print(CPU_time_multiplier)
-print(PHU_time_multiplier)
-
-
 graph = DependancyGraph(raw_json)
-CPU_cost, P_cost = graph.create_cost_vec()
-dep_graph = graph.creat_dependancy()
-data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
-order, layers = graph.kahn_topo_sort(dep_graph)
+CPU_cost, PHU_cost = graph.create_cost_vec()
+
+# dep_graph = graph.creat_dependancy()
+# data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
+# order, layers = graph.kahn_topo_sort(dep_graph)
+
+### Timing
+# print(f"always_CPU: {graph.total_time('always_CPU')}")
+# print(f"min: {graph.total_time('min')}")
 
 ### lookin at layers
 # for layer in layers:
@@ -242,14 +234,6 @@ order, layers = graph.kahn_topo_sort(dep_graph)
 # print(f"{len(column_offset)=}")
 # print(f"{len(node_row_ptr)=}")
 # print(f"{len(graph.raw_json['node_row_ptr'])=}")
-
-### Timing
-optimization =('always_CPU', 'min')
-print(f"always_CPU: {graph.total_time('always_CPU')}")
-print(f"min: {graph.total_time('min')}")
-
-print(graph.cpu_count)
-print(graph.phu_count)
 
 ### misc
 # print(graph.get_opp_spread())
