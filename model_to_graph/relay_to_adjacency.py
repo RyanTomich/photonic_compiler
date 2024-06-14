@@ -80,7 +80,7 @@ class DependancyGraph():
         return nodes
 
     # Create the Adjancy Matrix for dependancy (from CSR format)
-    def creat_dependancy(self):
+    def creat_adj_matrix(self):
         dependancys = []
         for node_index, node in enumerate(self.raw_json['nodes']):
             inputs = node.get('inputs', [])
@@ -159,12 +159,51 @@ class DependancyGraph():
             return CPU_time
 
     # scheduling
-    def kahn_topo_sort_working(graph):
+    def kahn_topo_sort(self, graph):
         '''
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
         order(list): liner order
         layers_list(list of lists): each entry is a dependancy layer
+        '''
+        node_indegree = {}
+        for idx in range(len(graph)):
+            node_indegree[idx] = np.sum(graph[:, idx] != 0)
+
+
+        que = []
+        order = []
+        for node, val in node_indegree.items():
+            if val == 0:
+                que.append(node)
+
+        layer = 0
+        layers_dic = {}
+        while que:
+            layer += 1
+            layers_dic[layer] = []
+            for _ in range(len(que)):
+                cur_node = que.pop(0)
+                order.append(cur_node)
+                layers_dic[layer].append(cur_node)
+                for next_node in np.where(graph[cur_node])[0]:
+                    node_indegree[next_node] -= 1
+                    if node_indegree[next_node] == 0:
+                        que.append(next_node)
+
+        assert any(node_indegree.values()) == False
+
+        layers_list =  [val for (key, val) in layers_dic.items()]
+        return order, layers_list
+
+    def kahn_topo_sort_working(self, graph):
+        '''
+        produes a liner order obeying DAG
+        graph(np adjancy matrix): graph to sort
+
+        order: liner working order for each node
+        working_layers_list: nodes that can work on each layer
+        layer_cuont: the amount of layers each node can work on
         '''
         node_indegree = {}
         node_parents = {}
@@ -174,11 +213,14 @@ class DependancyGraph():
             node_outdegree[idx] = np.sum(graph[idx, :] != 0)
             node_parents[idx] = []
 
+
         que = []
         order = []
+        layer_cuont = {}
         for node, val in node_indegree.items():
             if val == 0:
                 que.append(( ['START'] ,node))
+                layer_cuont[node] = 0
 
         layer = 0
         layers_dic = {}
@@ -198,15 +240,20 @@ class DependancyGraph():
                     node_parents[next_node].append(cur_node)
                     if node_indegree[next_node] == 0:
                         que.append((node_parents[next_node], next_node))
+                        layer_cuont[next_node] = 0
 
+            # print(order)
+            # print(node_outdegree)
             for working in order:
                 if node_outdegree[working] != 0:
                     layers_dic[layer].add(working)
+                    layer_cuont[working] += 1
 
         assert any(node_indegree.values()) == False
 
         layers_list =  [val for (key, val) in layers_dic.items()]
-        return order, layers_list
+        return order, layers_list, layer_cuont
+
 
 
 # Constants
@@ -219,6 +266,29 @@ E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 
 graph = DependancyGraph(raw_json)
 CPU_cost, PHU_cost = graph.create_cost_vec()
+adj_matrix = graph.creat_adj_matrix()
+
+
+order, layers_list = graph.kahn_topo_sort(adj_matrix)
+working_order, working_layers_list = graph.kahn_topo_sort_working(adj_matrix)
+
+assert order == working_order
+assert len(layers_list) == len(working_layers_list)
+
+parallel =  0
+working_parallel = 0
+for i in range(len(layers_list)):
+    if len(layers_list[i]) > 1:
+        parallel += 1
+    if len(working_layers_list[i]) > 1:
+        working_parallel += 1
+
+print(f'{parallel=}')
+print(f'{working_parallel=}')
+
+# print(parallel)
+
+# print(layers_list)
 
 # dep_graph = graph.creat_dependancy()
 # data, column_offset, node_row_ptr = graph. matrix_to_CSR(dep_graph)
