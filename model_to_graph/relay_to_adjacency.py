@@ -8,9 +8,10 @@ import operator_calcs as oc
 
 ##### Woriing with JSON #####
 class DependancyNode():
-    def __init__(self, oppid, node, input_shapes,output_shapes):
+    def __init__(self, oppid, node, parents, input_shapes, output_shapes):
         self.oppid = oppid
         self.func = 'null' if node['op'] == "null" else node['name']
+        self.parents = parents
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
         self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
@@ -68,13 +69,14 @@ class DependancyGraph():
         for index, node in enumerate(self.raw_json["nodes"]):
             oppid = index
             num_output = int(node['attrs']['num_outputs']) if 'attrs' in node else 1
+            parents = [shape_idx[0] for shape_idx in node['inputs']]
             input_shapes = [ajusted_shapes[shape_idx[0]] for shape_idx in node['inputs']]
             output_shapes = [ajusted_shapes[index] for i in range(num_output)]
-            nodes.append(DependancyNode(oppid, node, input_shapes, output_shapes))
+            nodes.append(DependancyNode(oppid, node, parents, input_shapes, output_shapes))
         return nodes
 
     # Create the Adjancy Matrix for dependancy
-    def creat_adj_matrix(self):
+    def creat_adj_matrix_json(self):
         dependancys = []
         for node_index, node in enumerate(self.raw_json['nodes']):
             inputs = node.get('inputs', [])
@@ -85,6 +87,19 @@ class DependancyGraph():
         adj_matrix = np.zeros((num_nodes, num_nodes))
         for dep in dependancys:
             adj_matrix[dep[0]][dep[1]] = 1
+        return adj_matrix
+
+    def creat_adj_matrix_node_list(self):
+        dependancys = []
+        for node in self.node_list:
+            inputs = node.parents
+            for inp in inputs: # where each input is an index to another node.
+                dependancys.append((inp, node.oppid)) # (1, 2) where 2 takes 1's output
+
+        num_nodes = (len(self.node_list))
+        adj_matrix = np.zeros((num_nodes, num_nodes))
+        for dep in dependancys:
+            adj_matrix[dep[0]][dep[1]] = self.bit_transfer(node)
         return adj_matrix
 
     def matrix_to_CSR(self, matrix):
@@ -123,6 +138,13 @@ class DependancyGraph():
     # Time
     def total_time(self, optimization):
         # Traverse the graph making time considerations
+        return 0
+
+    def bit_transfer(self, node):
+        total = 0
+        for shape in node.output_shapes:
+            total += oc.ten_elm(shape)
+        return total
 
     def _transfer_cost(self, node):
         floats_in = sum(oc.ten_elm(shape) for shape in node.input_shapes)
@@ -259,16 +281,18 @@ E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 # making graph
 graph = DependancyGraph(raw_json)
 CPU_cost, PHU_cost = graph.create_cost_vec()
-adj_matrix = graph.creat_adj_matrix()
+# adj_matrix = graph.creat_adj_matrix()
 
-order, layers_list = graph.kahn_topo_sort(adj_matrix)
-working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
+# order, layers_list = graph.kahn_topo_sort(adj_matrix)
+# working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
-for node in graph.node_list:
-    if node.opp == "dense":
-        print (node.input_shapes)
-        print(node.output_shapes)
-        print(node.time)
+# for node in graph.node_list:
+#     if node.opp == "dense":
+#         print (node.input_shapes)
+#         print(node.output_shapes)
+#         print(node.time)
+
+
 
 ## Timing
 # print(f"always_CPU: {graph.total_time('always_CPU')}")
