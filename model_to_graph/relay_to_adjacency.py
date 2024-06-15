@@ -15,7 +15,6 @@ class DependancyNode():
         self.output_shapes = output_shapes
         self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
         self.time = self._unfsed_graph_time(node) # (CPU, PHU) time
-        print(self.time)
         self.hardware = None
 
     def __hash__(self):
@@ -74,7 +73,7 @@ class DependancyGraph():
             nodes.append(DependancyNode(oppid, node, input_shapes, output_shapes))
         return nodes
 
-    # Create the Adjancy Matrix for dependancy (from CSR format)
+    # Create the Adjancy Matrix for dependancy
     def creat_adj_matrix(self):
         dependancys = []
         for node_index, node in enumerate(self.raw_json['nodes']):
@@ -123,13 +122,7 @@ class DependancyGraph():
 
     # Time
     def total_time(self, optimization):
-        # TODO traverse weighted adjancy matrix
-        func = self.optimization[optimization]
-        total = 0
-        for node in graph.node_list:
-            CPU_time, PHU_time = node.time
-            total += func(node, CPU_time, PHU_time)
-        return total
+        # Traverse the graph making time considerations
 
     def _transfer_cost(self, node):
         floats_in = sum(oc.ten_elm(shape) for shape in node.input_shapes)
@@ -237,8 +230,6 @@ class DependancyGraph():
                         que.append((node_parents[next_node], next_node))
                         layer_count[next_node] = 0
 
-            # print(order)
-            # print(node_outdegree)
             for working in order:
                 if node_outdegree[working] != 0:
                     layers_dic[layer].add(working)
@@ -273,7 +264,12 @@ adj_matrix = graph.creat_adj_matrix()
 order, layers_list = graph.kahn_topo_sort(adj_matrix)
 working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
+for node in graph.node_list:
+    if node.opp == "dense":
+        print (node.input_shapes)
+        print(node.output_shapes)
+        print(node.time)
 
 ## Timing
-print(f"always_CPU: {graph.total_time('always_CPU')}")
-print(f"min: {graph.total_time('min')}")
+# print(f"always_CPU: {graph.total_time('always_CPU')}")
+# print(f"min: {graph.total_time('min')}")

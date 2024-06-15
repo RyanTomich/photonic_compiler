@@ -42,18 +42,18 @@ run_cpu_cycles = {
     'less':     constnat(1),
     'take':     constnat(1),
     'split':    constnat(3),
-    'mean':     constnat(1),
-    'softmax':  constnat(1),
-    'matmul':   constnat(1000),
-    'dense':    constnat(1000),
+    'mean':     lambda i, o: {"CPU":(i[0][-1]+1)* i[0][-2]},
+    'softmax':  lambda i, o: {"CPU": ten_elm(o[0])*6},
+    'matmul':   lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},
+    'dense':    lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},
+    'pack':     lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},
     'where':    constnat(1),
-    'pack':     constnat(1000),
 }
 
 run_phu_cycles = {
-    'matmul': lambda i,o: {"CPU":100, "PHU": 900},
-    'dense': lambda i,o: {"CPU":100, "PHU": 900},
-    'pack': lambda i,o: {"CPU":100, "PHU": 900}
+    'matmul':  lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2], "PHU": ten_elm(i[0])*i[1][-2]},
+    'dense':  lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2], "PHU": ten_elm(i[0])*i[1][-2]},
+    'pack':  lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2], "PHU": ten_elm(i[0])*i[1][-2]},
 }
 
 cycle_funcions = {"run_cpu": run_cpu_cycles, "run_phu": run_phu_cycles}
@@ -66,7 +66,7 @@ def opp_time_func(opp, input_shapes, output_shapes, run_hardware):
     opp(srt)
     input_shapes(list of list)
     output_shapes(list of list)
-    hardware choice[str]
+    run_hardware[str]: which hardware to run computation.
 
     matriceis representing cost of hardware choice
     ["CPU", #, # ...]
@@ -80,11 +80,10 @@ def opp_time_func(opp, input_shapes, output_shapes, run_hardware):
     format = hardware_format[run_hardware]
 
     if opp in opp_cycle_dict:
-        cycles = opp_cycle_dict[opp](input_shapes, output_shapes)
-        for hardware, cost in cycles.items():
-            format[hardware] = cost
+        cycles_dict = opp_cycle_dict[opp](input_shapes, output_shapes)
+        print(cycles_dict)
         time_total = 0
-        for hardware, cycles in format.items():
+        for hardware, cycles in cycles_dict.items():
             time_total += cycle_to_time_funcs[hardware](cycles)
         return time_total
 

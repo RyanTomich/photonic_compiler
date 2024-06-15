@@ -107,7 +107,7 @@ class NpGPT2():
         numpy_array = tensor.numpy()
         return numpy_array.copy()
 
-    def softmax(self, matrix, temperature = 1):
+    def softmax(self, matrix):
         def vec_softmax(vec):
             trace.file_write(f'row_softamx', in_size = (vec.shape))
             temperature = self.temperature
