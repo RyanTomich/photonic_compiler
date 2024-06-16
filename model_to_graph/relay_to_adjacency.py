@@ -280,11 +280,11 @@ E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 
 
 # making graph
-# graph = DependancyGraph(raw_json)
+graph = DependancyGraph(raw_json)
 # CPU_cost, PHU_cost = graph.create_cost_vec()
 # adj_matrix = graph.creat_adj_matrix()
 
-# print(graph.node_list[598])
+# print(graph.node_list[1094])
 
 # order, layers_list = graph.kahn_topo_sort(adj_matrix)
 # working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
@@ -296,48 +296,61 @@ E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 #         print(node.time)
 
 
-
 ## Timing
 # print(f"always_CPU: {graph.total_time('always_CPU')}")
 # print(f"min: {graph.total_time('min')}")
 
 ## Visualization
-
 class GraphVisualization:
 
     def __init__(self):
         self.visual = []
 
-    def addEdge(self, a, b, weight=1.0):
+    def addEdge(self, a, b, weight = 1):
         temp = [a, b, weight]
         self.visual.append(temp)
 
+    def normalize(self, value, min_value, max_value):
+        assert min_value != max_value
+        return max( ((value - min_value) / (max_value - min_value)), 0.25)
+
     def visualize(self, layout='spring', filename='graph.png'):
         G = nx.DiGraph()
-        G.add_edges_from(self.visual)
+        # G.add_edges_from(self.visual)
+
+        weight_range = 0
+        for edge in self.visual:
+            a, b, weight = edge
+            weight_range = max (weight_range, weight)
+            G.add_edge(a, b, weight=weight)
 
         # Choose a layout algorithm
         if layout == 'spring':
-            pos = nx.spring_layout(G, k=0.1, iterations=10)
+            # pos = nx.spring_layout(G, k=0.1, iterations=10)
+            pos = nx.spring_layout(G, weight='weight', k=0.1, iterations=10)
         elif layout == 'shell':
             pos = nx.shell_layout(G)
         elif layout == 'spectral':
             pos = nx.spectral_layout(G, scale=1.0)
         elif layout == 'kk':
+            lengths = dict(nx.all_pairs_dijkstra_path_length(G, weight='weight'))
+            pos = nx.kamada_kawai_layout(G, dist=lengths)
+
             pos = nx.kamada_kawai_layout(G)
 
         else:
             raise ValueError("Unknown layout type. Choose from 'spring', 'shell', or 'spectral'.")
 
-        # Create a larger figure
-        plt.figure(figsize=(30, 30))
+        plt.figure(figsize=(15, 15))
 
-        # Draw the graph with adjusted settings
-        nx.draw(G, pos, node_size=100, width=0.5, with_labels=False, node_color='blue', edge_color='black')
+        edges = G.edges(data=True)
+        weights = [self.normalize(edge[2]['weight'],0,weight_range) for edge in edges]
 
-        # Add labels to the nodes
-        labels = {node: str(node) for node in G.nodes()}
-        nx.draw_networkx_labels(G, pos, labels, font_size=5)
+        nx.draw(G, pos, node_size=10, width=weights, with_labels=False, node_color='blue', edge_color='black')
+
+        # # Add labels to the nodes
+        # labels = {node: str(node) for node in G.nodes()}
+        # nx.draw_networkx_labels(G, pos, labels, font_size=5)
 
         # Save the plot to a file
         plt.savefig(filename, dpi=300)  # Adjust dpi as needed
@@ -349,14 +362,14 @@ G = GraphVisualization()
 graph = DependancyGraph(raw_json)
 adj = graph.creat_adj_matrix_node_list()
 
-G.visualize(layout='kk', filename='network.png') ####
+# G.visualize(layout='kk', filename='network.png') #### cant use weights
+# G.visualize(layout='spring', filename='network.png')
 
 # G.visualize(layout='shell', filename='network.png')
-# G.visualize(layout='spring', filename='network.png')
 # G.visualize(layout='spectral', filename='network.png')
 
 
-# # Plotting the adjacency matrix
+## Plotting the adjacency matrix
 # plt.figure(figsize=(6, 6))
 # plt.imshow(adj, cmap='binary', interpolation='none')
 # plt.title('GPT2 Adjacency Matrix')
