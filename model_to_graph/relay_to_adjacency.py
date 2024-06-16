@@ -3,6 +3,8 @@ import json
 import numpy as np
 from collections import deque
 import networkx as nx
+import matplotlib.pyplot as plt
+
 import operator_calcs as oc
 
 
@@ -94,12 +96,14 @@ class DependancyGraph():
         for node in self.node_list:
             inputs = node.parents
             for inp in inputs: # where each input is an index to another node.
-                dependancys.append((inp, node.oppid)) # (1, 2) where 2 takes 1's output
+                dependancys.append((inp, node.oppid, self.bit_transfer(node))) # (1, 2) where 2 takes 1's output
+                G.addEdge(inp, node.oppid, self.bit_transfer(node))
+                # if (550 <= node.oppid <= 638):
 
         num_nodes = (len(self.node_list))
         adj_matrix = np.zeros((num_nodes, num_nodes))
         for dep in dependancys:
-            adj_matrix[dep[0]][dep[1]] = self.bit_transfer(node)
+            adj_matrix[dep[0]][dep[1]] = dep[2]
         return adj_matrix
 
     def matrix_to_CSR(self, matrix):
@@ -145,11 +149,6 @@ class DependancyGraph():
         for shape in node.output_shapes:
             total += oc.ten_elm(shape)
         return total
-
-    def _transfer_cost(self, node):
-        floats_in = sum(oc.ten_elm(shape) for shape in node.input_shapes)
-        floats_out = sum(oc. ten_elm(shape) for shape in node.output_shapes)
-        return (floats_in + floats_out) * E_PH_COST
 
     def _always_CPU(self, node, CPU_time, PHU_time):
         node.hardware = 'CPU'
@@ -278,10 +277,14 @@ E_PH_BIT_COST = 3 /oc.PHU_CLOCK_SPEED
 BITS_PER_FLOAT = 32
 E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
 
+
+
 # making graph
-graph = DependancyGraph(raw_json)
-CPU_cost, PHU_cost = graph.create_cost_vec()
+# graph = DependancyGraph(raw_json)
+# CPU_cost, PHU_cost = graph.create_cost_vec()
 # adj_matrix = graph.creat_adj_matrix()
+
+# print(graph.node_list[598])
 
 # order, layers_list = graph.kahn_topo_sort(adj_matrix)
 # working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
@@ -297,3 +300,66 @@ CPU_cost, PHU_cost = graph.create_cost_vec()
 ## Timing
 # print(f"always_CPU: {graph.total_time('always_CPU')}")
 # print(f"min: {graph.total_time('min')}")
+
+## Visualization
+
+class GraphVisualization:
+
+    def __init__(self):
+        self.visual = []
+
+    def addEdge(self, a, b, weight=1.0):
+        temp = [a, b, weight]
+        self.visual.append(temp)
+
+    def visualize(self, layout='spring', filename='graph.png'):
+        G = nx.DiGraph()
+        G.add_edges_from(self.visual)
+
+        # Choose a layout algorithm
+        if layout == 'spring':
+            pos = nx.spring_layout(G, k=0.1, iterations=10)
+        elif layout == 'shell':
+            pos = nx.shell_layout(G)
+        elif layout == 'spectral':
+            pos = nx.spectral_layout(G, scale=1.0)
+        elif layout == 'kk':
+            pos = nx.kamada_kawai_layout(G)
+
+        else:
+            raise ValueError("Unknown layout type. Choose from 'spring', 'shell', or 'spectral'.")
+
+        # Create a larger figure
+        plt.figure(figsize=(30, 30))
+
+        # Draw the graph with adjusted settings
+        nx.draw(G, pos, node_size=100, width=0.5, with_labels=False, node_color='blue', edge_color='black')
+
+        # Add labels to the nodes
+        labels = {node: str(node) for node in G.nodes()}
+        nx.draw_networkx_labels(G, pos, labels, font_size=5)
+
+        # Save the plot to a file
+        plt.savefig(filename, dpi=300)  # Adjust dpi as needed
+        plt.close()
+
+
+G = GraphVisualization()
+
+graph = DependancyGraph(raw_json)
+adj = graph.creat_adj_matrix_node_list()
+
+G.visualize(layout='kk', filename='network.png') ####
+
+# G.visualize(layout='shell', filename='network.png')
+# G.visualize(layout='spring', filename='network.png')
+# G.visualize(layout='spectral', filename='network.png')
+
+
+# # Plotting the adjacency matrix
+# plt.figure(figsize=(6, 6))
+# plt.imshow(adj, cmap='binary', interpolation='none')
+# plt.title('GPT2 Adjacency Matrix')
+# plt.colorbar()
+# plt.savefig('network.png', dpi=300)
+# plt.close()

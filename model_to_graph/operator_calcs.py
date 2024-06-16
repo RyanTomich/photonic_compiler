@@ -81,7 +81,6 @@ def opp_time_func(opp, input_shapes, output_shapes, run_hardware):
 
     if opp in opp_cycle_dict:
         cycles_dict = opp_cycle_dict[opp](input_shapes, output_shapes)
-        print(cycles_dict)
         time_total = 0
         for hardware, cycles in cycles_dict.items():
             time_total += cycle_to_time_funcs[hardware](cycles)
