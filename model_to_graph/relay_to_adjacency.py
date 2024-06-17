@@ -18,7 +18,7 @@ class DependancyNode():
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
         self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
-        self.time = self._unfsed_node_time(node)
+        self.time = self._unfsed_node_time(node) #(CPU, PHU)
         self.hardware = None
 
     def __hash__(self):
@@ -59,7 +59,7 @@ class DependancyNode():
         '''
         if 'attrs' in node:
             return [oc.opp_time_func(self.opp, self.input_shapes, self.output_shapes, hardware_config) for hardware_config in hardware_config_list]
-        return [0, 0]
+        return [0, np.inf]
 
 class DependancyGraph():
     def __init__ (self, raw_json):
@@ -182,6 +182,8 @@ class DependancyGraph():
             bits = adj_matrix[start[i]][end[i]]
 
             # print(f"{self.node_list[start[i]].hardware} == {self.node_list[end[i]].hardware}")
+            assert self.node_list[start[i]].hardware != None
+            assert self.node_list[end[i]].hardware != None
             if self.node_list[start[i]].hardware == self.node_list[end[i]].hardware: # E->E
                 total_time += bits*E_E_BIT_COST
             else:
@@ -193,15 +195,16 @@ class DependancyGraph():
         '''
         Calculates the total number of bits passed out of a node
         '''
-        total = 0
+        total_bits = 0
         if direction == 'out':
-            for shape in node.output_shapes:
-                total += oc.ten_elm(shape)*32 # float32 numbes
+            total_bits += oc.ten_elm(node.output_shapes[0])*32 #
+            # for shape in node.output_shapes:
+            #     total += oc.ten_elm(shape)*32 # float32 numbes
         else:
             for shape in node.input_shapes:
-                total += oc.ten_elm(shape)*32 # float32 numbes
+                total_bits += oc.ten_elm(shape)*32 # float32 numbes
 
-        return total
+        return total_bits
 
     def _always_CPU(self, node):
         '''
@@ -223,12 +226,11 @@ class DependancyGraph():
         '''
         CPU_time, PHU_time = node.time
 
-        if CPU_time < np.inf and PHU_time < np.inf:
+        if PHU_time < np.inf:
             node.hardware = 'PHU'
             return PHU_time
-        else:
-            node.hardware = 'CPU'
-            return CPU_time
+        node.hardware = 'CPU'
+        return CPU_time
 
     def _naive_min(self, node):
         '''
@@ -238,19 +240,17 @@ class DependancyGraph():
         CPU_time(list): List of the cost of run_CPU
         PHU_time(list): list of the cost of run_PHU
         '''
-        # TODO ____ nieve stratigy
+        # TODO nieve stratigy
         CPU_time, PHU_time = node.time
 
-        if CPU_time < np.inf and PHU_time < np.inf:
-            if node.time[0] < node.time[1]:
-                node.hardware = 'CPU'
-                return CPU_time
-            else:
-                node.hardware = 'PHU'
-                return PHU_time
-        else:
-            node.hardware = 'CPU'
-            return CPU_time
+        # if (node.time[0] + self.bit_transfer(node)*E_E_BIT_COST) < (node.time[1] + self.bit_transfer(node)*E_PH_BIT_COST):
+
+        if PHU_time < CPU_time and self.bit_transfer(node)>1_000_000:
+            print('here')
+            node.hardware = 'PHU'
+            return PHU_time
+        node.hardware = 'CPU'
+        return CPU_time
 
     # scheduling
     def kahn_topo_sort(self, graph):
@@ -359,22 +359,29 @@ with open(read_json_path)  as json_file:
 hardware_config_list = ["run_cpu", "run_phu"]
 
 E_PH_BIT_COST = 3 /oc.CPU_CLOCK_SPEED
-E_E_BIT_COST = 1 /oc.CPU_CLOCK_SPEED #TODO
+E_E_BIT_COST = 1 /oc.CPU_CLOCK_SPEED #TODO get right number
 
 
 # making graph
 graph = DependancyGraph(raw_json)
 CPU_cost, PHU_cost = graph.create_cost_vec()
 adj_matrix = graph.creat_adj_matrix_node_list()
+# print(len(graph.node_list))
+# print(len(np.nonzero(adj_matrix)[0]))
+# print(len(np.nonzero(adj_matrix)[1]))
 
 # order, layers_list = graph.kahn_topo_sort(adj_matrix)
 # working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
 ## Timing
 print(f"naive_min: {graph.execution_time('naive_min', adj_matrix)}")
+naive_min_hardware = [node.hardware for node in graph.node_list]
 print(f"always_PHU: {graph.execution_time('always_PHU', adj_matrix)}")
+always_PHU_hardware = [node.hardware for node in graph.node_list]
 print(f"always_CPU: {graph.execution_time('always_CPU', adj_matrix)}")
 
+# for i in range(len(naive_min_hardware)):
+#     print(f"{naive_min_hardware[i]} --> {always_PHU_hardware[i]}")
 
 ## Visualization
 # G = gv.GraphVisualization()
