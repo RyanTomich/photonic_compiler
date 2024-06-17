@@ -65,7 +65,7 @@ class DependancyGraph():
     def __init__ (self, raw_json):
         self.raw_json = raw_json
         self.node_list = self.create_nodes()
-        self.hardware_selection_funcs = {'always_CPU': self._always_CPU, 'min': self._min, 'always_PHU': self._always_PHU}
+        self.hardware_selection_funcs = {'always_CPU': self._always_CPU, 'naive_min': self._naive_min, 'always_PHU': self._always_PHU}
 
     def create_nodes(self):
         '''
@@ -113,7 +113,7 @@ class DependancyGraph():
         for node in self.node_list:
             inputs = node.parents
             for inp in inputs: # where each input is an index to another node.
-                dependancys.append((inp, node.oppid, self.bit_transfer(node))) # (1, 2) where 2 takes 1's output
+                dependancys.append((inp, node.oppid, self.bit_transfer(self.node_list[inp]))) # (1, 2) where 1's output are 2's inputs
                 # G.addEdge(inp, node.oppid, self.bit_transfer(node))
                 # G.addEdge(inp, node.oppid)
 
@@ -166,7 +166,7 @@ class DependancyGraph():
         return cycles_per_op
 
     # Time
-    def total_time(self, hardware_selection, adj_matrix):
+    def execution_time(self, hardware_selection, adj_matrix):
         '''
         optimization(srt) which hardware optimization to use from self.optimization
         '''
@@ -174,29 +174,36 @@ class DependancyGraph():
 
         # node_time
         for node in self.node_list:
-            total_time += self.hardware_selection_funcs[hardware_selection](node, *node.time)
+            total_time += self.hardware_selection_funcs[hardware_selection](node)
 
         #connection time
         start, end = np.nonzero(adj_matrix)
         for i in range(len(start)):
             bits = adj_matrix[start[i]][end[i]]
-            if self.node_list[start[i]].hardware == self.node_list[end[i]].hardware:
+
+            # print(f"{self.node_list[start[i]].hardware} == {self.node_list[end[i]].hardware}")
+            if self.node_list[start[i]].hardware == self.node_list[end[i]].hardware: # E->E
                 total_time += bits*E_E_BIT_COST
             else:
                 total_time += bits*E_PH_BIT_COST
 
-        return total_time
+        return round(total_time, 4)
 
-    def bit_transfer(self, node):
+    def bit_transfer(self, node, direction = 'out'):
         '''
-        Calculates the total number of float32 passed out of a node
+        Calculates the total number of bits passed out of a node
         '''
         total = 0
-        for shape in node.output_shapes:
-            total += oc.ten_elm(shape)
+        if direction == 'out':
+            for shape in node.output_shapes:
+                total += oc.ten_elm(shape)*32 # float32 numbes
+        else:
+            for shape in node.input_shapes:
+                total += oc.ten_elm(shape)*32 # float32 numbes
+
         return total
 
-    def _always_CPU(self, node, CPU_time, PHU_time):
+    def _always_CPU(self, node):
         '''
         returns the selected time and changes the node.hardwrae to reflect the choice
         node(DependancyNode)
@@ -204,16 +211,18 @@ class DependancyGraph():
         PHU_time(list): list of the cost of run_PHU
         '''
         node.hardware = 'CPU'
-        return CPU_time
+        return node.time[0]
 
-    def _always_PHU(self, node, CPU_time, PHU_time):
+    def _always_PHU(self, node):
         '''
-        selects the minimum cost hardware choice and returns the time.
+        selects the photonic hardware choice  is available and returns the time.
         changes node.hardware to reflect choice
         node(DependancyNode)
         CPU_time(list): List of the cost of run_CPU
         PHU_time(list): list of the cost of run_PHU
         '''
+        CPU_time, PHU_time = node.time
+
         if CPU_time < np.inf and PHU_time < np.inf:
             node.hardware = 'PHU'
             return PHU_time
@@ -221,7 +230,7 @@ class DependancyGraph():
             node.hardware = 'CPU'
             return CPU_time
 
-    def _min(self, node, CPU_time, PHU_time):
+    def _naive_min(self, node):
         '''
         selects the minimum cost hardware choice and returns the time.
         changes node.hardware to reflect choice
@@ -229,13 +238,15 @@ class DependancyGraph():
         CPU_time(list): List of the cost of run_CPU
         PHU_time(list): list of the cost of run_PHU
         '''
+        # TODO ____ nieve stratigy
+        CPU_time, PHU_time = node.time
 
         if CPU_time < np.inf and PHU_time < np.inf:
-            if CPU_time < PHU_time:
-                node.hardwer = 'CPU'
+            if node.time[0] < node.time[1]:
+                node.hardware = 'CPU'
                 return CPU_time
             else:
-                node.hardwer = 'PHU'
+                node.hardware = 'PHU'
                 return PHU_time
         else:
             node.hardware = 'CPU'
@@ -347,8 +358,8 @@ with open(read_json_path)  as json_file:
 # Constants
 hardware_config_list = ["run_cpu", "run_phu"]
 
-E_PH_BIT_COST = 3 /oc.PHU_CLOCK_SPEED
-E_E_BIT_COST = 3 /oc.CPU_CLOCK_SPEED #TODO
+E_PH_BIT_COST = 3 /oc.CPU_CLOCK_SPEED
+E_E_BIT_COST = 1 /oc.CPU_CLOCK_SPEED #TODO
 
 
 # making graph
@@ -360,10 +371,9 @@ adj_matrix = graph.creat_adj_matrix_node_list()
 # working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
 ## Timing
-
-print(f"min: {graph.total_time('min', adj_matrix)}")
-print(f"always_PHU: {graph.total_time('always_PHU', adj_matrix)}")
-print(f"always_CPU: {graph.total_time('always_CPU', adj_matrix)}")
+print(f"naive_min: {graph.execution_time('naive_min', adj_matrix)}")
+print(f"always_PHU: {graph.execution_time('always_PHU', adj_matrix)}")
+print(f"always_CPU: {graph.execution_time('always_CPU', adj_matrix)}")
 
 
 ## Visualization
