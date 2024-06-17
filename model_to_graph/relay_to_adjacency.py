@@ -18,7 +18,7 @@ class DependancyNode():
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
         self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
-        self.time = self._unfsed_node_time(node) # (CPU, PHU) time
+        self.time = self._unfsed_node_time(node)
         self.hardware = None
 
     def __hash__(self):
@@ -58,14 +58,14 @@ class DependancyNode():
         returns(tuple) - the time tuple for each node for each hardware configuration
         '''
         if 'attrs' in node:
-            return [oc.opp_time_func(self.opp, self.input_shapes, self.output_shapes, run_hardware) for run_hardware in hardware_config]
-        return (0, 0)
+            return [oc.opp_time_func(self.opp, self.input_shapes, self.output_shapes, hardware_config) for hardware_config in hardware_config_list]
+        return [0, 0]
 
 class DependancyGraph():
     def __init__ (self, raw_json):
         self.raw_json = raw_json
         self.node_list = self.create_nodes()
-        self.optimization = {'always_CPU': self._always_CPU, 'min': self._min}
+        self.hardware_selection_funcs = {'always_CPU': self._always_CPU, 'min': self._min, 'always_PHU': self._always_PHU}
 
     def create_nodes(self):
         '''
@@ -151,8 +151,8 @@ class DependancyGraph():
                     f.write(f'{node.func}\n')
 
     def create_cost_vec(self):
-        CPU_cost = [node.time[0] if isinstance(node.time, list) else node.time for node in self.node_list]
-        PHU_cost = [node.time[1] if isinstance(node.time, list) else node.time for node in self.node_list]
+        CPU_cost = [node.time[0] for node in self.node_list]
+        PHU_cost = [node.time[1] for node in self.node_list]
         return CPU_cost, PHU_cost
 
     def get_opp_spread(self):
@@ -166,12 +166,26 @@ class DependancyGraph():
         return cycles_per_op
 
     # Time
-    def total_time(self, optimization):
+    def total_time(self, hardware_selection, adj_matrix):
         '''
         optimization(srt) which hardware optimization to use from self.optimization
         '''
-        #TODO
-        return 0
+        total_time = 0
+
+        # node_time
+        for node in self.node_list:
+            total_time += self.hardware_selection_funcs[hardware_selection](node, *node.time)
+
+        #connection time
+        start, end = np.nonzero(adj_matrix)
+        for i in range(len(start)):
+            bits = adj_matrix[start[i]][end[i]]
+            if self.node_list[start[i]].hardware == self.node_list[end[i]].hardware:
+                total_time += bits*E_E_BIT_COST
+            else:
+                total_time += bits*E_PH_BIT_COST
+
+        return total_time
 
     def bit_transfer(self, node):
         '''
@@ -191,6 +205,21 @@ class DependancyGraph():
         '''
         node.hardware = 'CPU'
         return CPU_time
+
+    def _always_PHU(self, node, CPU_time, PHU_time):
+        '''
+        selects the minimum cost hardware choice and returns the time.
+        changes node.hardware to reflect choice
+        node(DependancyNode)
+        CPU_time(list): List of the cost of run_CPU
+        PHU_time(list): list of the cost of run_PHU
+        '''
+        if CPU_time < np.inf and PHU_time < np.inf:
+            node.hardware = 'PHU'
+            return PHU_time
+        else:
+            node.hardware = 'CPU'
+            return CPU_time
 
     def _min(self, node, CPU_time, PHU_time):
         '''
@@ -316,11 +345,10 @@ with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
 # Constants
-hardware_config = ["run_cpu", "run_phu"]
-optimization =('always_CPU', 'min')
+hardware_config_list = ["run_cpu", "run_phu"]
 
 E_PH_BIT_COST = 3 /oc.PHU_CLOCK_SPEED
-E_E_BIT_COST = 0 #TODO
+E_E_BIT_COST = 3 /oc.CPU_CLOCK_SPEED #TODO
 
 
 # making graph
@@ -328,20 +356,20 @@ graph = DependancyGraph(raw_json)
 CPU_cost, PHU_cost = graph.create_cost_vec()
 adj_matrix = graph.creat_adj_matrix_node_list()
 
-
-# print(graph.node_list[1094])
-
 # order, layers_list = graph.kahn_topo_sort(adj_matrix)
 # working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
 ## Timing
-# print(f"always_CPU: {graph.total_time('always_CPU')}")
-# print(f"min: {graph.total_time('min')}")
+
+print(f"min: {graph.total_time('min', adj_matrix)}")
+print(f"always_PHU: {graph.total_time('always_PHU', adj_matrix)}")
+print(f"always_CPU: {graph.total_time('always_CPU', adj_matrix)}")
+
 
 ## Visualization
-G = gv.GraphVisualization()
+# G = gv.GraphVisualization()
 
-graph = DependancyGraph(raw_json)
-adj = graph.creat_adj_matrix_node_list()
+# graph = DependancyGraph(raw_json)
+# adj = graph.creat_adj_matrix_node_list()
 
-G.visualize(layout='kk', filename='network.png')
+# G.visualize(layout='kk', filename='network.png')

@@ -21,13 +21,8 @@ def elm_const(matrix, const = 1):
 all_elm = lambda i, o: {"CPU": ten_elm(o[0])}
 constnat = lambda c: lambda i, o:  {"CPU": c}
 
-# 'mean':     lambda i, o: ( (i[0][-1]+1)* i[0][-2], np.inf),
-# 'softmax':  lambda i, o: ( 6*i[0][-1]*i[0][-2], np.inf),
-# 'matmul':   lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, ten_elm(i[0])*i[1][-2]*2),
-# 'dense':    lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, ten_elm(i[0])*i[1][-2]*2),
-# 'pack':     lambda i, o: ( ten_elm(i[0])*i[1][-2]*2, ten_elm(i[0])*i[1][-2]*2), # another form of dense
 
-# Overlay optimization in formulas here
+
 run_cpu_cycles = {
     'add':      all_elm,
     'subtract': all_elm,
@@ -51,16 +46,16 @@ run_cpu_cycles = {
 }
 
 run_phu_cycles = {
-    'matmul':  lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2], "PHU": ten_elm(i[0])*i[1][-2]},
-    'dense':  lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2], "PHU": ten_elm(i[0])*i[1][-2]},
-    'pack':  lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2], "PHU": ten_elm(i[0])*i[1][-2]},
+    'matmul':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
+    'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
+    'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
+    'pack':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
 }
 
 cycle_funcions = {"run_cpu": run_cpu_cycles, "run_phu": run_phu_cycles}
-hardware_format = {"run_cpu": {"CPU": None} ,"run_phu": {"CPU": None, "PHU": None} }
 
 
-def opp_time_func(opp, input_shapes, output_shapes, run_hardware):
+def opp_time_func(opp, input_shapes, output_shapes, hardware_config):
     '''
     get the total clock cycles for each hardware choice
     opp(srt)
@@ -76,8 +71,7 @@ def opp_time_func(opp, input_shapes, output_shapes, run_hardware):
         ["PHU", #, # ...]
     ]
     '''
-    opp_cycle_dict = cycle_funcions[run_hardware]
-    format = hardware_format[run_hardware]
+    opp_cycle_dict = cycle_funcions[hardware_config]
 
     if opp in opp_cycle_dict:
         cycles_dict = opp_cycle_dict[opp](input_shapes, output_shapes)
