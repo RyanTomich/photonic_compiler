@@ -6,6 +6,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 import operator_calcs as oc
+import graph_visualization as gv
 
 
 ##### Woriing with JSON #####
@@ -17,7 +18,7 @@ class DependancyNode():
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
         self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
-        self.time = self._unfsed_graph_time(node) # (CPU, PHU) time
+        self.time = self._unfsed_node_time(node) # (CPU, PHU) time
         self.hardware = None
 
     def __hash__(self):
@@ -39,6 +40,10 @@ class DependancyNode():
         {self.time=}"""
 
     def _find_opp(self, func_name):
+        '''
+        func_name(srt) - whole tvm function name
+        returns (srt) - last collection of letters, which is the name
+        '''
         name_parts = func_name.split('_')
         for part in reversed(name_parts):
             try:
@@ -47,8 +52,11 @@ class DependancyNode():
             except:
                 return part
 
-    def _unfsed_graph_time(self, node):
-        # takes node, returns time for each hardware choice
+    def _unfsed_node_time(self, node):
+        '''
+        node(DependancyNode object)
+        returns(tuple) - the time tuple for each node for each hardware configuration
+        '''
         if 'attrs' in node:
             return [oc.opp_time_func(self.opp, self.input_shapes, self.output_shapes, run_hardware) for run_hardware in hardware_config]
         return (0, 0)
@@ -60,6 +68,9 @@ class DependancyGraph():
         self.optimization = {'always_CPU': self._always_CPU, 'min': self._min}
 
     def create_nodes(self):
+        '''
+        Uses raw_json of the DependancyGraph to make list of DependancyNode objects
+        '''
         ajusted_shapes = []
         split_shift = 0
         for index, node in enumerate(self.raw_json["nodes"]):
@@ -79,6 +90,9 @@ class DependancyGraph():
 
     # Create the Adjancy Matrix for dependancy
     def creat_adj_matrix_json(self):
+        '''
+        Creates an adjancy matrix of the dependencies using raw_json
+        '''
         dependancys = []
         for node_index, node in enumerate(self.raw_json['nodes']):
             inputs = node.get('inputs', [])
@@ -92,13 +106,16 @@ class DependancyGraph():
         return adj_matrix
 
     def creat_adj_matrix_node_list(self):
+        '''
+        Creates an adjancy matrix of the dependencies using node_list
+        '''
         dependancys = []
         for node in self.node_list:
             inputs = node.parents
             for inp in inputs: # where each input is an index to another node.
                 dependancys.append((inp, node.oppid, self.bit_transfer(node))) # (1, 2) where 2 takes 1's output
-                G.addEdge(inp, node.oppid, self.bit_transfer(node))
-                # if (550 <= node.oppid <= 638):
+                # G.addEdge(inp, node.oppid, self.bit_transfer(node))
+                # G.addEdge(inp, node.oppid)
 
         num_nodes = (len(self.node_list))
         adj_matrix = np.zeros((num_nodes, num_nodes))
@@ -107,6 +124,9 @@ class DependancyGraph():
         return adj_matrix
 
     def matrix_to_CSR(self, matrix):
+        '''
+        Retursn matrix in compressed sparse row format
+        '''
         data = []
         column_offset = []
         node_row_ptr = [0]
@@ -122,6 +142,9 @@ class DependancyGraph():
 
     # node opps
     def write_graph(self):
+        '''
+        Creates a custom text based representation of the node list
+        '''
         with open('custon_graph.txt', "w") as f:
             for node in self.node_list:
                 if node.opp != 'null':
@@ -133,6 +156,9 @@ class DependancyGraph():
         return CPU_cost, PHU_cost
 
     def get_opp_spread(self):
+        '''
+        Creates a distrabution of the time spent on each opporation type
+        '''
         cycles_per_op = {}
         for node in self.node_list:
             cycles_per_op.setdefault(node.opp, 0)
@@ -141,22 +167,41 @@ class DependancyGraph():
 
     # Time
     def total_time(self, optimization):
-        # Traverse the graph making time considerations
+        '''
+        optimization(srt) which hardware optimization to use from self.optimization
+        '''
+        #TODO
         return 0
 
     def bit_transfer(self, node):
+        '''
+        Calculates the total number of float32 passed out of a node
+        '''
         total = 0
         for shape in node.output_shapes:
             total += oc.ten_elm(shape)
         return total
 
     def _always_CPU(self, node, CPU_time, PHU_time):
+        '''
+        returns the selected time and changes the node.hardwrae to reflect the choice
+        node(DependancyNode)
+        CPU_time(list): List of the cost of run_CPU
+        PHU_time(list): list of the cost of run_PHU
+        '''
         node.hardware = 'CPU'
         return CPU_time
 
     def _min(self, node, CPU_time, PHU_time):
-        if CPU_time < np.inf and PHU_time < np.inf:
+        '''
+        selects the minimum cost hardware choice and returns the time.
+        changes node.hardware to reflect choice
+        node(DependancyNode)
+        CPU_time(list): List of the cost of run_CPU
+        PHU_time(list): list of the cost of run_PHU
+        '''
 
+        if CPU_time < np.inf and PHU_time < np.inf:
             if CPU_time < PHU_time:
                 node.hardwer = 'CPU'
                 return CPU_time
@@ -172,8 +217,9 @@ class DependancyGraph():
         '''
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
-        order(list): liner order
-        layers_list(list of lists): each entry is a dependancy layer
+        returns:
+            order(list): liner order
+            layers_list(list of lists): each entry is a dependancy layer
         '''
         node_indegree = {}
         for idx in range(len(graph)):
@@ -209,10 +255,10 @@ class DependancyGraph():
         '''
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
-
-        order: liner working order for each node
-        working_layers_list: nodes that can work on each layer
-        layer_count: the amount of layers each node can work on
+        returns:
+            order: liner working order for each node
+            working_layers_list: nodes that can work on each layer
+            layer_count: the amount of layers each node can work on
         '''
         node_indegree = {}
         node_parents = {}
@@ -274,105 +320,28 @@ hardware_config = ["run_cpu", "run_phu"]
 optimization =('always_CPU', 'min')
 
 E_PH_BIT_COST = 3 /oc.PHU_CLOCK_SPEED
-BITS_PER_FLOAT = 32
-E_PH_COST = E_PH_BIT_COST * BITS_PER_FLOAT
-
+E_E_BIT_COST = 0 #TODO
 
 
 # making graph
 graph = DependancyGraph(raw_json)
-# CPU_cost, PHU_cost = graph.create_cost_vec()
-# adj_matrix = graph.creat_adj_matrix()
+CPU_cost, PHU_cost = graph.create_cost_vec()
+adj_matrix = graph.creat_adj_matrix_node_list()
+
 
 # print(graph.node_list[1094])
 
 # order, layers_list = graph.kahn_topo_sort(adj_matrix)
 # working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
-# for node in graph.node_list:
-#     if node.opp == "dense":
-#         print (node.input_shapes)
-#         print(node.output_shapes)
-#         print(node.time)
-
-
 ## Timing
 # print(f"always_CPU: {graph.total_time('always_CPU')}")
 # print(f"min: {graph.total_time('min')}")
 
 ## Visualization
-class GraphVisualization:
-
-    def __init__(self):
-        self.visual = []
-
-    def addEdge(self, a, b, weight = 1):
-        temp = [a, b, weight]
-        self.visual.append(temp)
-
-    def normalize(self, value, min_value, max_value):
-        assert min_value != max_value
-        return max( ((value - min_value) / (max_value - min_value)), 0.25)
-
-    def visualize(self, layout='spring', filename='graph.png'):
-        G = nx.DiGraph()
-        # G.add_edges_from(self.visual)
-
-        weight_range = 0
-        for edge in self.visual:
-            a, b, weight = edge
-            weight_range = max (weight_range, weight)
-            G.add_edge(a, b, weight=weight)
-
-        # Choose a layout algorithm
-        if layout == 'spring':
-            # pos = nx.spring_layout(G, k=0.1, iterations=10)
-            pos = nx.spring_layout(G, weight='weight', k=0.1, iterations=10)
-        elif layout == 'shell':
-            pos = nx.shell_layout(G)
-        elif layout == 'spectral':
-            pos = nx.spectral_layout(G, scale=1.0)
-        elif layout == 'kk':
-            lengths = dict(nx.all_pairs_dijkstra_path_length(G, weight='weight'))
-            pos = nx.kamada_kawai_layout(G, dist=lengths)
-
-            pos = nx.kamada_kawai_layout(G)
-
-        else:
-            raise ValueError("Unknown layout type. Choose from 'spring', 'shell', or 'spectral'.")
-
-        plt.figure(figsize=(15, 15))
-
-        edges = G.edges(data=True)
-        weights = [self.normalize(edge[2]['weight'],0,weight_range) for edge in edges]
-
-        nx.draw(G, pos, node_size=10, width=weights, with_labels=False, node_color='blue', edge_color='black')
-
-        # # Add labels to the nodes
-        # labels = {node: str(node) for node in G.nodes()}
-        # nx.draw_networkx_labels(G, pos, labels, font_size=5)
-
-        # Save the plot to a file
-        plt.savefig(filename, dpi=300)  # Adjust dpi as needed
-        plt.close()
-
-
-G = GraphVisualization()
+G = gv.GraphVisualization()
 
 graph = DependancyGraph(raw_json)
 adj = graph.creat_adj_matrix_node_list()
 
-# G.visualize(layout='kk', filename='network.png') #### cant use weights
-# G.visualize(layout='spring', filename='network.png')
-
-# G.visualize(layout='shell', filename='network.png')
-# G.visualize(layout='spectral', filename='network.png')
-
-
-## Plotting the adjacency matrix
-# plt.figure(figsize=(6, 6))
-# plt.imshow(adj, cmap='binary', interpolation='none')
-# plt.title('GPT2 Adjacency Matrix')
-# plt.colorbar()
-# plt.savefig('network.png', dpi=300)
-# plt.close()
+G.visualize(layout='kk', filename='network.png')
