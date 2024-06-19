@@ -81,3 +81,49 @@ def opp_time_func(opp, input_shapes, output_shapes, hardware_config):
         return time_total
 
     return np.inf
+
+
+
+def run_cpu():
+    print('1')
+def run_phu():
+    print('2')
+def run_gpu():
+    print('3')
+def func():
+    print('placeholder')
+
+
+hw_intercon ={'CPU_CPU': lambda x: x*1,
+              'CPU_PHU': lambda x: x*1,
+              'CPU_GPU': lambda x: x*1,
+              'PHU_PHU': lambda x: x*1,
+              'PHU_GPU': lambda x: x*1,
+              'GPU_GPU': lambda x: x*1,
+}
+
+
+hardware_algs = {
+    'matmul_cpu': ('matmul', 'CPU', run_cpu, lambda x: x),
+    'matmul_phu': ('matmul', 'PPU', run_phu, lambda x: x),
+    'matmul_gpu': ('matmul', 'GPU', run_gpu, lambda x: x),
+    'add' : ('add', 'CPU' , func, lambda x: 1),
+    'subtract' : ('subtract', 'CPU' , func, lambda x: 1),
+    'multiply' : ('multiply', 'CPU' , func, lambda x: 1),
+    'divide' : ('divide', 'CPU' , func, lambda x: 1),
+    'sqrt' : ('sqrt', 'CPU' , func, lambda x: 1),
+    'rsqrt' : ('rsqrt', 'CPU' , func, lambda x: 1),
+    'tanh' : ('tanh', 'CPU' , func, lambda x: 1),
+    'power' : ('power', 'CPU' , func, lambda x: 1),
+    'transpose' : ('transpose', 'CPU' , func, lambda x: 1),
+    'nop' : ('nop', 'CPU' , func, lambda x: 1),
+    'less' : ('less', 'CPU' , func, lambda x: 1),
+    'take' : ('take', 'CPU' , func, lambda x: 1),
+    'split' : ('split', 'CPU' , func, lambda x: 1),
+    'mean' : ('mean', 'CPU' , func, lambda x: 1),
+    'softmax' : ('softmax', 'CPU' , func, lambda x: 1),
+    'matmul' : ('matmul', 'CPU' , func, lambda x: 1),
+    'dense' : ('dense', 'CPU' , func, lambda x: 1),
+    'pack' : ('pack', 'CPU' , func, lambda x: 1),
+    'where' : ('where', 'CPU' , func, lambda x: 1),
+}

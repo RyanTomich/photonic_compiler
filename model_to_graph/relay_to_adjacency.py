@@ -240,13 +240,11 @@ class DependancyGraph():
         CPU_time(list): List of the cost of run_CPU
         PHU_time(list): list of the cost of run_PHU
         '''
-        # TODO nieve stratigy
         CPU_time, PHU_time = node.time
 
         # if (node.time[0] + self.bit_transfer(node)*E_E_BIT_COST) < (node.time[1] + self.bit_transfer(node)*E_PH_BIT_COST):
 
         if PHU_time < CPU_time and self.bit_transfer(node)>1_000_000:
-            print('here')
             node.hardware = 'PHU'
             return PHU_time
         node.hardware = 'CPU'
