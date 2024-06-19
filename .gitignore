@@ -6,5 +6,6 @@
 **/*.params
 **/*.tar
 **/*.txt
+**/*.pyc
+**/*.png
 try_stuff.py
-plot.png
