@@ -55,7 +55,7 @@ def get_parameters(model):
     state_dict = model.state_dict()
     parameters = {}
     for name, val in state_dict.items():
-        parameters[name] = np.round(val.numpy().astype(np.float32), 4)
+        parameters[name] = np.round(val.numpy().astype(np.float64), 4)
     return parameters
 
 # Inference using Numpy
@@ -63,43 +63,52 @@ import numpy as np
 import heapq
 import random
 
-def matix_absmax_quantization(m1, int_type=np.int32):
+def matix_absmax_quantization(m1, int_type=np.int8):
     data_max = np.iinfo(int_type).max
-    assert(max(m1.shape)) != 0
     norm_range = math.floor((data_max)**(1/2)/ max(m1.shape))
     quantification_constant = norm_range/np.max(abs(m1))
     new_type = (m1 * quantification_constant).astype(int_type)
     assert np.all((new_type >= -1*norm_range) & (new_type <= norm_range))
-
     return new_type, quantification_constant
 
-def my_matmul(m1, m2):
-    # return np.matmul(m1, m2)
+def zeropoint_quantization(x, int_type=np.int8):
+    data_range = np.iinfo(int_type).max- np.iinfo(int_type).min
+    q_c = data_range / (np.max(x)- np. min(x))
+    z_p = -1* np.round(q_c * np.min(x)) + np.iinfo(int_type).min
+    type_x = np.round(q_c * x + z_p).astype(int_type)
+    return type_x, q_c, z_p
+
+def vector_quant_matmul(m1, m2, quantization_method, qualtization_type=np.int8):
     matrix = np.empty((m1.shape[0], m2.shape[-1]))
     for row_num in range(len(m1)):
         for col_num in range(m2.shape[-1]):
             row = m1[row_num]
             col = m2[:, col_num]
-            int_row, row_const = matix_absmax_quantization(row)
-            int_col, col_const = matix_absmax_quantization(col)
-            int_dot = np.dot(int_row, int_col)
-            float_dot = int_dot.astype(np.float64)/(row_const * col_const)
+            if quantization_method == 'absmax':
+                int_row, row_const = matix_absmax_quantization(row, qualtization_type)
+                int_col, col_const = matix_absmax_quantization(col, qualtization_type)
+                int_dot = np.dot(int_row, int_col)
+                float_dot = int_dot.astype(np.float64)* 1/(row_const * col_const)
+            elif quantization_method == 'zeropoint':
+                int_row, row_const, row_zero = zeropoint_quantization(row, qualtization_type)
+                int_col, col_const, col_zero = zeropoint_quantization(col, qualtization_type)
+                int_dot = np.dot(int_row - row_zero, int_col- col_zero) #TODO Still multipluing in float 64
+                float_dot = (int_dot /(row_const * col_const)).astype(np.float64)
+
             if np.isnan(float_dot):
                 float_dot = 0
             matrix[row_num][col_num] = float_dot
-
-    assert not np.isnan(matrix).any()
     return matrix
 
 
-def nd_tensor_product(m1, m2):
+def nd_tensor_product(m1, m2, quantization_method = 'zeropoint'):
     ans_shape = m1.shape[:-2] + (m1.shape[-2], m2.shape[-1])
     ans = np.empty(ans_shape)
     if len(ans_shape) < 3:
-        return my_matmul(m1, m2)
+        return vector_quant_matmul(m1, m2, quantization_method)
     else:
         for i in range(ans_shape[0]):
-            ans[i] = nd_tensor_product(m1[i], m2[i])
+            ans[i] = nd_tensor_product(m1[i], m2[i], quantization_method=quantization_method)
     return ans
 
 
