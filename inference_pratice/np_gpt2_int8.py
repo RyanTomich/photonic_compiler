@@ -78,7 +78,7 @@ def zeropoint_quantization(x, int_type=np.int8):
     type_x = np.round(q_c * x + z_p).astype(int_type)
     return type_x, q_c, z_p
 
-def vector_quant_matmul(m1, m2, quantization_method, qualtization_type=np.int8):
+def vector_quant_matmul(m1, m2, quantization_method, qualtization_type=np.int32):
     matrix = np.empty((m1.shape[0], m2.shape[-1]))
     for row_num in range(len(m1)):
         for col_num in range(m2.shape[-1]):
@@ -100,12 +100,37 @@ def vector_quant_matmul(m1, m2, quantization_method, qualtization_type=np.int8):
             matrix[row_num][col_num] = float_dot
     return matrix
 
+def sepperate_outliers(m1, m2, quantization_method):
+    print(f"start: {m1.shape}")
+    col_sums = []
+    for i in range(m1.shape[-1]):
+        col_sums.append(np.abs(sum(m1[:, i])))
+    col_sum_mean = np.mean(col_sums)
 
-def nd_tensor_product(m1, m2, quantization_method = 'zeropoint'):
+    m1_outliers = np.empty((m1.shape[0], 0))
+    m2_outliers = np.empty((0 ,m2.shape[-1]))
+    m1_inliers = np.empty((m1.shape[0], 0))
+    m2_inliers = np.empty((0 ,m2.shape[-1]))
+
+    for index, item in enumerate(col_sums):
+        if item > col_sum_mean*10:
+            m1_outliers = np.hstack((m1_outliers, m1[:, index][:, np.newaxis]))
+            m2_outliers = np.vstack((m2_outliers, m2[index]))
+        else:
+            m1_inliers = np.hstack((m1_inliers, m1[:, index][:, np.newaxis]))
+            m2_inliers = np.vstack((m2_inliers, m2[index]))
+
+    outliers = np.matmul(m1_outliers, m2_outliers)
+    inliers = vector_quant_matmul(m1_inliers, m2_inliers, quantization_method)
+
+    return outliers + inliers
+
+
+def nd_tensor_product(m1, m2, quantization_method = 'absmax'):
     ans_shape = m1.shape[:-2] + (m1.shape[-2], m2.shape[-1])
     ans = np.empty(ans_shape)
     if len(ans_shape) < 3:
-        return vector_quant_matmul(m1, m2, quantization_method)
+        return sepperate_outliers(m1, m2, quantization_method)
     else:
         for i in range(ans_shape[0]):
             ans[i] = nd_tensor_product(m1[i], m2[i], quantization_method=quantization_method)
