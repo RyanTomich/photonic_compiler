@@ -18,6 +18,8 @@ import model_trace as trace
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from torchinfo import summary
 import torch
+import math
+
 def transformer_gpt2_model(model_name):
     gpt2 = GPT2LMHeadModel.from_pretrained(model_name, output_attentions=True, activation_function = 'gelu', ) # loading gpt2 from transformers library
     gpt2_tokenizer = GPT2Tokenizer.from_pretrained(model_name) # loading gpt2 tokenizer from transformers library
@@ -61,23 +63,33 @@ import numpy as np
 import heapq
 import random
 
+def matix_absmax_quantization(m1, int_type=np.int32):
+    data_max = np.iinfo(int_type).max
+    assert(max(m1.shape)) != 0
+    norm_range = math.floor((data_max)**(1/2)/ max(m1.shape))
+    quantification_constant = norm_range/np.max(abs(m1))
+    new_type = (m1 * quantification_constant).astype(int_type)
+    assert np.all((new_type >= -1*norm_range) & (new_type <= norm_range))
+
+    return new_type, quantification_constant
+
 def my_matmul(m1, m2):
-    return np.matmul(m1,m2)
-    m1_const = 2147483643/np.max(abs(m1))  #Squrt(127) is 11...
-    m2_const = 2147483643/np.max(abs(m2))
+    # return np.matmul(m1, m2)
+    matrix = np.empty((m1.shape[0], m2.shape[-1]))
+    for row_num in range(len(m1)):
+        for col_num in range(m2.shape[-1]):
+            row = m1[row_num]
+            col = m2[:, col_num]
+            int_row, row_const = matix_absmax_quantization(row)
+            int_col, col_const = matix_absmax_quantization(col)
+            int_dot = np.dot(int_row, int_col)
+            float_dot = int_dot.astype(np.float64)/(row_const * col_const)
+            if np.isnan(float_dot):
+                float_dot = 0
+            matrix[row_num][col_num] = float_dot
 
-    m1 = (m1 * m1_const).astype(np.int64)
-    m2 = (m2* m2_const).astype(np.int64)
-
-    # assert np.all((m1 >= -128) & (m1 <= 127))
-    # assert np.all((m2 >= -128) & (m2 <= 127))
-
-    ans = np.matmul(m1,m2)
-
-    ans = (ans.astype(np.float64))/ (m1_const * m2_const)
-    # ans = (ans / (m1_const * m2_const)).astype(np.float64)
-    return ans
-
+    assert not np.isnan(matrix).any()
+    return matrix
 
 
 def nd_tensor_product(m1, m2):
