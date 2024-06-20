@@ -64,14 +64,14 @@ import numpy as np
 import heapq
 import random
 
-def nd_tensor_product(m1, m2, quantization_method = 'absmax_split', qualtization_type = np.int8):
+def nd_tensor_product(m1, m2, quantization_method = 'absmax_split', qualtization_type = np.int16):
     ans_shape = m1.shape[:-2] + (m1.shape[-2], m2.shape[-1])
     ans = np.empty(ans_shape)
     if len(ans_shape) < 3:
         return quant.sepperate_outliers(m1, m2, quantization_method, qualtization_type)
     else:
         for i in range(ans_shape[0]):
-            ans[i] = nd_tensor_product(m1[i], m2[i], quantization_method=quantization_method)
+            ans[i] = nd_tensor_product(m1[i], m2[i], quantization_method, qualtization_type)
     return ans
 
 
