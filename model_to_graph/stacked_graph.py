@@ -10,7 +10,7 @@ class StackedNode():
         self.parents = parents
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
-        self.stack = [alg for alg in oc.hardware_algs if self.opp in alg]
+        self.stack = [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]] #operation type
 
     def _find_opp(self, func_name):
         '''
@@ -31,9 +31,10 @@ class StackedNode():
 class StackedGraph():
     def __init__(self, raw_json):
         self.raw_json = raw_json
-        self.node_list = self.create_nodes()
+        self.node_list = self._create_nodes()
+        self.adj_matrix = self._creat_adj_matrix()
 
-    def create_nodes(self):
+    def _create_nodes(self):
         ajusted_shapes = []
         split_shift = 0
         for index, node in enumerate(self.raw_json["nodes"]):
@@ -50,39 +51,21 @@ class StackedGraph():
             nodes.append(StackedNode(index, node, parents, input_shapes, output_shapes))
         return nodes
 
-    def bit_transfer(self, node, direction = 'out'):
+    # adj_matrix
+    def _bit_transfer(self, node, direction = 'out'):
         '''
         Calculates the total number of bits passed out of a node
         '''
         total_bits = 0
         if direction == 'out':
-            total_bits += oc.ten_elm(node.output_shapes[0])*32 #
+            total_bits += oc.ten_elm(node.output_shapes[0]) #assuming uniform outputs(splits are all the same)
         else:
             for shape in node.input_shapes:
                 total_bits += oc.ten_elm(shape)*32 # float32 numbes
 
         return total_bits
 
-    def creat_adj_matrix_node_list(self):
-        '''
-        Creates an adjancy matrix of the dependencies using node_list
-        '''
-        dependancys = []
-        for node in self.node_list:
-            inputs = node.parents
-            for inp in inputs: # where each input is an index to another node.
-                dependancys.append( (inp, node.oppid, self.bit_transfer(self.node_list[inp])) ) # (1, 2) where 1's output are 2's inputs
-
-
-        num_nodes = (len(self.node_list))
-        # adj_matrix = [] # block matrix
-        adj_matrix = np.empty((num_nodes, num_nodes), dtype=object) # block matrix
-        for dep in dependancys:
-            connection_matrix = self.make_connection_matrix(dep[0], dep[1])
-            adj_matrix[dep[0]][dep[1]] = (dep[2], connection_matrix)
-        return adj_matrix
-
-    def make_connection_matrix(self, start_node, end_node):
+    def _make_connection_matrix(self, start_node, end_node, bit_transfer):
         '''
         start_node: start_node_id
         end_node: end_node_id
@@ -90,21 +73,52 @@ class StackedGraph():
         start_stack = self.node_list[start_node].stack
         end_stack = self.node_list[end_node].stack
         assert type(start_stack) == type(end_stack) == list
-        connection_matrix = np.empty((len(start_stack) ,len(end_stack) ))
-        # TODO fill in connection cost
+        connection_matrix = np.empty(( len(start_stack) ,len(end_stack) ))
+        for start_idx in range(len(start_stack)):
+            for end_idx in range(len(end_stack)):
+                start_hw = oc.hardware_algs[start_stack[start_idx]][1]
+                end_hw = oc.hardware_algs[end_stack[end_idx]][1]
+                hw_connection = tuple(sorted( (start_hw, end_hw) ))
+                connection_matrix[start_idx][end_idx] = oc.hw_intercon[hw_connection](bit_transfer)
+
         return connection_matrix
 
+    def _creat_adj_matrix(self):
+        '''
+        Creates an adjancy matrix of the dependencies using node_list
+        '''
+        dependancys = []
+        for node in self.node_list:
+            inputs = node.parents
+            for inp in inputs: # where each input is an index to another node.
+                dependancys.append( (inp, node.oppid, self._bit_transfer(self.node_list[inp])) ) # (1, 2) where 1's output are 2's inputs
 
-read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
+
+        num_nodes = (len(self.node_list))
+        adj_matrix = np.empty((num_nodes, num_nodes), dtype=object) # block matrix
+        for dep in dependancys:
+            connection_matrix = self._make_connection_matrix(*dep)
+            adj_matrix[dep[0]][dep[1]] = connection_matrix
+        return adj_matrix
+
+
+
+# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
-# read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
+read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
 with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
 
-# node = StackedNode(0, json_node, [1,2], (), ())
-# print(node)
 
 
-graph = StackedGraph(raw_json)
-adj_matrix = graph.creat_adj_matrix_node_list()
+# import time
+# import sys
+# start_time = time.time()
+# g = StackedGraph(raw_json)
+# end_time = time.time()
+# size = sys.getsizeof(g)
+
+# 0.010859012603 - 11684107
+# 0.011414766311 - 13784141
+# 0.000073671340 - 18891

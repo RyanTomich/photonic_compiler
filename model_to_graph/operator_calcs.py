@@ -94,36 +94,43 @@ def func():
     print('placeholder')
 
 
-hw_intercon ={'CPU_CPU': lambda x: x*1,
-              'CPU_PHU': lambda x: x*1,
-              'CPU_GPU': lambda x: x*1,
-              'PHU_PHU': lambda x: x*1,
-              'PHU_GPU': lambda x: x*1,
-              'GPU_GPU': lambda x: x*1,
+hw_intercon ={('CPU', 'CPU'): lambda x: x*1,
+              ('CPU', 'PHU'): lambda x: x*2,
+              ('PHU', 'PHU'): lambda x: np.inf,
 }
 
 
-hardware_algs = {
-    'matmul_cpu': ('matmul', 'CPU', run_cpu, lambda x: x),
-    'matmul_phu': ('matmul', 'PPU', run_phu, lambda x: x),
-    'matmul_gpu': ('matmul', 'GPU', run_gpu, lambda x: x),
-    'add' : ('add', 'CPU' , func, lambda x: 1),
-    'subtract' : ('subtract', 'CPU' , func, lambda x: 1),
-    'multiply' : ('multiply', 'CPU' , func, lambda x: 1),
-    'divide' : ('divide', 'CPU' , func, lambda x: 1),
-    'sqrt' : ('sqrt', 'CPU' , func, lambda x: 1),
-    'rsqrt' : ('rsqrt', 'CPU' , func, lambda x: 1),
-    'tanh' : ('tanh', 'CPU' , func, lambda x: 1),
-    'power' : ('power', 'CPU' , func, lambda x: 1),
-    'transpose' : ('transpose', 'CPU' , func, lambda x: 1),
-    'nop' : ('nop', 'CPU' , func, lambda x: 1),
-    'less' : ('less', 'CPU' , func, lambda x: 1),
-    'take' : ('take', 'CPU' , func, lambda x: 1),
-    'split' : ('split', 'CPU' , func, lambda x: 1),
-    'mean' : ('mean', 'CPU' , func, lambda x: 1),
-    'softmax' : ('softmax', 'CPU' , func, lambda x: 1),
-    'matmul' : ('matmul', 'CPU' , func, lambda x: 1),
-    'dense' : ('dense', 'CPU' , func, lambda x: 1),
-    'pack' : ('pack', 'CPU' , func, lambda x: 1),
-    'where' : ('where', 'CPU' , func, lambda x: 1),
+hardware_algs = { # name: (opp, hardware, func, cycles)
+    'matmul_phu': ('matmul', 'CPU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+    'dense_phu': ('dense', 'CPU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+    'pack_phu': ('pack', 'CPU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+
+    'add' : ('add', 'CPU' , func, all_elm),
+    'subtract' : ('subtract', 'CPU' , func, all_elm),
+    'multiply' : ('multiply', 'CPU' , func, all_elm),
+    'divide' : ('divide', 'CPU' , func, all_elm),
+    'sqrt' : ('sqrt', 'CPU' , func, all_elm),
+    'rsqrt' : ('rsqrt', 'CPU' , func, all_elm),
+    'tanh' : ('tanh', 'CPU' , func, lambda i, o: {"CPU": ten_elm(o[0])*4}),
+    'power' : ('power', 'CPU' , func, all_elm),
+    'transpose' : ('transpose', 'CPU' , func, all_elm),
+    'nop' : ('nop', 'CPU' , func, constnat(0)),
+    'less' : ('less', 'CPU' , func, constnat(1)),
+    'take' : ('take', 'CPU' , func, constnat(1)),
+    'split' : ('split', 'CPU' , constnat(3)),
+    'mean' : ('mean', 'CPU' , func, lambda i, o: {"CPU":(i[0][-1]+1)* i[0][-2]},),
+    'softmax' : ('softmax', 'CPU' , func, lambda i, o: {"CPU": ten_elm(o[0])*6},),
+    'matmul' : ('matmul', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
+    'dense' : ('dense', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
+    'pack' : ('pack', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
+    'where' : ('where', 'CPU' , func, constnat(1)),
+    'null' : ('null', 'CPU' , func, constnat(0)),
+}
+
+
+run_phu_cycles = {
+    'matmul':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
+    'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
+    'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
+    'pack':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
 }
