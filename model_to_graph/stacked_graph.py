@@ -4,13 +4,15 @@ import json
 
 
 class StackedNode():
-    def __init__(self, oppid, relay_node, parents, input_shapes, output_shapes):
+    def __init__(self, oppid, relay_node, parents, input_shapes, output_shapes, opp=None, func_stack=None, cost_stack=None):
         self.oppid = oppid
-        self.opp = self._find_opp(relay_node['attrs']['func_name']) if 'attrs' in relay_node else 'null'
+        self.opp = (self._find_opp(relay_node['attrs']['func_name']) if 'attrs' in relay_node else 'null') if opp is None else opp
         self.parents = parents
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
-        self.stack = [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]] #operation type
+        self.func_stack = [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]] if func_stack is None else func_stack
+        self.cost_stack = [oc.hardware_algs[func][3](self.input_shapes, self.output_shapes) for func in self.func_stack] if cost_stack is None else cost_stack
+
 
     def _find_opp(self, func_name):
         '''
@@ -26,12 +28,12 @@ class StackedNode():
                 return part
 
     def __str__(self):
-        return f"{self.oppid} \n{self.opp} \n{self.parents}  \n{self.input_shapes} \n{self.output_shapes} \n{self.stack}"
+        return f"{self.oppid} \n{self.opp} \n{self.parents}  \n{self.input_shapes} \n{self.output_shapes} \n{self.func_stack} \n{self.cost_stack}"
 
 class StackedGraph():
-    def __init__(self, raw_json):
+    def __init__(self, raw_json, node_list=None):
         self.raw_json = raw_json
-        self.node_list = self._create_nodes()
+        self.node_list = self._create_nodes() if node_list = None else node_list
         self.adj_matrix = self._creat_adj_matrix()
 
     def _create_nodes(self):
@@ -70,8 +72,8 @@ class StackedGraph():
         start_node: start_node_id
         end_node: end_node_id
         '''
-        start_stack = self.node_list[start_node].stack
-        end_stack = self.node_list[end_node].stack
+        start_stack = self.node_list[start_node].func_stack
+        end_stack = self.node_list[end_node].func_stack
         assert type(start_stack) == type(end_stack) == list
         connection_matrix = np.empty(( len(start_stack) ,len(end_stack) ))
         for start_idx in range(len(start_stack)):
@@ -105,11 +107,14 @@ class StackedGraph():
 
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
-read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
-with open(read_json_path)  as json_file:
-    raw_json = json.load(json_file) # returns json file as dict
+# read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
+# with open(read_json_path)  as json_file:
+#     raw_json = json.load(json_file) # returns json file as dict
 
 
+# g = StackedGraph(raw_json)
+# for node in g.node_list:
+#     print(node.cost_stack)
 
 
 # import time
