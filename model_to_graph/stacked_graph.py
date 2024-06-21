@@ -4,14 +4,14 @@ import json
 
 
 class StackedNode():
-    def __init__(self, oppid, relay_node, parents, input_shapes, output_shapes, opp=None, func_stack=None, cost_stack=None):
+    def __init__(self, oppid, parents, input_shapes, output_shapes, opp=None, func_stack=None, cost_stack=None, relay_node=None):
         self.oppid = oppid
-        self.opp = (self._find_opp(relay_node['attrs']['func_name']) if 'attrs' in relay_node else 'null') if opp is None else opp
+        self.opp = opp if relay_node is None else (self._find_opp(relay_node['attrs']['func_name']) if 'attrs' in relay_node else 'null')
         self.parents = parents
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
-        self.func_stack = [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]] if func_stack is None else func_stack
-        self.cost_stack = [oc.hardware_algs[func][3](self.input_shapes, self.output_shapes) for func in self.func_stack] if cost_stack is None else cost_stack
+        self.func_stack = func_stack if relay_node is None else [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]]
+        self.cost_stack = cost_stack if relay_node is None else [oc.hardware_algs[func][3](self.input_shapes, self.output_shapes) for func in self.func_stack]
 
 
     def _find_opp(self, func_name):
@@ -28,12 +28,12 @@ class StackedNode():
                 return part
 
     def __str__(self):
-        return f"{self.oppid} \n{self.opp} \n{self.parents}  \n{self.input_shapes} \n{self.output_shapes} \n{self.func_stack} \n{self.cost_stack}"
+        return f"{self.oppid=} \n {self.opp=} \n {self.parents=} \n {self.input_shapes=} \n {self.output_shapes=} \n {self.func_stack=} \n {self.cost_stack=} \n"
 
 class StackedGraph():
-    def __init__(self, raw_json, node_list=None):
+    def __init__(self, node_list=None, raw_json=None):
         self.raw_json = raw_json
-        self.node_list = self._create_nodes() if node_list = None else node_list
+        self.node_list = node_list if not raw_json else self._create_nodes()
         self.adj_matrix = self._creat_adj_matrix()
 
     def _create_nodes(self):
@@ -50,7 +50,7 @@ class StackedGraph():
             parents = [shape_idx[0] for shape_idx in node['inputs']]
             input_shapes = [ajusted_shapes[shape_idx[0]] for shape_idx in node['inputs']]
             output_shapes = [ajusted_shapes[index] for i in range(num_output)]
-            nodes.append(StackedNode(index, node, parents, input_shapes, output_shapes))
+            nodes.append(StackedNode(index, parents, input_shapes, output_shapes, relay_node=node))
         return nodes
 
     # adj_matrix
@@ -127,3 +127,22 @@ class StackedGraph():
 # 0.010859012603 - 11684107
 # 0.011414766311 - 13784141
 # 0.000073671340 - 18891
+
+node_list = []
+a = StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
+node_list.append(a)
+
+last_out = np.random.randint(low=1, high=5, size=2).tolist()
+
+for i in range(2):
+    out_size = np.random.randint(low=1, high=5, size=2).tolist()
+    cost = np.random.randint(low=1, high=5, size=3).tolist()
+    node_list.append(StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
+    last_out = out_size
+
+stacked_graph = StackedGraph(node_list = node_list)
+
+
+for node in stacked_graph.node_list:
+    print (node)
+print(stacked_graph.adj_matrix)

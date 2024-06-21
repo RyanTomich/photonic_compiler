@@ -97,6 +97,18 @@ def func():
 hw_intercon ={('CPU', 'CPU'): lambda x: x*1,
               ('CPU', 'PHU'): lambda x: x*2,
               ('PHU', 'PHU'): lambda x: np.inf,
+
+              ('alg1', 'start'): lambda x: 0,
+              ('alg2', 'start'): lambda x: 0,
+              ('alg3', 'start'): lambda x: 0,
+
+              ('alg1', 'alg1'): lambda x: x*1,
+              ('alg2', 'alg2'): lambda x: x*1,
+              ('alg3', 'alg3'): lambda x: x*1,
+              ('alg1', 'alg2'): lambda x: x*3,
+              ('alg1', 'alg3'): lambda x: x*3,
+              ('alg2', 'alg3'): lambda x: x*2,
+
 }
 
 
@@ -125,12 +137,9 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'pack' : ('pack', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
     'where' : ('where', 'CPU' , func, constnat(1)),
     'null' : ('null', 'CPU' , func, constnat(0)),
-}
 
-
-run_phu_cycles = {
-    'matmul':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
-    'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
-    'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
-    'pack':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
+    'start' : ('null', 'start' , func, constnat(0)),
+    'alg1' : ('null', 'alg1' , func, constnat(0)),
+    'alg2' : ('null', 'alg2' , func, constnat(0)),
+    'alg3' : ('null', 'alg3' , func, constnat(0)),
 }
