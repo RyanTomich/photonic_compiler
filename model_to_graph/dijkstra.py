@@ -66,6 +66,7 @@ def get_path(previous, target):
 #endregion
 
 # region ###### Special Dijkstra for liner stacked graphs ######
+# make pretend tree
 node_list = []
 a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
 node_list.append(a)
@@ -83,6 +84,8 @@ stacked_graph = sg.StackedGraph(stack_list = node_list)
 for node in stacked_graph.stack_list:
     print(node)
 
+
+# Path finding
 def stacked_dijkstra(graph, start):
     node_matrix = graph.make_node_matrix()
 
@@ -139,3 +142,5 @@ print(path)
 
 
 #endregion
+
+# region ###### Dijkstra for branched stacked graphs ######

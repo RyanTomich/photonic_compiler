@@ -4,6 +4,8 @@ import numpy as np
 from collections import deque
 import networkx as nx
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 
 import operator_calcs as oc
 import graph_visualization as gv
@@ -388,3 +390,13 @@ print(f"always_CPU: {graph.execution_time('always_CPU', adj_matrix)}")
 # adj = graph.creat_adj_matrix_node_list()
 
 # G.visualize(layout='kk', filename='network.png')
+
+# Plotting the adjacency matrix
+# mask = adj_matrix != 0
+# adj_matrix[mask] = 1
+# plt.figure(figsize=(6, 6))
+# plt.imshow(adj_matrix, cmap='binary', interpolation='none')
+# plt.title('GPT2 Adjacency Matrix')
+# plt.colorbar()
+# plt.savefig('matrix.png', dpi=300)
+# plt.close()
