@@ -98,16 +98,16 @@ hw_intercon ={('CPU', 'CPU'): lambda x: x*1,
               ('CPU', 'PHU'): lambda x: x*2,
               ('PHU', 'PHU'): lambda x: np.inf,
 
-              ('alg1', 'start'): lambda x: 0,
+              ('alg1', 'start'): lambda x: 0, # TODO for test
               ('alg2', 'start'): lambda x: 0,
               ('alg3', 'start'): lambda x: 0,
 
-              ('alg1', 'alg1'): lambda x: x*1,
-              ('alg2', 'alg2'): lambda x: x*1,
-              ('alg3', 'alg3'): lambda x: x*1,
-              ('alg1', 'alg2'): lambda x: x*3,
-              ('alg1', 'alg3'): lambda x: x*3,
-              ('alg2', 'alg3'): lambda x: x*2,
+              ('alg1', 'alg1'): lambda x: 1,
+              ('alg2', 'alg2'): lambda x: 1,
+              ('alg3', 'alg3'): lambda x: 1,
+              ('alg1', 'alg2'): lambda x: 2,
+              ('alg1', 'alg3'): lambda x: 2,
+              ('alg2', 'alg3'): lambda x: 2,
 
 }
 
@@ -138,7 +138,7 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'where' : ('where', 'CPU' , func, constnat(1)),
     'null' : ('null', 'CPU' , func, constnat(0)),
 
-    'start' : ('null', 'start' , func, constnat(0)),
+    'start' : ('null', 'start' , func, constnat(0)), # TODO for test
     'alg1' : ('null', 'alg1' , func, constnat(0)),
     'alg2' : ('null', 'alg2' , func, constnat(0)),
     'alg3' : ('null', 'alg3' , func, constnat(0)),

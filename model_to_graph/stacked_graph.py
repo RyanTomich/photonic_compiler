@@ -31,9 +31,9 @@ class StackedNode():
         return f"{self.oppid=} \n {self.opp=} \n {self.parents=} \n {self.input_shapes=} \n {self.output_shapes=} \n {self.func_stack=} \n {self.cost_stack=} \n"
 
 class StackedGraph():
-    def __init__(self, node_list=None, raw_json=None):
+    def __init__(self, stack_list=None, raw_json=None):
         self.raw_json = raw_json
-        self.node_list = node_list if not raw_json else self._create_nodes()
+        self.stack_list = stack_list if not raw_json else self._create_nodes()
         self.adj_matrix = self._creat_adj_matrix()
 
     def _create_nodes(self):
@@ -72,8 +72,8 @@ class StackedGraph():
         start_node: start_node_id
         end_node: end_node_id
         '''
-        start_stack = self.node_list[start_node].func_stack
-        end_stack = self.node_list[end_node].func_stack
+        start_stack = self.stack_list[start_node].func_stack
+        end_stack = self.stack_list[end_node].func_stack
         assert type(start_stack) == type(end_stack) == list
         connection_matrix = np.empty(( len(start_stack) ,len(end_stack) ))
         for start_idx in range(len(start_stack)):
@@ -87,21 +87,42 @@ class StackedGraph():
 
     def _creat_adj_matrix(self):
         '''
-        Creates an adjancy matrix of the dependencies using node_list
+        Creates an adjancy matrix of the dependencies using stack_list
         '''
         dependancys = []
-        for node in self.node_list:
-            inputs = node.parents
+        for stack in self.stack_list:
+            inputs = stack.parents
             for inp in inputs: # where each input is an index to another node.
-                dependancys.append( (inp, node.oppid, self._bit_transfer(self.node_list[inp])) ) # (1, 2) where 1's output are 2's inputs
+                dependancys.append( (inp, stack.oppid, self._bit_transfer(self.stack_list[inp])) ) # (1, 2) where 1's output are 2's inputs
 
 
-        num_nodes = (len(self.node_list))
+        num_nodes = (len(self.stack_list))
         adj_matrix = np.empty((num_nodes, num_nodes), dtype=object) # block matrix
         for dep in dependancys:
             connection_matrix = self._make_connection_matrix(*dep)
             adj_matrix[dep[0]][dep[1]] = connection_matrix
         return adj_matrix
+
+    def make_node_matrix(self):
+        '''returns a matrix indexed by (node,stack)'''
+        nodes = []
+        height = 0
+        for stack in self.stack_list:
+            nodes.append((stack.oppid, len(stack.func_stack)-1))
+            height = max(height, len(stack.func_stack))
+
+        print(nodes)
+        node_matrix = np.full((len(self.stack_list), height), np.nan)
+        for node in nodes:
+            for col in range(node[1]+1):
+                node_matrix[node[0]][col] = 1
+        return node_matrix
+
+    def connected(position1,position2):
+        '''positions from node_matrix'''
+
+
+
 
 
 
@@ -113,7 +134,7 @@ class StackedGraph():
 
 
 # g = StackedGraph(raw_json)
-# for node in g.node_list:
+# for node in g.stack_list:
 #     print(node.cost_stack)
 
 
