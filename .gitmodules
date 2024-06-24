@@ -1,3 +1,6 @@
 [submodule "inference_pratice/huggingface_transformers"]
 	path = inference_pratice/huggingface_transformers
 	url = https://github.com/RyanTomich/huggingface_transformers.git
+[submodule "inference_pratice/nlp-architect"]
+	path = inference_pratice/nlp-architect
+	url = https://github.com/RyanTomich/nlp-architect.git
