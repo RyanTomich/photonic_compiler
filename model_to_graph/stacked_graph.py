@@ -127,22 +127,3 @@ class StackedGraph():
 # 0.010859012603 - 11684107
 # 0.011414766311 - 13784141
 # 0.000073671340 - 18891
-
-node_list = []
-a = StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
-node_list.append(a)
-
-last_out = np.random.randint(low=1, high=5, size=2).tolist()
-
-for i in range(2):
-    out_size = np.random.randint(low=1, high=5, size=2).tolist()
-    cost = np.random.randint(low=1, high=5, size=3).tolist()
-    node_list.append(StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
-    last_out = out_size
-
-stacked_graph = StackedGraph(node_list = node_list)
-
-
-for node in stacked_graph.node_list:
-    print (node)
-print(stacked_graph.adj_matrix)

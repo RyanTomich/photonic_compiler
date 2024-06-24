@@ -2,7 +2,7 @@ import numpy as np
 import heapq
 import stacked_graph as sg
 
-# General Dijkstra for normal graph
+#region ###### General Dijkstra for normal graph ######
 dependancies = [
     (0, 1, 1), (0, 2, 2), (0,3,2),
 
@@ -19,7 +19,7 @@ adj_matrix = np.zeros((len(values), len(values)))
 for dep in dependancies:
     adj_matrix[dep[0]][dep[1]] = dep[2]
 
-print(adj_matrix)
+# print(adj_matrix)
 
 def dijkstra(adj_matrix, node_weights, start = 0):
     n = len(node_weights)
@@ -62,8 +62,9 @@ def get_path(previous, target):
 # print(previous)
 # print(get_path(previous, len(adj_matrix)-1))
 
+#endregion
 
-# Special Dijkstra for liner stacked graphs
+# region ###### Special Dijkstra for liner stacked graphs ######
 node_list = []
 a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
 node_list.append(a)
@@ -78,7 +79,4 @@ for i in range(2):
 
 stacked_graph = sg.StackedGraph(node_list = node_list)
 
-
-for node in stacked_graph.node_list:
-    print (node)
-print(stacked_graph.adj_matrix)
+#endregion
