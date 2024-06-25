@@ -170,17 +170,46 @@ stacked_graph = sg.StackedGraph(stack_list = node_list)
 for node in stacked_graph.stack_list:
     print(node)
 
+def get_combinations(graph, aggreement_stacks):
+    ans = []
+    lengths = [len(graph.stack_list[stack].func_stack) for stack in aggreement_stacks]
+    for i in range(lengths[0]):
+        for j in range(lengths[1]):
+            ans.append((i,j))
+    return ans
+
+def get_aggreement(node_indexes, aggreement_stacks):
+    stack_indexes = ()
+    for node in node_indexes:
+        if node[0] in aggreement_stacks:
+            stack_indexes += (node[1],)
+    return stack_indexes
+
+def extract_stacks(path):
+
+    return {index[0] for index in path}
+
 def branching_stacked_dijkstra(graph, start):
+    aggreement_stacks = [1, 5]
     node_matrix = graph.make_node_matrix()
 
     que = [(0, [start]) ] #(distance, [path])
+    paths = {x : [] for x in get_combinations(graph, aggreement_stacks)}
+    coverage = {x : {i for i in range(len(node_matrix))} for x in get_combinations(graph, aggreement_stacks)}
 
     while que:
         cur_dist, cur_path = heapq.heappop(que)
         cur_node = cur_path[-1]
         negibors = graph.get_stack_neighbors(cur_node[0])
         if negibors == []:
-            print(f"{cur_dist}--> {cur_path}")
+            aggreement = get_aggreement(cur_path, aggreement_stacks)
+            paths[aggreement].append((cur_dist, cur_path))
+            coverage[aggreement] -= extract_stacks(cur_path)
+            if not coverage[aggreement]:
+                return paths[aggreement]
+            # if coverage[get_aggreement(cur_path, aggreement_stacks)] == {0,1,2,3,4,5}:
+            #     return(paths[get_aggreement(cur_path, aggreement_stacks)])
+            # print(f"{cur_dist}--> {cur_path}")
         for negibor_stack in negibors:
             stack_connection = graph.adj_matrix[cur_node[0]][negibor_stack]
             for node, node_cost in enumerate(graph.stack_list[negibor_stack].cost_stack):
@@ -189,7 +218,7 @@ def branching_stacked_dijkstra(graph, start):
                 heapq.heappush(que, (new_distance, cur_path + [(negibor_stack, node)]))
 
 
-branching_stacked_dijkstra(stacked_graph, (0,0))
+print(branching_stacked_dijkstra(stacked_graph, (0,0)))
 # dist, previous = branching_stacked_dijkstra(stacked_graph, (0,0))
 # print(dist)
 
