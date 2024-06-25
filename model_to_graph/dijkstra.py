@@ -46,20 +46,19 @@ def matrix_dijkstra(adj_matrix, node_weights, start = 0):
                     heapq.heappush(que, (new_dist, v))
                     previous[v] = u
 
-
     return dist, previous
 
 
 
-def get_path(previous, target):
-    path = []
-    while target != -1:
-        path.insert(0, target)
-        target = previous[target]
-    return path
+# def get_path(previous, target):
+#     path = []
+#     while target != -1:
+#         path.insert(0, target)
+#         target = previous[target]
+#     return path
 
-# dist, previous = dijkstra(adj_matrix, values, start = 0)
-# print(dist)
+dist, previous = matrix_dijkstra(adj_matrix, values, start = 0)
+print(dist)
 # print(previous)
 # print(get_path(previous, len(adj_matrix)-1))
 
@@ -67,22 +66,22 @@ def get_path(previous, target):
 
 # region ###### Special Dijkstra for liner stacked graphs ######
 # make pretend tree
-node_list = []
-a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
-node_list.append(a)
+# node_list = []
+# a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
+# node_list.append(a)
 
-last_out = np.random.randint(low=1, high=5, size=2).tolist()
+# last_out = np.random.randint(low=1, high=5, size=2).tolist()
 
-for i in range(2):
-    out_size = np.random.randint(low=1, high=5, size=2).tolist()
-    cost = np.random.randint(low=1, high=5, size=3).tolist()
-    node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
-    last_out = out_size
+# for i in range(2):
+#     out_size = np.random.randint(low=1, high=5, size=2).tolist()
+#     cost = np.random.randint(low=1, high=5, size=3).tolist()
+#     node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
+#     last_out = out_size
 
-stacked_graph = sg.StackedGraph(stack_list = node_list)
+# stacked_graph = sg.StackedGraph(stack_list = node_list)
 
-for node in stacked_graph.stack_list:
-    print(node)
+# for node in stacked_graph.stack_list:
+#     print(node)
 
 
 # Path finding
@@ -134,13 +133,91 @@ def stacked_get_path(previous, target):
     return path
 
 
-dist, previous = stacked_dijkstra(stacked_graph, (0,0))
-print(dist)
+# dist, previous = stacked_dijkstra(stacked_graph, (0,0))
+# print(dist)
 
-path = stacked_get_path(previous, (len(dist)-1, np.argmin(dist[-1])) )
-print(path)
+# path = stacked_get_path(previous, (len(dist)-1, np.argmin(dist[-1])) )
+# print(path)
 
 
 #endregion
 
 # region ###### Dijkstra for branched stacked graphs ######
+
+node_list = []
+a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
+node_list.append(a)
+
+last_out = np.random.randint(low=1, high=5, size=2).tolist()
+
+for i in range(4):
+    out_size = np.random.randint(low=1, high=5, size=2).tolist()
+    cost = np.random.randint(low=1, high=5, size=3).tolist()
+    node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
+    last_out = out_size
+
+out_size = np.random.randint(low=1, high=5, size=2).tolist()
+node_list[-1].oppid = 5
+node_list.append( sg.StackedNode(4, [1], node_list[1].output_shapes, [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=np.random.randint(low=1, high=5, size=3).tolist()))
+
+node_list[4].input_shapes.append(out_size)
+node_list[4].parents.append(5)
+
+node_list.sort(key=lambda x: x.oppid)
+
+stacked_graph = sg.StackedGraph(stack_list = node_list)
+
+# for node in stacked_graph.stack_list:
+#     print(node)
+
+def branching_stacked_dijkstra(graph, start):
+    node_matrix = graph.make_node_matrix()
+
+    dist = np.copy(node_matrix)
+    dist[dist == 1] = np.inf
+    dist[start] = graph.stack_list[start[0]].cost_stack[start[1]]
+
+    visited = np.copy(node_matrix)
+    visited[visited == 1] = 0
+
+    previous = np.full(node_matrix.shape, np.nan, dtype=object)
+    non_zero = np.argwhere(node_matrix == 1)
+    for idx in non_zero:
+        previous[tuple(idx)] = (-1, -1)
+
+    que = [(dist[start], start)] # (distance, node)
+
+    while que:
+        print(dist)
+        print()
+        cur_dist, cur_position = heapq.heappop(que)
+        if visited[cur_position]:
+            continue
+
+        visited[cur_position] = True
+
+        for board_position in np.ndindex(node_matrix.shape):
+            # if not in visited and their stacks the nodes stacks are connected
+            stack_connection = graph.adj_matrix[cur_position[0]][board_position[0]]
+            if visited[board_position] == 0 and stack_connection is not None:
+                next_node_weight = graph.stack_list[board_position[0]].cost_stack[board_position[1]]
+                edge_weight = stack_connection[cur_position[1]][board_position[1]]
+                new_dist = cur_dist + edge_weight + next_node_weight
+
+                if new_dist < dist[board_position]:
+                    dist[board_position] = new_dist
+                    heapq.heappush(que, (new_dist, board_position))
+                    previous[board_position] = cur_position
+
+    return dist, previous
+
+
+
+
+dist, previous = branching_stacked_dijkstra(stacked_graph, (0,0))
+print(dist)
+
+path = stacked_get_path(previous, (len(dist)-1, np.argmin(dist[-1])) )
+print(path)
+
+# endregion

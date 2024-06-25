@@ -118,10 +118,6 @@ class StackedGraph():
                 node_matrix[node[0]][col] = 1
         return node_matrix
 
-    def connected(position1,position2):
-        '''positions from node_matrix'''
-
-
 
 
 
