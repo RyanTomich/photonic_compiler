@@ -111,12 +111,19 @@ class StackedGraph():
             nodes.append((stack.oppid, len(stack.func_stack)-1))
             height = max(height, len(stack.func_stack))
 
-        print(nodes)
+        # print(nodes)
         node_matrix = np.full((len(self.stack_list), height), np.nan)
         for node in nodes:
             for col in range(node[1]+1):
                 node_matrix[node[0]][col] = 1
         return node_matrix
+
+    def get_stack_neighbors(self, stack_num):
+        row = self.adj_matrix[stack_num]
+        not_none = [i for i,v in enumerate(row) if v is not None]
+        return not_none
+
+
 
 
 
