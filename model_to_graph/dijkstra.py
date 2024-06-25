@@ -167,10 +167,15 @@ node_list.sort(key=lambda x: x.oppid)
 
 stacked_graph = sg.StackedGraph(stack_list = node_list)
 
-for node in stacked_graph.stack_list:
-    print(node)
+# for node in stacked_graph.stack_list:
+#     print(node)
 
 def get_combinations(graph, aggreement_stacks):
+    '''
+    returns all the combinations of nodes within the agreed stacks
+    graph: StackedGraph
+    aggreement_stacks: list of stacks that must aggree
+    '''
     ans = []
     lengths = [len(graph.stack_list[stack].func_stack) for stack in aggreement_stacks]
     for i in range(lengths[0]):
@@ -179,6 +184,11 @@ def get_combinations(graph, aggreement_stacks):
     return ans
 
 def get_aggreement(node_indexes, aggreement_stacks):
+    '''
+    returns tuple of the nodes in each of the aggreement stacks
+    node_indexes: a path
+    aggreement_stacks: list of stacks that must aggreee
+    '''
     stack_indexes = ()
     for node in node_indexes:
         if node[0] in aggreement_stacks:
@@ -186,11 +196,54 @@ def get_aggreement(node_indexes, aggreement_stacks):
     return stack_indexes
 
 def extract_stacks(path):
-
+    # returns set of stacks included in the path
     return {index[0] for index in path}
 
+def merge_paths(paths):
+    '''
+    given a sorted by time list of paths with full coverage, returns all nodes in
+    the optimal path.
+    [(distance, [path]), (distance, [path]), (distance, [path])]
+    '''
+    row_coverage = set()
+    nodes = []
+    for path in paths:
+        for node in path[1]:
+            if node[0] not in row_coverage:
+                nodes.append(node)
+                row_coverage.add(node[0])
+    return sorted(list(nodes), key=lambda x: x[0])
+
+def make_aggreement_list(graph):
+    '''
+    graph: StackedGraph Object
+    returns all stack indicies with branches or merges
+    '''
+    branches = []
+    for idx, row in enumerate (graph.adj_matrix):
+        row_counts = 0
+        for element in row:
+            if element is not None:
+                row_counts += 1
+        col_count = 0
+        for element in graph.adj_matrix[:, idx]:
+            if element is not None:
+                col_count += 1
+
+        if row_counts > 1 or col_count > 1:
+            branches.append(idx)
+    return(branches)
+
+
+
 def branching_stacked_dijkstra(graph, start):
-    aggreement_stacks = [1, 5]
+    '''
+    Returns optimal path covering all stacks
+    graph: StackedGraph object
+    start: starting node (stack, node)
+    '''
+    aggreement_stacks = make_aggreement_list(graph)
+    print(aggreement_stacks)
     node_matrix = graph.make_node_matrix()
 
     que = [(0, [start]) ] #(distance, [path])
@@ -198,31 +251,27 @@ def branching_stacked_dijkstra(graph, start):
     coverage = {x : {i for i in range(len(node_matrix))} for x in get_combinations(graph, aggreement_stacks)}
 
     while que:
-        cur_dist, cur_path = heapq.heappop(que)
-        cur_node = cur_path[-1]
+        cur_dist, cur_path = heapq.heappop(que) # minimum
+        cur_node = cur_path[-1] # last item in path
         negibors = graph.get_stack_neighbors(cur_node[0])
-        if negibors == []:
+        if negibors == []: # ending node
             aggreement = get_aggreement(cur_path, aggreement_stacks)
-            paths[aggreement].append((cur_dist, cur_path))
-            coverage[aggreement] -= extract_stacks(cur_path)
-            if not coverage[aggreement]:
-                return paths[aggreement]
-            # if coverage[get_aggreement(cur_path, aggreement_stacks)] == {0,1,2,3,4,5}:
-            #     return(paths[get_aggreement(cur_path, aggreement_stacks)])
-            # print(f"{cur_dist}--> {cur_path}")
+            # Paths come in ordered, so only keep paths that add new stacks.
+            if extract_stacks(cur_path) - coverage[aggreement] != {}: # There are unique stacks in current path
+                paths[aggreement].append((cur_dist, cur_path))
+                coverage[aggreement] -= extract_stacks(cur_path)
+            if not coverage[aggreement]: # That combination of node stack aggreement has full coverage.
+                return merge_paths(paths[aggreement])
+
         for negibor_stack in negibors:
             stack_connection = graph.adj_matrix[cur_node[0]][negibor_stack]
             for node, node_cost in enumerate(graph.stack_list[negibor_stack].cost_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                new_distance = cur_dist + node_cost + edge_weight
+                # new_distance = cur_dist + sum(node_cost.values()) + edge_weight
+                new_distance = cur_dist +node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + [(negibor_stack, node)]))
 
 
 print(branching_stacked_dijkstra(stacked_graph, (0,0)))
-# dist, previous = branching_stacked_dijkstra(stacked_graph, (0,0))
-# print(dist)
-
-# path = stacked_get_path(previous, (len(dist)-1, np.argmin(dist[-1])) )
-# print(path)
 
 # endregion
