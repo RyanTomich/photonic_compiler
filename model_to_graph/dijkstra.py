@@ -66,26 +66,7 @@ def matrix_dijkstra(adj_matrix, node_weights, start = 0):
 #endregion
 
 # region ###### Special Dijkstra for liner stacked graphs ######
-# make pretend tree
-# node_list = []
-# a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
-# node_list.append(a)
 
-# last_out = np.random.randint(low=1, high=5, size=2).tolist()
-
-# for i in range(2):
-#     out_size = np.random.randint(low=1, high=5, size=2).tolist()
-#     cost = np.random.randint(low=1, high=5, size=3).tolist()
-#     node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
-#     last_out = out_size
-
-# stacked_graph = sg.StackedGraph(stack_list = node_list)
-
-# for node in stacked_graph.stack_list:
-#     print(node)
-
-
-# Path finding
 def stacked_dijkstra(graph, start):
     node_matrix = graph.make_node_matrix()
 
@@ -133,44 +114,9 @@ def stacked_get_path(previous, target):
         target = previous[target]
     return path
 
-
-# dist, previous = stacked_dijkstra(stacked_graph, (0,0))
-# print(dist)
-
-# path = stacked_get_path(previous, (len(dist)-1, np.argmin(dist[-1])) )
-# print(path)
-
-
 #endregion
 
 # region ###### Dijkstra for branched stacked graphs ######
-
-# node_list = []
-# a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
-# node_list.append(a)
-
-# last_out = np.random.randint(low=1, high=5, size=2).tolist()
-
-# for i in range(4):
-#     out_size = np.random.randint(low=1, high=5, size=2).tolist()
-#     cost = np.random.randint(low=1, high=5, size=3).tolist()
-#     node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
-#     last_out = out_size
-
-# out_size = np.random.randint(low=1, high=5, size=2).tolist()
-# node_list[-1].oppid = 5
-# node_list.append( sg.StackedNode(4, [1], node_list[1].output_shapes, [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=np.random.randint(low=1, high=5, size=3).tolist()))
-
-# node_list[4].input_shapes.append(out_size)
-# node_list[4].parents.append(4)
-
-# node_list.sort(key=lambda x: x.oppid)
-
-# stacked_graph = sg.StackedGraph(stack_list = node_list)
-
-# for node in stacked_graph.stack_list:
-#     print(node)
-
 
 def get_combinations(graph, aggreement_stacks):
     '''
@@ -277,11 +223,9 @@ def branching_stacked_dijkstra(graph, start=(0,0)):
             stack_connection = graph.adj_matrix[cur_node[0]][negibor_stack]
             for node, node_cost in enumerate(graph.stack_list[negibor_stack].cost_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                new_distance = cur_dist + sum(node_cost.values()) + edge_weight
-                # new_distance = cur_dist + node_cost + edge_weight
+                node_cost = sum(node_cost.values()) if isinstance(node_cost, dict) else node_cost
+                # new_distance = cur_dist + sum(node_cost.values()) + edge_weight
+                new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + [(negibor_stack, node)]))
-
-
-# print(branching_stacked_dijkstra(stacked_graph, (0,0)))
 
 # endregion

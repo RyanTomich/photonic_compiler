@@ -122,26 +122,68 @@ class StackedGraph():
         not_none = [i for i,v in enumerate(row) if v is not None]
         return not_none
 
+    def kahn_topo_sort_working(self):
+        '''
+        produes a liner order obeying DAG
+        graph(np adjancy matrix): graph to sort
+        returns:
+            order: liner working order for each node
+            working_layers_list: nodes that can work on each layer
+            layer_count: the amount of layers each node can work on
+        '''
+        graph = self.adj_matrix
+        # print(graph)
 
-# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
-# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
-# read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
-# with open(read_json_path)  as json_file:
-#     raw_json = json.load(json_file) # returns json file as dict
+        node_indegree = {}
+        node_outdegree = {'START': np.inf}
+        node_parents = {}
+        for idx in range(len(graph)):
 
+            node_indegree[idx] = sum([True for i in graph[:, idx] if i is not None])
+            node_outdegree[idx] = sum([True for i in graph[idx, :] if i is not None])
+            node_parents[idx] = []
 
-# g = StackedGraph(raw_json=raw_json)
-# for node in g.stack_list:
-#     print(node.cost_stack)
+        que = []
+        order = []
+        layer_count = {}
+        for node, val in node_indegree.items():
+            if val == 0:
+                que.append(( ['START'] ,node))
+                layer_count[node] = 0
 
+        layer = 0
+        layers_dic = {}
+        while que:
+            layer += 1
+            layers_dic[layer] = set()
 
-# import time
-# import sys
-# start_time = time.time()
-# g = StackedGraph(raw_json)
-# end_time = time.time()
-# size = sys.getsizeof(g)
+            for _ in range(len(que)):
+                par_nodes, cur_node = que.pop(0)
+                for par in par_nodes:
+                    node_outdegree[par] -= 1
 
-# 0.010859012603 - 11684107
-# 0.011414766311 - 13784141
-# 0.000073671340 - 18891
+                order.append(cur_node)
+                layers_dic[layer].add(cur_node)
+                for next_node in [i for i,v in enumerate(graph[cur_node]) if v is not None]:
+                    node_indegree[next_node] -= 1
+                    node_parents[next_node].append(cur_node)
+                    if node_indegree[next_node] == 0:
+                        que.append((node_parents[next_node], next_node))
+                        layer_count[next_node] = 0
+
+            for working in order:
+                if node_outdegree[working] != 0:
+                    layers_dic[layer].add(working)
+                    layer_count[working] += 1
+
+        assert any(node_indegree.values()) == False
+
+        layers_list =  [val for (key, val) in layers_dic.items()]
+        return order, layers_list, layer_count
+
+    def get_articulation_points(self):
+        null = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
+        liner, layer, layer_count = self.kahn_topo_sort_working()
+        a = [(k-null).pop() for k in layer if len(k-null) == 1]
+
+        return a[1:-1]

@@ -50,19 +50,19 @@ mod, params = relay.frontend.from_pytorch(scripted_model, shape_list)
 
 target = tvm.target.Target("llvm", host="llvm")
 dev = tvm.cpu(0)
-with tvm.transform.PassContext(opt_level=1):
+with tvm.transform.PassContext(opt_level=3, config = {"relay.FuseOps.max_depth": 0}):
     lib = relay.build(mod, target=target, params=params) #module
 
 
-file_path = "LeNet_module.so"
-lib.export_library(file_path)
+# file_path = "LeNet_module.so"
+# lib.export_library(file_path)
 
 # Save the graph JSON to a file
-graph_json_path = "simple_LeNet_graph.json"
+graph_json_path = "simple_LeNet_graph_NoFusion.json"
 with open(graph_json_path, "w") as f:
     f.write(lib.get_graph_json())
 
 # Save the parameters to a file
-param_dict = lib.get_params()  # No need to convert to dictionary
-param_bytes_path = "LeNet_params.params"
-tvm.relay.save_param_dict(param_dict)
+# param_dict = lib.get_params()  # No need to convert to dictionary
+# param_bytes_path = "LeNet_params.params"
+# tvm.relay.save_param_dict(param_dict)

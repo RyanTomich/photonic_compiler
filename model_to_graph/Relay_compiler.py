@@ -213,8 +213,7 @@ def tvm_validation(model_name):
 # tvm_validation(model_name)
 
 
-'''
-# modles
+'''modles
 
 "gpt2"
 "bert-base-uncased"
@@ -222,8 +221,7 @@ def tvm_validation(model_name):
 https://huggingface.co/docs/transformers/en/model_doc/auto
 '''
 
-'''
-# module methods
+'''module methods
 
 https://tvm.apache.org/docs/reference/api/python/graph_executor.html
 print('****MY OUTPUT******')
@@ -244,8 +242,7 @@ print(module.benchmark(tvm.cpu(), end_to_end=True))
 'share_params']
 '''
 
-'''
-<class 'tvm.ir.module.IRModule'>
+''' <class 'tvm.ir.module.IRModule'>
 'astext'
 'attrs'
 'from_expr'
@@ -271,8 +268,7 @@ print(module.benchmark(tvm.cpu(), end_to_end=True))
 'with_attr'
 '''
 
-'''
-Configurate options:
+'''Configurate options:
 
 relay.ext.ethos-u.options
 relay.ext.ethos-n.options
