@@ -98,16 +98,16 @@ hw_intercon ={('CPU', 'CPU'): lambda x: x*1,
               ('CPU', 'PHU'): lambda x: x*2,
               ('PHU', 'PHU'): lambda x: np.inf,
 
-              ('alg1', 'start'): lambda x: 0, # TODO for test
-              ('alg2', 'start'): lambda x: 0,
-              ('alg3', 'start'): lambda x: 0,
+            #   ('alg1', 'start'): lambda x: 0, # TODO for test
+            #   ('alg2', 'start'): lambda x: 0,
+            #   ('alg3', 'start'): lambda x: 0,
 
-              ('alg1', 'alg1'): lambda x: 1,
-              ('alg2', 'alg2'): lambda x: 1,
-              ('alg3', 'alg3'): lambda x: 1,
-              ('alg1', 'alg2'): lambda x: 2,
-              ('alg1', 'alg3'): lambda x: 2,
-              ('alg2', 'alg3'): lambda x: 2,
+            #   ('alg1', 'alg1'): lambda x: 1,
+            #   ('alg2', 'alg2'): lambda x: 1,
+            #   ('alg3', 'alg3'): lambda x: 1,
+            #   ('alg1', 'alg2'): lambda x: 2,
+            #   ('alg1', 'alg3'): lambda x: 2,
+            #   ('alg2', 'alg3'): lambda x: 2,
 
 }
 
@@ -123,13 +123,14 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'divide' : ('divide', 'CPU' , func, all_elm),
     'sqrt' : ('sqrt', 'CPU' , func, all_elm),
     'rsqrt' : ('rsqrt', 'CPU' , func, all_elm),
+    'relu' : ('relu', 'CPU' , func, all_elm),
     'tanh' : ('tanh', 'CPU' , func, lambda i, o: {"CPU": ten_elm(o[0])*4}),
     'power' : ('power', 'CPU' , func, all_elm),
     'transpose' : ('transpose', 'CPU' , func, all_elm),
     'nop' : ('nop', 'CPU' , func, constnat(0)),
     'less' : ('less', 'CPU' , func, constnat(1)),
     'take' : ('take', 'CPU' , func, constnat(1)),
-    'split' : ('split', 'CPU' , constnat(3)),
+    'split' : ('split', 'CPU', func, constnat(3)),
     'mean' : ('mean', 'CPU' , func, lambda i, o: {"CPU":(i[0][-1]+1)* i[0][-2]},),
     'softmax' : ('softmax', 'CPU' , func, lambda i, o: {"CPU": ten_elm(o[0])*6},),
     'matmul' : ('matmul', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
@@ -138,8 +139,8 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'where' : ('where', 'CPU' , func, constnat(1)),
     'null' : ('null', 'CPU' , func, constnat(0)),
 
-    'start' : ('null', 'start' , func, constnat(0)), # TODO for test
-    'alg1' : ('null', 'alg1' , func, constnat(0)),
-    'alg2' : ('null', 'alg2' , func, constnat(0)),
-    'alg3' : ('null', 'alg3' , func, constnat(0)),
+    # 'start' : ('null', 'start' , func, constnat(0)), # TODO for test
+    # 'alg1' : ('null', 'alg1' , func, constnat(0)),
+    # 'alg2' : ('null', 'alg2' , func, constnat(0)),
+    # 'alg3' : ('null', 'alg3' , func, constnat(0)),
 }

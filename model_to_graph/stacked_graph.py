@@ -111,7 +111,6 @@ class StackedGraph():
             nodes.append((stack.oppid, len(stack.func_stack)-1))
             height = max(height, len(stack.func_stack))
 
-        # print(nodes)
         node_matrix = np.full((len(self.stack_list), height), np.nan)
         for node in nodes:
             for col in range(node[1]+1):
@@ -124,11 +123,6 @@ class StackedGraph():
         return not_none
 
 
-
-
-
-
-
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
@@ -136,7 +130,7 @@ class StackedGraph():
 #     raw_json = json.load(json_file) # returns json file as dict
 
 
-# g = StackedGraph(raw_json)
+# g = StackedGraph(raw_json=raw_json)
 # for node in g.stack_list:
 #     print(node.cost_stack)
 

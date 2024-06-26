@@ -104,7 +104,7 @@ def transformer_torch_to_onnx(model_name, prompt, save = False):
     return model_onnx, input_ids
 
 def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt_level = 0, config = {}):
-    '''
+    ''' Converts the onnx format to relay IR with json, .so, and params
     model_onnx - model in onnx format
     input_ids - tensor with input_ids. Created by the tokenizer
     model_name(srt)
@@ -155,7 +155,7 @@ def onnx_to_relay(model_onnx, input_ids, write = True, model_name = 'model', opt
     return lib
 
 def tvm_validation(model_name):
-    '''
+    ''' Runs inference using transforemer library and TVM
     model_name(srt)
     must be local files: mod_graph.json, mod_lib.so, mod_params.params
     '''

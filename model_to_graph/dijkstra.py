@@ -1,6 +1,7 @@
 import numpy as np
 import heapq
 import stacked_graph as sg
+import copy
 
 #region ###### General Dijkstra for normal graph ######
 dependancies = [
@@ -144,31 +145,32 @@ def stacked_get_path(previous, target):
 
 # region ###### Dijkstra for branched stacked graphs ######
 
-node_list = []
-a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
-node_list.append(a)
+# node_list = []
+# a = sg.StackedNode(0, [], [[]], [[]], opp='matmul', func_stack=['start'], cost_stack=[0])
+# node_list.append(a)
 
-last_out = np.random.randint(low=1, high=5, size=2).tolist()
+# last_out = np.random.randint(low=1, high=5, size=2).tolist()
 
-for i in range(4):
-    out_size = np.random.randint(low=1, high=5, size=2).tolist()
-    cost = np.random.randint(low=1, high=5, size=3).tolist()
-    node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
-    last_out = out_size
+# for i in range(4):
+#     out_size = np.random.randint(low=1, high=5, size=2).tolist()
+#     cost = np.random.randint(low=1, high=5, size=3).tolist()
+#     node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
+#     last_out = out_size
 
-out_size = np.random.randint(low=1, high=5, size=2).tolist()
-node_list[-1].oppid = 5
-node_list.append( sg.StackedNode(4, [1], node_list[1].output_shapes, [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=np.random.randint(low=1, high=5, size=3).tolist()))
+# out_size = np.random.randint(low=1, high=5, size=2).tolist()
+# node_list[-1].oppid = 5
+# node_list.append( sg.StackedNode(4, [1], node_list[1].output_shapes, [out_size], opp='matmul', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=np.random.randint(low=1, high=5, size=3).tolist()))
 
-node_list[4].input_shapes.append(out_size)
-node_list[4].parents.append(4)
+# node_list[4].input_shapes.append(out_size)
+# node_list[4].parents.append(4)
 
-node_list.sort(key=lambda x: x.oppid)
+# node_list.sort(key=lambda x: x.oppid)
 
-stacked_graph = sg.StackedGraph(stack_list = node_list)
+# stacked_graph = sg.StackedGraph(stack_list = node_list)
 
 # for node in stacked_graph.stack_list:
 #     print(node)
+
 
 def get_combinations(graph, aggreement_stacks):
     '''
@@ -176,12 +178,18 @@ def get_combinations(graph, aggreement_stacks):
     graph: StackedGraph
     aggreement_stacks: list of stacks that must aggree
     '''
-    ans = []
-    lengths = [len(graph.stack_list[stack].func_stack) for stack in aggreement_stacks]
-    for i in range(lengths[0]):
-        for j in range(lengths[1]):
-            ans.append((i,j))
-    return ans
+    def combinations(nums):
+        if len(nums) == 1:
+            return [(i,) for i in range(nums[0])]
+        ans = []
+        for i in range(nums[0]):
+            for j in combinations(nums[1:]):
+                ans.append( (i,) + j)
+        return ans
+
+    if aggreement_stacks:
+        return combinations([len(graph.stack_list[stack].func_stack) for stack in aggreement_stacks])
+    return ['all']
 
 def get_aggreement(node_indexes, aggreement_stacks):
     '''
@@ -189,10 +197,13 @@ def get_aggreement(node_indexes, aggreement_stacks):
     node_indexes: a path
     aggreement_stacks: list of stacks that must aggreee
     '''
+    if not aggreement_stacks:
+        return 'all'
     stack_indexes = ()
     for node in node_indexes:
         if node[0] in aggreement_stacks:
             stack_indexes += (node[1],)
+
     return stack_indexes
 
 def extract_stacks(path):
@@ -222,33 +233,30 @@ def make_aggreement_list(graph):
     branches = []
     for idx, row in enumerate (graph.adj_matrix):
         row_counts = 0
-        for element in row:
-            if element is not None:
+        for stack_idx, element in enumerate(row):
+            if element is not None and graph.stack_list[stack_idx].opp != 'null':
                 row_counts += 1
         col_count = 0
-        for element in graph.adj_matrix[:, idx]:
-            if element is not None:
+        for stack_idx, element in enumerate(graph.adj_matrix[:, idx]):
+            if element is not None and graph.stack_list[stack_idx].opp != 'null':
                 col_count += 1
 
         if row_counts > 1 or col_count > 1:
             branches.append(idx)
+
     return(branches)
 
-
-
-def branching_stacked_dijkstra(graph, start):
+def branching_stacked_dijkstra(graph, start=(0,0)):
     '''
     Returns optimal path covering all stacks
     graph: StackedGraph object
     start: starting node (stack, node)
     '''
     aggreement_stacks = make_aggreement_list(graph)
-    print(aggreement_stacks)
-    node_matrix = graph.make_node_matrix()
 
     que = [(0, [start]) ] #(distance, [path])
     paths = {x : [] for x in get_combinations(graph, aggreement_stacks)}
-    coverage = {x : {i for i in range(len(node_matrix))} for x in get_combinations(graph, aggreement_stacks)}
+    coverage = {x : {i.oppid for i in graph.stack_list if i.opp != 'null'} for x in get_combinations(graph, aggreement_stacks)}
 
     while que:
         cur_dist, cur_path = heapq.heappop(que) # minimum
@@ -257,9 +265,11 @@ def branching_stacked_dijkstra(graph, start):
         if negibors == []: # ending node
             aggreement = get_aggreement(cur_path, aggreement_stacks)
             # Paths come in ordered, so only keep paths that add new stacks.
-            if extract_stacks(cur_path) - coverage[aggreement] != {}: # There are unique stacks in current path
+
+            if extract_stacks(cur_path) & coverage[aggreement] != {}: # There are unique stacks in current path
                 paths[aggreement].append((cur_dist, cur_path))
                 coverage[aggreement] -= extract_stacks(cur_path)
+
             if not coverage[aggreement]: # That combination of node stack aggreement has full coverage.
                 return merge_paths(paths[aggreement])
 
@@ -267,11 +277,11 @@ def branching_stacked_dijkstra(graph, start):
             stack_connection = graph.adj_matrix[cur_node[0]][negibor_stack]
             for node, node_cost in enumerate(graph.stack_list[negibor_stack].cost_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                # new_distance = cur_dist + sum(node_cost.values()) + edge_weight
-                new_distance = cur_dist +node_cost + edge_weight
+                new_distance = cur_dist + sum(node_cost.values()) + edge_weight
+                # new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + [(negibor_stack, node)]))
 
 
-print(branching_stacked_dijkstra(stacked_graph, (0,0)))
+# print(branching_stacked_dijkstra(stacked_graph, (0,0)))
 
 # endregion
