@@ -1,6 +1,7 @@
 import operator_calcs as oc
 import numpy as np
 import json
+import copy
 
 
 class StackedNode():
@@ -35,6 +36,9 @@ class StackedGraph():
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_nodes()
         self.adj_matrix = self._creat_adj_matrix()
+
+    def __srt__(self):
+        return f"{len(self.stack_list)=}"
 
     def _create_nodes(self):
         ajusted_shapes = []
@@ -181,9 +185,59 @@ class StackedGraph():
         layers_list =  [val for (key, val) in layers_dic.items()]
         return order, layers_list, layer_count
 
-    def get_articulation_points(self):
-        null = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
-        liner, layer, layer_count = self.kahn_topo_sort_working()
-        a = [(k-null).pop() for k in layer if len(k-null) == 1]
+    def tarjan_articulation_points(self):
+        # TODO Wrong for some reason.
+        results = set()
+        visited = [False for _ in range(len(self.stack_list))]
+        disc =[-1 for _ in range(len(self.stack_list))]
+        low = [-1 for _ in range(len(self.stack_list))]
+        parent = [None for _ in range(len(self.stack_list))]
+        time = [0]
 
-        return a[1:-1]
+        def find_ap(v):
+            visited[v] = True
+            low[v] = disc[v] = time[0]
+            time[0] += 1
+            child = 0
+
+            for neighbor in self.get_stack_neighbors(v):
+                if not visited[neighbor]:
+                    child += 1
+                    parent[neighbor] = v
+                    find_ap(neighbor)
+                    low[v] = min(low[v], low[neighbor])
+                    if parent[v] is None and child > 1:
+                        results.add(v)
+                    if parent[v] is not None and low[neighbor] >= disc[v]:
+                        results.add(v)
+                elif neighbor != parent[v]:
+                    low[v] = min(low[v], disc[neighbor])
+
+        # find_ap(0)
+        for i in range(len(self.stack_list)):
+            if not visited[i]:
+                find_ap(i)
+        return results
+
+    def graph_partition(self, articulation_points):
+        ''' sepperates and returns subgraphs based on cuts from the articulation points
+        articulation_points(list): ints representing node indicies
+        '''
+        articulation_points = sorted(list(articulation_points))
+        start = 0
+        for partition in range(len(articulation_points)):
+            end = articulation_points[partition]
+
+            print(f'{start} - {end} = {end-start}')
+
+            # start_node = StackedNode(0, [], [[]], [[]], opp='start', func_stack=['start'], cost_stack=[0]) #mock start node
+            # first_node = copy.deepcopy(self.stack_list[start]) #first computational node
+            # first_node.parents = [0]
+
+            # for i in [start_node, first_node] + self.stack_list[start+1: end+1]:
+            #     print(i)
+
+            # partition = StackedGraph(stack_list = [start_node, first_node] + self.stack_list[start+1: end+1] )
+            # yield partition
+
+            start = end

@@ -13,18 +13,14 @@ read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.jso
 with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
+
 graph = sg.StackedGraph(raw_json=raw_json)
+print(graph.stack_list[599])
 
-# print(graph.adj_matrix)
-# for stack in graph.stack_list:
-#     print(stack)
-
-# print(graph.get_articulation_point())
-start = time.time()
-ap = graph.get_articulation_points()
-end = time.time()
+ap = graph.tarjan_articulation_points()
 print(ap)
-print(end-start)
+print(len(ap))
+print(list(graph.graph_partition(ap)))
 
-for i in dijk.branching_stacked_dijkstra(graph, (0,0)):
-    print(f'{graph.stack_list[i[0]].oppid}: {graph.stack_list[i[0]].opp} --> {graph.stack_list[i[0]].func_stack[i[1]]}')
+# for i in dijk.branching_stacked_dijkstra(graph, (0,0)):
+#     print(f'{graph.stack_list[i[0]].oppid}: {graph.stack_list[i[0]].opp} --> {graph.stack_list[i[0]].func_stack[i[1]]}')
