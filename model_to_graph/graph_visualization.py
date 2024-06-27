@@ -45,11 +45,11 @@ class GraphVisualization:
         edges = G.edges(data=True)
         weights = [self.normalize(edge[2]['weight'],0,weight_range) for edge in edges]
 
-        nx.draw(G, pos, node_size=10, width=weights, with_labels=False, node_color='blue', edge_color='black')
+        nx.draw(G, pos, node_size=150, width=weights, with_labels=False, node_color='lightblue', edge_color='black')
 
-        # # Add labels to the nodes
-        # labels = {node: str(node) for node in G.nodes()}
-        # nx.draw_networkx_labels(G, pos, labels, font_size=5)
+        # Add labels to the nodes
+        labels = {node: str(node) for node in G.nodes()}
+        nx.draw_networkx_labels(G, pos, labels, font_size=8)
 
         # Save the plot to a file
         plt.savefig(filename, dpi=300)  # Adjust dpi as needed
@@ -58,7 +58,7 @@ class GraphVisualization:
 
 # G = GraphVisualization()
 
-# graph = rta.DependancyGraph(rta.raw_json)
+# graph = sg.DependancyGraph(sg.raw_json)
 # adj = graph.creat_adj_matrix_node_list()
 
 # G.visualize(layout='kk', filename='network.png') #### cant use weights
@@ -67,7 +67,7 @@ class GraphVisualization:
 # G.visualize(layout='spectral', filename='network.png')
 
 
-## Plotting the adjacency matrix
+# # Plotting the adjacency matrix
 # plt.figure(figsize=(6, 6))
 # plt.imshow(adj, cmap='binary', interpolation='none')
 # plt.title('GPT2 Adjacency Matrix')

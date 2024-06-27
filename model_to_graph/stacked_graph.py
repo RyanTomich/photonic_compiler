@@ -128,14 +128,14 @@ class StackedGraph():
 
     def kahn_topo_sort_working(self, transpose=False):
         '''
-        Reversed True = last posiable moment exicution
-        Reversed False = as soon as posiable moment exicution.
+        Reversed True = ALAP (as late as posiable)
+        Reversed False = ASAP (as soon as posiable)
 
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
         returns:
             order: liner working order for each node
-            working_layers_list: nodes that can work on each layer
+            working_layers_list: nodes whos results are still needed
             layer_count: number of layers before the stackes results are no longe needed.
         '''
         graph = self.adj_matrix
@@ -193,79 +193,36 @@ class StackedGraph():
             return list(reversed(order)), list(reversed(layers_list)), layer_count
         return order, layers_list, layer_count
 
-    def tarjan_articulation_points(self): # FAIL
-        # TODO Wrong for some reason.
-        results = set()
-        visited = [False for _ in range(len(self.stack_list))]
-        disc =[-1 for _ in range(len(self.stack_list))]
-        low = [-1 for _ in range(len(self.stack_list))]
-        parent = [None for _ in range(len(self.stack_list))]
-        time = [0]
-
-        def find_ap(v):
-            visited[v] = True
-            low[v] = disc[v] = time[0]
-            time[0] += 1
-            child = 0
-
-            for neighbor in self.get_stack_neighbors(v):
-                if not visited[neighbor]:
-                    child += 1
-                    parent[neighbor] = v
-                    find_ap(neighbor)
-                    low[v] = min(low[v], low[neighbor])
-                    if parent[v] is None and child > 1:
-                        results.add(v)
-                    if parent[v] is not None and low[neighbor] >= disc[v]:
-                        results.add(v)
-                elif neighbor != parent[v]:
-                    low[v] = min(low[v], disc[neighbor])
-
-        # find_ap(0)
-        for i in range(len(self.stack_list)):
-            if not visited[i]:
-                find_ap(i)
-        return results
-
-    def second_tarjan_AP(self, u, p, adj, disc, low, ap, time): # FAIL
-        children = 0
-        low[u] = disc[u] = time[0]
-        time[0] += 1
-
-        for v in self.get_stack_neighbors(u):
-            if v == p:
-                continue
-            if disc[v] == -1:
-                children += 1
-                self.second_tarjan_AP(v,u, adj, disc, low, ap, time)
-                if disc[u] <= low[v]:
-                    ap[u] = True
-                low[u] = min(low[u], low[v])
-            else:
-                low[u] = min(low[u], disc[v])
-        return children
-
-    def AP(self): # FAIL
-        n = len(self.adj_matrix)
-        ap = [False]*n
-        low = [-1] * n #
-        disc = [-1] * n  # discovery time
-        time = [0]
-
-        for u in range(n):
-            if disc[u] == -1:
-                # if self.second_tarjan_AP(u, self.adj_matrix, disc, low, ap, time) > 1:
-                if self.second_tarjan_AP(u, self.adj_matrix, disc, low, ap, time) > 1:
-                    ap[u] = True
-
-        return [i for i,v in enumerate(ap) if v == True]
-
-    def get_cuts(self):
-        order, layers_list, layer_count = self.kahn_topo_sort_working(transpose = True)
+    def get_cuts(self, layers_list):
+        ''' returns the bridging nodes in the graph using topological sort
+        layers_list: a list of layers of stacks whos results are still needed
+        '''
         load_instructions = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
-        for layer in layers_list:
-            print(layer-load_instructions)
         return [(layer-load_instructions).pop() for layer in layers_list if len(layer-load_instructions) == 1]
+
+    def get_node_groups(self):
+        # order,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+        order,_,_ = self.kahn_topo_sort_working(transpose = True)
+        _,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+        load_instructions = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
+        cuts = self.get_cuts(layers_list)
+        sparse_order = []
+        for i in order:
+            if i in load_instructions:
+                continue
+            sparse_order.append(i)
+
+        print(sparse_order)
+
+        cuts = set(cuts)
+        group = []
+        for stack in sparse_order:
+            group.append(stack)
+            if stack in cuts:
+                yield group
+                group = [stack]
+        if group:
+            yield group
 
     def graph_partition(self, articulation_points):
         ''' sepperates and returns subgraphs based on cuts from the articulation points

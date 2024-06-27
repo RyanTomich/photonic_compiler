@@ -117,7 +117,8 @@ class DependancyGraph():
             for inp in inputs: # where each input is an index to another node.
                 dependancys.append((inp, node.oppid, self.bit_transfer(self.node_list[inp]))) # (1, 2) where 1's output are 2's inputs
                 # G.addEdge(inp, node.oppid, self.bit_transfer(node))
-                # G.addEdge(inp, node.oppid)
+                if 950< node.oppid < 1108:
+                    G.addEdge(inp, node.oppid)
 
         num_nodes = (len(self.node_list))
         adj_matrix = np.zeros((num_nodes, num_nodes))
@@ -362,10 +363,10 @@ E_PH_BIT_COST = 3 /oc.CPU_CLOCK_SPEED
 E_E_BIT_COST = 1 /oc.CPU_CLOCK_SPEED #TODO get right number
 
 
-# making graph
-graph = DependancyGraph(raw_json)
-CPU_cost, PHU_cost = graph.create_cost_vec()
-adj_matrix = graph.creat_adj_matrix_node_list()
+# # making graph
+# graph = DependancyGraph(raw_json)
+# CPU_cost, PHU_cost = graph.create_cost_vec()
+# adj_matrix = graph.creat_adj_matrix_node_list()
 # print(len(graph.node_list))
 # print(len(np.nonzero(adj_matrix)[0]))
 # print(len(np.nonzero(adj_matrix)[1]))
@@ -374,22 +375,29 @@ adj_matrix = graph.creat_adj_matrix_node_list()
 # working_order, working_layers_list, working_layer_count = graph.kahn_topo_sort_working(adj_matrix)
 
 ## Timing
-print(f"naive_min: {graph.execution_time('naive_min', adj_matrix)}")
-naive_min_hardware = [node.hardware for node in graph.node_list]
-print(f"always_PHU: {graph.execution_time('always_PHU', adj_matrix)}")
-always_PHU_hardware = [node.hardware for node in graph.node_list]
-print(f"always_CPU: {graph.execution_time('always_CPU', adj_matrix)}")
+# print(f"naive_min: {graph.execution_time('naive_min', adj_matrix)}")
+# naive_min_hardware = [node.hardware for node in graph.node_list]
+# print(f"always_PHU: {graph.execution_time('always_PHU', adj_matrix)}")
+# always_PHU_hardware = [node.hardware for node in graph.node_list]
+# print(f"always_CPU: {graph.execution_time('always_CPU', adj_matrix)}")
 
 # for i in range(len(naive_min_hardware)):
 #     print(f"{naive_min_hardware[i]} --> {always_PHU_hardware[i]}")
 
 ## Visualization
-# G = gv.GraphVisualization()
+G = gv.GraphVisualization()
 
-# graph = DependancyGraph(raw_json)
-# adj = graph.creat_adj_matrix_node_list()
+graph = DependancyGraph(raw_json)
 
-# G.visualize(layout='kk', filename='network.png')
+print(G)
+adj = graph.creat_adj_matrix_node_list()
+
+G.visualize(layout='kk', filename='graph_group.png')
+# G.visualize(layout='spring', filename='graph_group.png')
+# G.visualize(layout='shell', filename='graph_group.png')
+# G.visualize(layout='spectral', filename='graph_group.png')
+# G.visualize(layout='planar', filename='graph_group.png')
+# G.visualize(layout='circular', filename='graph_group.png')
 
 # Plotting the adjacency matrix
 # mask = adj_matrix != 0
