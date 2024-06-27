@@ -126,8 +126,11 @@ class StackedGraph():
         not_none = [i for i,v in enumerate(row) if v is not None]
         return not_none
 
-    def kahn_topo_sort_working(self):
+    def kahn_topo_sort_working(self, transpose=False):
         '''
+        Reversed True = last posiable moment exicution
+        Reversed False = as soon as posiable moment exicution.
+
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
         returns:
@@ -137,6 +140,9 @@ class StackedGraph():
         '''
         graph = self.adj_matrix
         # print(graph)
+
+        if transpose:
+            graph = graph.T
 
         node_indegree = {}
         node_outdegree = {'START': np.inf}
@@ -183,9 +189,11 @@ class StackedGraph():
         assert any(node_indegree.values()) == False
 
         layers_list =  [val for (key, val) in layers_dic.items()]
+        if transpose:
+            return list(reversed(order)), list(reversed(layers_list)), layer_count
         return order, layers_list, layer_count
 
-    def tarjan_articulation_points(self):
+    def tarjan_articulation_points(self): # FAIL
         # TODO Wrong for some reason.
         results = set()
         visited = [False for _ in range(len(self.stack_list))]
@@ -218,6 +226,39 @@ class StackedGraph():
             if not visited[i]:
                 find_ap(i)
         return results
+
+    def second_tarjan_AP(self, u, p, adj, disc, low, ap, time): # FAIL
+        children = 0
+        low[u] = disc[u] = time[0]
+        time[0] += 1
+
+        for v in self.get_stack_neighbors(u):
+            if v == p:
+                continue
+            if disc[v] == -1:
+                children += 1
+                self.second_tarjan_AP(v,u, adj, disc, low, ap, time)
+                if disc[u] <= low[v]:
+                    ap[u] = True
+                low[u] = min(low[u], low[v])
+            else:
+                low[u] = min(low[u], disc[v])
+        return children
+
+    def AP(self): # FAIL
+        n = len(self.adj_matrix)
+        ap = [False]*n
+        low = [-1] * n #
+        disc = [-1] * n  # discovery time
+        time = [0]
+
+        for u in range(n):
+            if disc[u] == -1:
+                # if self.second_tarjan_AP(u, self.adj_matrix, disc, low, ap, time) > 1:
+                if self.second_tarjan_AP(u, self.adj_matrix, disc, low, ap, time) > 1:
+                    ap[u] = True
+
+        return [i for i,v in enumerate(ap) if v == True]
 
     def graph_partition(self, articulation_points):
         ''' sepperates and returns subgraphs based on cuts from the articulation points
