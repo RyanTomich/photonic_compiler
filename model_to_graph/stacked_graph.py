@@ -36,6 +36,8 @@ class StackedGraph():
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_nodes()
         self.adj_matrix = self._creat_adj_matrix()
+        self.output_nodes = self.get_output_nodes()
+        self.load_nodes = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
 
     def __srt__(self):
         return f"{len(self.stack_list)=}"
@@ -197,22 +199,27 @@ class StackedGraph():
         ''' returns the bridging nodes in the graph using topological sort
         layers_list: a list of layers of stacks whos results are still needed
         '''
-        load_instructions = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
-        return [(layer-load_instructions).pop() for layer in layers_list if len(layer-load_instructions) == 1]
+        return [(layer-self.load_nodes).pop() for layer in layers_list if len(layer-self.load_nodes) == 1]
 
     def get_node_groups(self):
-        # order,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
-        order,_,_ = self.kahn_topo_sort_working(transpose = True)
-        _,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
-        load_instructions = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
+
+        #ASAP
+        order,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+
+        # # ALAP
+        # order,_,_ = self.kahn_topo_sort_working(transpose = True)
+        # _,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+
         cuts = self.get_cuts(layers_list)
+
+        # ignore load and store(outputs) for optimization as they have flexability of when they should happen
         sparse_order = []
         for i in order:
-            if i in load_instructions:
+            if i in self.load_nodes or i in self.output_nodes:
                 continue
             sparse_order.append(i)
 
-        print(sparse_order)
+        # print(sparse_order)
 
         cuts = set(cuts)
         group = []
@@ -223,6 +230,12 @@ class StackedGraph():
                 group = [stack]
         if group:
             yield group
+
+    def get_output_nodes(self):
+        outputs = {stack.oppid for stack in self.stack_list}
+        for stack in self.stack_list:
+            outputs = outputs - set(stack.parents)
+        return outputs
 
     def graph_partition(self, articulation_points):
         ''' sepperates and returns subgraphs based on cuts from the articulation points
