@@ -136,7 +136,7 @@ class StackedGraph():
         returns:
             order: liner working order for each node
             working_layers_list: nodes that can work on each layer
-            layer_count: the amount of layers each node can work on
+            layer_count: number of layers before the stackes results are no longe needed.
         '''
         graph = self.adj_matrix
         # print(graph)
@@ -259,6 +259,13 @@ class StackedGraph():
                     ap[u] = True
 
         return [i for i,v in enumerate(ap) if v == True]
+
+    def get_cuts(self):
+        order, layers_list, layer_count = self.kahn_topo_sort_working(transpose = True)
+        load_instructions = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
+        for layer in layers_list:
+            print(layer-load_instructions)
+        return [(layer-load_instructions).pop() for layer in layers_list if len(layer-load_instructions) == 1]
 
     def graph_partition(self, articulation_points):
         ''' sepperates and returns subgraphs based on cuts from the articulation points
