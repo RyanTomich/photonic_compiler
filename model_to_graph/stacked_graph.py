@@ -34,7 +34,8 @@ class StackedGraph():
         self.stack_list = stack_list if not raw_json else self._create_nodes()
         self.id_to_idx = {v.oppid:i for i,v in enumerate(self.stack_list)}
         self.output_nodes = self.get_output_nodes()
-        self.load_nodes = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
+        # self.load_nodes = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
+        self.load_nodes = {stack.oppid for stack in self.stack_list if not stack.parents}
         self.adj_matrix = self._creat_adj_matrix()
 
     def __srt__(self):

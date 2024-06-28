@@ -321,11 +321,14 @@ def rolling_dijkstra(graph, start=(0,0)):
     graph to optimize
     '''
     aggreement_stacks = make_aggreement_list(graph)
-    all_nodes = {i.oppid for i in graph.stack_list if i.opp != 'null'}
+    # all_nodes = {i.oppid for i in graph.stack_list if i.opp != 'null'}
     all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != 'null'}
 
+    que = []
+    for stack_id in graph.load_nodes:
+        que.append( (0, ( (graph.id_to_idx[stack_id],0), )) )
 
-    que = [(0, (start,)) ] #(distance, [path])
+
     groups = [] # {ap:(aggreement),paths;(), (coverage_groups:{coverage}, {groups}), total_coverage:{total coverage}}
 
     while que:
@@ -393,10 +396,12 @@ def select_nodes(graph, subgraphs):
     such that subgraph is a partition of graph
     '''
     for idx, subgraph in enumerate(subgraphs):
-        nodes = rolling_dijkstra(subgraph)
-        for node in nodes:
-            stack_oppid = subgraph.stack_list[node[0]].oppid
-            original_stack = graph.stack_list[graph.id_to_idx[stack_oppid]]
-            original_stack.func_selection = node[1]
+        if idx == 6:
+            nodes = rolling_dijkstra(subgraph)
+            print(nodes)
+            for node in nodes:
+                stack_oppid = subgraph.stack_list[node[0]].oppid
+                original_stack = graph.stack_list[graph.id_to_idx[stack_oppid]]
+                original_stack.func_selection = node[1]
 
 #endregion

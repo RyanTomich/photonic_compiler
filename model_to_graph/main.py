@@ -12,8 +12,8 @@ import graph_visualization as gv
 import operator_calcs as oc
 
 
-read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
-# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
+# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
+read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
 with open(read_json_path)  as json_file:

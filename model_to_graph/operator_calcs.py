@@ -120,6 +120,7 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'dense' : ('dense', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
     'pack' : ('pack', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
     'where' : ('where', 'CPU' , func, constnat(1)),
+    'erf' : ('erf', 'CPU' , func, constnat(1)), # Bert cumulative distribution function??
     # 'null' : ('null', 'CPU' , func, constnat(0)),
 
     'matmul_phu': ('matmul', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
