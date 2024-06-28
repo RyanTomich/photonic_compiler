@@ -35,9 +35,10 @@ class StackedGraph():
     def __init__(self, stack_list=None, raw_json=None):
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_nodes()
-        self.adj_matrix = self._creat_adj_matrix()
+        self.id_to_idx = {v.oppid:i for i,v in enumerate(self.stack_list)}
         self.output_nodes = self.get_output_nodes()
         self.load_nodes = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
+        self.adj_matrix = self._creat_adj_matrix()
 
     def __srt__(self):
         return f"{len(self.stack_list)=}"
@@ -78,6 +79,9 @@ class StackedGraph():
         start_node: start_node_id
         end_node: end_node_id
         '''
+        start_node = self.id_to_idx[start_node]
+        end_node = self.id_to_idx[end_node]
+
         start_stack = self.stack_list[start_node].func_stack
         end_stack = self.stack_list[end_node].func_stack
         assert type(start_stack) == type(end_stack) == list
@@ -99,14 +103,17 @@ class StackedGraph():
         for stack in self.stack_list:
             inputs = stack.parents
             for inp in inputs: # where each input is an index to another node.
-                dependancys.append( (inp, stack.oppid, self._bit_transfer(self.stack_list[inp])) ) # (1, 2) where 1's output are 2's inputs
+                dependancys.append( (inp, stack.oppid, self._bit_transfer(self.stack_list[self.id_to_idx[inp]])) ) # (1, 2) where 1's output are 2's inputs
 
+        # print(dependancys)
 
         num_nodes = (len(self.stack_list))
         adj_matrix = np.empty((num_nodes, num_nodes), dtype=object) # block matrix
         for dep in dependancys:
+            start_stack = self.id_to_idx[dep[0]]
+            end_stack = self.id_to_idx[dep[1]]
             connection_matrix = self._make_connection_matrix(*dep)
-            adj_matrix[dep[0]][dep[1]] = connection_matrix
+            adj_matrix[start_stack][end_stack] = connection_matrix
         return adj_matrix
 
     def make_node_matrix(self):
@@ -114,7 +121,7 @@ class StackedGraph():
         nodes = []
         height = 0
         for stack in self.stack_list:
-            nodes.append((stack.oppid, len(stack.func_stack)-1))
+            nodes.append((self.id_to_idx[stack.oppid], len(stack.func_stack)-1))
             height = max(height, len(stack.func_stack))
 
         node_matrix = np.full((len(self.stack_list), height), np.nan)
@@ -199,16 +206,23 @@ class StackedGraph():
         ''' returns the bridging nodes in the graph using topological sort
         layers_list: a list of layers of stacks whos results are still needed
         '''
-        return [(layer-self.load_nodes).pop() for layer in layers_list if len(layer-self.load_nodes) == 1]
+        cuts = []
+        for layer in layers_list:
+            if len(layer-self.load_nodes) == 1:
+                cut = (layer-self.load_nodes).pop()
+                if len(set(self.stack_list[self.id_to_idx[cut]].parents) - self.load_nodes) > 1:
+                    cuts.append(cut)
+        return cuts
 
-    def get_node_groups(self):
+        # return [(layer-self.load_nodes).pop() for layer in layers_list if len(layer-self.load_nodes) == 1]
 
-        #ASAP
-        order,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+    def get_node_groups(self, ASAP = True):
 
-        # # ALAP
-        # order,_,_ = self.kahn_topo_sort_working(transpose = True)
-        # _,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+        if ASAP: # ASAP
+            order,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+        else: # ALAP
+            order,_,_ = self.kahn_topo_sort_working(transpose = True)
+            _,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
 
         cuts = self.get_cuts(layers_list)
 
@@ -258,4 +272,4 @@ class StackedGraph():
             # partition = StackedGraph(stack_list = [start_node, first_node] + self.stack_list[start+1: end+1] )
             # yield partition
 
-            start = end
+            # start = end

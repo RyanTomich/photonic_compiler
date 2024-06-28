@@ -1,5 +1,6 @@
 import networkx as nx
 import matplotlib.pyplot as plt
+import numpy as np
 
 class GraphVisualization:
 
@@ -45,11 +46,11 @@ class GraphVisualization:
         edges = G.edges(data=True)
         weights = [self.normalize(edge[2]['weight'],0,weight_range) for edge in edges]
 
-        nx.draw(G, pos, node_size=150, width=weights, with_labels=False, node_color='lightblue', edge_color='black')
+        nx.draw(G, pos, node_size=50, width=weights, with_labels=False, node_color='lightblue', edge_color='black')
 
         # Add labels to the nodes
         labels = {node: str(node) for node in G.nodes()}
-        nx.draw_networkx_labels(G, pos, labels, font_size=8)
+        nx.draw_networkx_labels(G, pos, labels, font_size=6)
 
         # Save the plot to a file
         plt.savefig(filename, dpi=300)  # Adjust dpi as needed
@@ -74,3 +75,25 @@ class GraphVisualization:
 # plt.colorbar()
 # plt.savefig('network.png', dpi=300)
 # plt.close()
+
+
+def adj_to_graph(adj_matrix, save=False):
+    vectorized_function = np.vectorize(lambda x: 1 if x is not None else 0)
+
+    adj_matrix = vectorized_function(adj_matrix)
+
+    G = nx.from_numpy_array(adj_matrix, create_using=nx.DiGraph)
+
+    pos = nx.spectral_layout(G, scale=1.0)
+    # pos = nx.shell_layout(G)
+    # lengths = dict(nx.all_pairs_dijkstra_path_length(G, weight='weight'))
+    # pos = nx.kamada_kawai_layout(G, dist=lengths)
+
+    # Draw the graph
+    plt.figure(figsize=(10, 8))
+    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=700, font_size=15)
+    plt.title('Graph Visualization from Adjacency Matrix')
+    if save:
+        plt.savefig('network.png')
+    else:
+        plt.show()
