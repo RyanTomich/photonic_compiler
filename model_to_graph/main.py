@@ -11,10 +11,10 @@ import testing as test
 import graph_visualization as gv
 
 
-# read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
+read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
-read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
+# read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
 with open(read_json_path)  as json_file:
     raw_json = json.load(json_file) # returns json file as dict
 
@@ -23,15 +23,16 @@ graph = sg.StackedGraph(raw_json=raw_json)
 print("--------------------------------------------")
 
 groups = list(graph.get_node_groups(ASAP = False))
-print(f'{groups=}')
+# print(f'{groups=}')
 print(test.group_validate(graph, groups))
+assert test.group_validate(graph, groups)
 
 # print(test_group)
 # print(groups[11])
 
 # print(graph.stack_list[graph.id_to_idx[test_group[0]]])
 
-test_group = groups[0]
+test_group = groups[-1]
 
 start_stack = sg.StackedNode(0, [], [[]], [[]], opp='start', func_stack=['start'], cost_stack=[0])
 first_stack = copy.deepcopy(graph.stack_list[graph.id_to_idx[test_group[0]]])

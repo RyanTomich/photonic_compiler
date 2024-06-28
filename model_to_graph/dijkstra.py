@@ -259,13 +259,12 @@ def add_group(groups, group, stack_aggreement, cur_path, stack_coverage):
         new_group = copy.deepcopy(group)
         new_group['ap'] = [(a if a is not None else b) for a, b in zip(new_group['ap'], stack_aggreement)]
         new_group['paths'] += cur_path
-        new_group['coverage_groups'] += stack_coverage
-        new_group['total_coverage'] += stack_coverage
+        new_group['coverage_groups'].append(stack_coverage)
+        new_group['total_coverage'].update(stack_coverage)
         groups.append(new_group)
 
     else: # perfect match so mutate group in place
         group['ap'] = [(a if a is not None else b) for a, b in zip(group['ap'], stack_aggreement)]
-        print(group['paths'])
         group['paths'] += cur_path
         group['coverage_groups'].append(stack_coverage)
         group['total_coverage'].update(stack_coverage)
@@ -290,7 +289,7 @@ def rolling_dijkstra(graph, start=(0,0)):
 
             added = False
             for group in groups:
-                if ap_works(group['ap'], stack_aggreement) and stack_coverage not in group['coverage_groups']: # same coverage, new path
+                if ap_works(group['ap'], stack_aggreement) and stack_coverage not in group['coverage_groups'] and group['total_coverage'] - stack_coverage != {}: # same coverage, new path
                     add_group(groups, group, stack_aggreement, cur_path, stack_coverage)
                     added = True
 

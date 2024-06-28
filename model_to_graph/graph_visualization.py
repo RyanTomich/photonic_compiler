@@ -77,21 +77,26 @@ class GraphVisualization:
 # plt.close()
 
 
-def adj_to_graph(adj_matrix, save=False):
+def adj_to_graph(adj_matrix, save=False, layout = 'shell'):
     vectorized_function = np.vectorize(lambda x: 1 if x is not None else 0)
 
     adj_matrix = vectorized_function(adj_matrix)
 
     G = nx.from_numpy_array(adj_matrix, create_using=nx.DiGraph)
 
-    pos = nx.spectral_layout(G, scale=1.0)
-    # pos = nx.shell_layout(G)
-    # lengths = dict(nx.all_pairs_dijkstra_path_length(G, weight='weight'))
-    # pos = nx.kamada_kawai_layout(G, dist=lengths)
+
+    if layout == 'shell':
+        pos = nx.shell_layout(G)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(G, scale=1.0)
+    elif layout == 'kk':
+        lengths = dict(nx.all_pairs_dijkstra_path_length(G, weight='weight'))
+        pos = nx.kamada_kawai_layout(G, dist=lengths)
+
 
     # Draw the graph
-    plt.figure(figsize=(10, 8))
-    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=700, font_size=15)
+    plt.figure(figsize=(12, 10))
+    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=500, font_size=10)
     plt.title('Graph Visualization from Adjacency Matrix')
     if save:
         plt.savefig('network.png')
