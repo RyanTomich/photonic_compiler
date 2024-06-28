@@ -1,8 +1,5 @@
 import operator_calcs as oc
 import numpy as np
-import json
-import copy
-
 
 class StackedNode():
     def __init__(self, oppid, parents, input_shapes, output_shapes, opp=None, func_stack=None, cost_stack=None, relay_node=None):
@@ -13,7 +10,7 @@ class StackedNode():
         self.output_shapes = output_shapes
         self.func_stack = func_stack if relay_node is None else [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]]
         self.cost_stack = cost_stack if relay_node is None else [oc.hardware_algs[func][3](self.input_shapes, self.output_shapes) for func in self.func_stack]
-
+        self.func_selection = None
 
     def _find_opp(self, func_name):
         '''
@@ -116,7 +113,8 @@ class StackedGraph():
             adj_matrix[start_stack][end_stack] = connection_matrix
         return adj_matrix
 
-    def make_node_matrix(self):
+    # pathfinding
+    def make_node_matrix(self): #TODO no?
         '''returns a matrix indexed by (node,stack)'''
         nodes = []
         height = 0
@@ -246,30 +244,8 @@ class StackedGraph():
             yield group
 
     def get_output_nodes(self):
+        # retrives all lief nodes
         outputs = {stack.oppid for stack in self.stack_list}
         for stack in self.stack_list:
             outputs = outputs - set(stack.parents)
         return outputs
-
-    def graph_partition(self, articulation_points):
-        ''' sepperates and returns subgraphs based on cuts from the articulation points
-        articulation_points(list): ints representing node indicies
-        '''
-        articulation_points = sorted(list(articulation_points))
-        start = 0
-        for partition in range(len(articulation_points)):
-            end = articulation_points[partition]
-
-            print(f'{start} - {end} = {end-start}')
-
-            # start_node = StackedNode(0, [], [[]], [[]], opp='start', func_stack=['start'], cost_stack=[0]) #mock start node
-            # first_node = copy.deepcopy(self.stack_list[start]) #first computational node
-            # first_node.parents = [0]
-
-            # for i in [start_node, first_node] + self.stack_list[start+1: end+1]:
-            #     print(i)
-
-            # partition = StackedGraph(stack_list = [start_node, first_node] + self.stack_list[start+1: end+1] )
-            # yield partition
-
-            # start = end

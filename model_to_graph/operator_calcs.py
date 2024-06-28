@@ -105,10 +105,6 @@ hw_intercon ={('CPU', 'CPU'): lambda x: x*1,
 
 
 hardware_algs = { # name: (opp, hardware, func, cycles)
-    'matmul_phu': ('matmul', 'CPU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
-    'dense_phu': ('dense', 'CPU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
-    'pack_phu': ('pack', 'CPU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
-
     'add' : ('add', 'CPU' , func, all_elm),
     'subtract' : ('subtract', 'CPU' , func, all_elm),
     'multiply' : ('multiply', 'CPU' , func, all_elm),
@@ -130,6 +126,10 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'pack' : ('pack', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
     'where' : ('where', 'CPU' , func, constnat(1)),
     'null' : ('null', 'CPU' , func, constnat(0)),
+
+    'matmul_phu': ('matmul', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+    'dense_phu': ('dense', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+    'pack_phu': ('pack', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
 
     'start' : ('null', 'start' , func, constnat(0)),
 }
