@@ -131,6 +131,7 @@ def get_combinations(graph, aggreement_stacks):
         for i in range(nums[0]):
             for j in combinations(nums[1:]):
                 ans.append( (i,) + j)
+
         return ans
 
     if aggreement_stacks:
@@ -145,12 +146,14 @@ def get_aggreement(node_indexes, aggreement_stacks):
     '''
     if not aggreement_stacks:
         return 'all'
-    stack_indexes = ()
+    stack_indexes = [None for _ in aggreement_stacks]
     for node in node_indexes:
-        if node[0] in aggreement_stacks:
-            stack_indexes += (node[1],)
+        try:
+            stack_indexes[aggreement_stacks.index(node[0])] = node[1]
+        except ValueError:
+            continue # non-aggreement node in path
 
-    return stack_indexes
+    return tuple(stack_indexes)
 
 def extract_stacks(path):
     # returns set of stacks included in the path
@@ -199,17 +202,21 @@ def branching_stacked_dijkstra(graph, start=(0,0)):
     start: starting node (stack, node)
     '''
     aggreement_stacks = make_aggreement_list(graph)
+    print(f'{aggreement_stacks=}')
+    print(f'{get_combinations(graph, aggreement_stacks)=}')
 
     que = [(0, [start]) ] #(distance, [path])
     paths = {x : [] for x in get_combinations(graph, aggreement_stacks)}
     coverage = {x : {i.oppid for i in graph.stack_list if i.opp != 'null'} for x in get_combinations(graph, aggreement_stacks)}
 
     while que:
+        print(que)
         cur_dist, cur_path = heapq.heappop(que) # minimum
         cur_node = cur_path[-1] # last item in path
-        negibors = graph.get_stack_neighbors(cur_node[0])
-        if negibors == []: # ending node
+        neighbor = graph.get_stack_neighbors(cur_node[0])
+        if neighbor == []: # ending node
             aggreement = get_aggreement(cur_path, aggreement_stacks)
+            print(aggreement)
             # Paths come in ordered, so only keep paths that add new stacks.
 
             if extract_stacks(cur_path) & coverage[aggreement] != {}: # There are unique stacks in current path
@@ -219,7 +226,7 @@ def branching_stacked_dijkstra(graph, start=(0,0)):
             if not coverage[aggreement]: # That combination of node stack aggreement has full coverage.
                 return merge_paths(paths[aggreement])
 
-        for negibor_stack in negibors:
+        for negibor_stack in neighbor:
             stack_connection = graph.adj_matrix[cur_node[0]][negibor_stack]
             for node, node_cost in enumerate(graph.stack_list[negibor_stack].cost_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
@@ -229,3 +236,79 @@ def branching_stacked_dijkstra(graph, start=(0,0)):
                 heapq.heappush(que, (new_distance, cur_path + [(negibor_stack, node)]))
 
 # endregion
+
+# region ###### Rolling Dijkstra for embeded branched stacked graphs ######
+
+def ap_works(group_ap, new_ap):
+    matches = True
+    for idx, node in enumerate(group_ap):
+        if new_ap[idx] == node or  new_ap[idx] is None  or node is None:
+            continue
+        else:
+            matches = False
+
+    return matches
+
+def add_group(groups, group, stack_aggreement, cur_path, stack_coverage):
+    new = False
+    for idx, val in enumerate(group['ap']):
+        if (val is None) != (stack_aggreement[idx] is None) and (val is None or stack_aggreement[idx]is None):
+            new = True
+
+    if new: # there are None's so keep original
+        new_group = copy.deepcopy(group)
+        new_group['ap'] = [(a if a is not None else b) for a, b in zip(new_group['ap'], stack_aggreement)]
+        new_group['paths'] += cur_path
+        new_group['coverage_groups'] += stack_coverage
+        new_group['total_coverage'] += stack_coverage
+        groups.append(new_group)
+
+    else: # perfect match so mutate group in place
+        group['ap'] = [(a if a is not None else b) for a, b in zip(group['ap'], stack_aggreement)]
+        print(group['paths'])
+        group['paths'] += cur_path
+        group['coverage_groups'].append(stack_coverage)
+        group['total_coverage'].update(stack_coverage)
+
+def rolling_dijkstra(graph, start=(0,0)):
+    aggreement_stacks = make_aggreement_list(graph)
+    all_nodes = {i.oppid for i in graph.stack_list if i.opp != 'null'}
+    all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != 'null'}
+
+
+    que = [(0, (start,)) ] #(distance, [path])
+    groups = [] # {ap:(aggreement),paths;(), (coverage_groups:{coverage}, {groups}), total_coverage:{total coverage}}
+
+    while que:
+        cur_dist, cur_path = heapq.heappop(que) # minimum
+        cur_node = cur_path[-1] # last item in path
+        neighbor_stacks = graph.get_stack_neighbors(cur_node[0])
+
+        if neighbor_stacks == []: # ending node
+            stack_aggreement = get_aggreement(cur_path, aggreement_stacks)
+            stack_coverage = extract_stacks(cur_path)
+
+            added = False
+            for group in groups:
+                if ap_works(group['ap'], stack_aggreement) and stack_coverage not in group['coverage_groups']: # same coverage, new path
+                    add_group(groups, group, stack_aggreement, cur_path, stack_coverage)
+                    added = True
+
+            if not added:
+                groups.append({ 'ap':(stack_aggreement), 'paths':tuple(cur_path), 'coverage_groups':[stack_coverage], 'total_coverage':stack_coverage })
+
+            for group in groups:
+                if group['total_coverage'] == all_nodes: # group reached full coverage:
+                    return group['paths']
+
+
+        for neighbor in neighbor_stacks:
+            stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
+            for node, node_cost in enumerate(graph.stack_list[neighbor].cost_stack):
+                edge_weight = stack_connection[cur_node[1]][node]
+                node_cost = sum(node_cost.values()) if isinstance(node_cost, dict) else node_cost
+                new_distance = cur_dist + node_cost + edge_weight
+                heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),) ))
+
+
+#endregion
