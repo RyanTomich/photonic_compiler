@@ -104,7 +104,23 @@ def create_branching_stack(print_nodes = True):
 # print(path)
 
 
-stacked_graph = create_branching_stack(print_nodes = False)
+# stacked_graph = create_branching_stack(print_nodes = False)
 
-print(stacked_graph.get_articulation_points())
+# print(stacked_graph.get_articulation_points())
 # print(dijk.branching_stacked_dijkstra(stacked_graph))
+
+def group_validate(graph, groups):
+    '''ensures every node parents are included in the group.
+    exception to load and store nodes, which can have odd dependancies
+    '''
+    for i,lst in enumerate(groups):
+        # print(f'{lst}')
+        load_instructions = {stack.oppid for stack in graph.stack_list if stack.opp == 'null'}
+        included = set(lst)
+        for stack in lst[1:]:
+            for parent in graph.stack_list[stack].parents:
+                if parent in load_instructions:
+                    continue
+                assert parent in included
+        # print(f'group {i} passed!')
+    return True
