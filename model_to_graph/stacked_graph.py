@@ -10,7 +10,7 @@ class StackedNode():
         self.output_shapes = output_shapes
         self.func_stack = func_stack if relay_node is None else [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]]
         self.cost_stack = cost_stack if relay_node is None else [oc.hardware_algs[func][3](self.input_shapes, self.output_shapes) for func in self.func_stack]
-        self.func_selection = None
+        self.func_selection = 0 # func_stack and cost_stack index
 
     def _find_opp(self, func_name):
         '''
@@ -72,9 +72,10 @@ class StackedGraph():
         return total_bits
 
     def _make_connection_matrix(self, start_node, end_node, bit_transfer):
-        '''
+        '''Creates matrix for time(s) to connect between hardware
         start_node: start_node_id
         end_node: end_node_id
+        bit_transfer: The number of bits between the hardware
         '''
         start_node = self.id_to_idx[start_node]
         end_node = self.id_to_idx[end_node]
@@ -249,3 +250,31 @@ class StackedGraph():
         for stack in self.stack_list:
             outputs = outputs - set(stack.parents)
         return outputs
+
+    # inference
+    def forward(self):
+        '''
+        time a simulated forward pass through graph using selected nodes
+        '''
+        total_time = 0
+
+        # stack time
+        for stack in self.stack_list:
+            if stack.func_selection is None:
+                continue
+            cost = stack.cost_stack[stack.func_selection]
+            total_time += oc.cycle_to_s(cost)
+
+        func = np.vectorize(lambda x: x is not None)
+        mask = func(self.adj_matrix)
+        coordinates = np.where(mask)
+        coordinates = list(zip(coordinates[0], coordinates[1]))
+        for in_idx, out_idx in coordinates:
+            connection_matrix = self.adj_matrix[in_idx][out_idx]
+
+            in_node_stack_idx = self.stack_list[in_idx].func_selection
+            out_node_stack_idx = self.stack_list[out_idx].func_selection
+
+            total_time += connection_matrix[in_node_stack_idx][out_node_stack_idx]
+
+        return total_time

@@ -5,6 +5,7 @@ import copy
 
 import testing as test
 import graph_visualization as gv
+import operator_calcs as oc
 
 #region ###### General Dijkstra for normal graph ######
 # dependancies = [
@@ -355,7 +356,7 @@ def rolling_dijkstra(graph, start=(0,0)):
             stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
             for node, node_cost in enumerate(graph.stack_list[neighbor].cost_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                node_cost = sum(node_cost.values()) if isinstance(node_cost, dict) else node_cost
+                node_cost = oc.cycle_to_s(node_cost)
                 new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),) ))
 

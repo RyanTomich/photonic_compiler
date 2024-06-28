@@ -24,7 +24,15 @@ graph = sg.StackedGraph(raw_json=raw_json)
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
 
+print(graph.forward())
 
-for node in graph.stack_list:
-    if node.oppid not in graph.load_nodes and node.oppid not in graph.output_nodes:
-        print(f'{node.oppid}: {node.opp}  -   {node.func_stack[node.func_selection]}')
+has_ph = 0
+selected_ph = 0
+for stack in graph.stack_list:
+    if len(stack.func_stack) > 1:
+        has_ph += 1
+    if stack.func_selection == 1:
+        selected_ph +=1
+
+print(f'{has_ph=}')
+print(f'{selected_ph=}')
