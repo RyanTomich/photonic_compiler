@@ -135,7 +135,7 @@ class StackedGraph():
         not_none = [i for i,v in enumerate(row) if v is not None]
         return not_none
 
-    def kahn_topo_sort_working(self, transpose=False):
+    def kahn_topo_sort_working(self, transpose=False, manual={}):
         '''
         Reversed True = ALAP (as late as posiable)
         Reversed False = ASAP (as soon as posiable)
@@ -175,13 +175,17 @@ class StackedGraph():
         while que:
             layer += 1
             layers_dic[layer] = set()
+            if manual:
+                order.append("B")
 
             for _ in range(len(que)):
                 par_nodes, cur_node = que.pop(0)
                 for par in par_nodes:
                     node_outdegree[par] -= 1
 
-                order.append(cur_node)
+                if cur_node not in manual:
+                    order.append(cur_node)
+
                 layers_dic[layer].add(cur_node)
                 for next_node in [i for i,v in enumerate(graph[cur_node]) if v is not None]:
                     node_indegree[next_node] -= 1
@@ -191,8 +195,9 @@ class StackedGraph():
                         layer_count[next_node] = 0
 
             for working in order:
-                if node_outdegree[working] != 0:
-                    layers_dic[layer].add(working)
+                if working != 'B' and node_outdegree[working] != 0:
+                    if working not in manual:
+                        layers_dic[layer].add(working)
                     layer_count[working] += 1
 
         assert any(node_indegree.values()) == False
@@ -281,12 +286,22 @@ class StackedGraph():
         return total_time
 
     def schedule(self):
-        order, layers_list, layer_count = self.kahn_topo_sort_working(transpose=True)
+        order, layers_list, layer_count = self.kahn_topo_sort_working(transpose=True, manual=self.output_nodes)
 
         for output in self.output_nodes:
-            order.remove(output)
             parent_node = self.stack_list[self.id_to_idx[output]].parents
             parent_idx = order.index(parent_node[0])
             order.insert(parent_idx+1, output)
 
-        return order
+        new_order = []
+        new_layers_list = []
+        temp = set()
+        for node in order:
+            if node == "B":
+                new_layers_list.append(temp)
+                temp = set()
+            else:
+                new_order.append(node)
+                temp.add(node)
+
+        return new_order, new_layers_list

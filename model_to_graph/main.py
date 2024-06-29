@@ -38,4 +38,9 @@ for stack in graph.stack_list:
 print(f'{has_ph=}')
 print(f'{selected_ph=}')
 
-print(f'{len(graph.schedule())=}')
+new_order, new_layers_list = graph.schedule()
+
+print(len(new_order))
+print(len(new_layers_list))
+
+print(new_layers_list)
