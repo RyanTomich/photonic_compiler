@@ -46,11 +46,11 @@ class GraphVisualization:
         edges = G.edges(data=True)
         weights = [self.normalize(edge[2]['weight'],0,weight_range) for edge in edges]
 
-        nx.draw(G, pos, node_size=50, width=weights, with_labels=False, node_color='lightblue', edge_color='black')
+        nx.draw(G, pos, node_size=100, width=weights, with_labels=False, node_color='lightblue', edge_color='black')
 
         # Add labels to the nodes
         labels = {node: str(node) for node in G.nodes()}
-        nx.draw_networkx_labels(G, pos, labels, font_size=6)
+        nx.draw_networkx_labels(G, pos, labels, font_size=10)
 
         # Save the plot to a file
         plt.savefig(filename, dpi=300)  # Adjust dpi as needed
@@ -77,7 +77,7 @@ class GraphVisualization:
 # plt.close()
 
 
-def adj_to_graph(adj_matrix, save=False, layout = 'shell'):
+def adj_to_graph(adj_matrix, ax, save=False, layout = 'shell', title ='Graph Visualization from Adjacency Matrix'):
     vectorized_function = np.vectorize(lambda x: 1 if x is not None else 0)
 
     adj_matrix = vectorized_function(adj_matrix)
@@ -92,13 +92,18 @@ def adj_to_graph(adj_matrix, save=False, layout = 'shell'):
     elif layout == 'kk':
         lengths = dict(nx.all_pairs_dijkstra_path_length(G, weight='weight'))
         pos = nx.kamada_kawai_layout(G, dist=lengths)
+    elif layout == 'spring':
+        # pos = nx.spring_layout(G, k=0.1, iterations=10)
+        pos = nx.spring_layout(G, weight='weight', k=0.1, iterations=10)
+
+    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=200, font_size=7, ax=ax)
+    ax.set_title(title)
+    ax.set_aspect('equal')
 
 
-    # Draw the graph
-    plt.figure(figsize=(12, 10))
-    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=500, font_size=10)
-    plt.title('Graph Visualization from Adjacency Matrix')
-    if save:
-        plt.savefig('network.png')
-    else:
-        plt.show()
+    # nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=200, font_size=7)
+    # plt.title(title)
+    # if save:
+    #     plt.savefig('network.png')
+    # else:
+    #     plt.show()
