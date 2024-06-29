@@ -27,20 +27,25 @@ dijk.select_nodes(graph, subgraphs)
 
 print(f'{graph.forward()=}')
 
-has_ph = 0
-selected_ph = 0
+has_ph = set()
+selected_ph = set()
 for stack in graph.stack_list:
     if len(stack.func_stack) > 1:
-        has_ph += 1
+        has_ph.add(stack.oppid)
     if stack.func_selection == 1:
-        selected_ph +=1
+        selected_ph.add(stack.oppid)
 
-print(f'{has_ph=}')
-print(f'{selected_ph=}')
+print(f'{len(has_ph)=}')
+print(f'{len(selected_ph)=}')
+
+print(f"{selected_ph=}")
 
 new_order, new_layers_list = graph.schedule()
 
 print(len(new_order))
 print(len(new_layers_list))
 
-print(new_layers_list)
+with open('schedule.txt', 'w') as file:
+    file.write(f'{new_order}')
+    for layer in new_layers_list:
+        file.write(f'{layer}\n')

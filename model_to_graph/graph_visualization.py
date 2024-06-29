@@ -77,12 +77,17 @@ class GraphVisualization:
 # plt.close()
 
 
-def adj_to_graph(adj_matrix, ax, save=False, layout = 'shell', title ='Graph Visualization from Adjacency Matrix'):
+def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualization from Adjacency Matrix'):
     vectorized_function = np.vectorize(lambda x: 1 if x is not None else 0)
 
-    adj_matrix = vectorized_function(adj_matrix)
+    adj_matrix = vectorized_function(graph.adj_matrix)
 
     G = nx.from_numpy_array(adj_matrix, create_using=nx.DiGraph)
+
+    labels = {}
+    for idx, node in enumerate(G.nodes):
+        labels[node] = graph.stack_list[idx].oppid
+    nx.set_node_attributes(G, labels, 'label')
 
 
     if layout == 'shell':
@@ -96,7 +101,7 @@ def adj_to_graph(adj_matrix, ax, save=False, layout = 'shell', title ='Graph Vis
         # pos = nx.spring_layout(G, k=0.1, iterations=10)
         pos = nx.spring_layout(G, weight='weight', k=0.1, iterations=10)
 
-    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=200, font_size=7, ax=ax)
+    nx.draw(G, pos, with_labels=True,labels=labels, node_color='lightblue', edge_color='gray', node_size=200, font_size=7, ax=ax)
     ax.set_title(title)
     ax.set_aspect('equal')
 
