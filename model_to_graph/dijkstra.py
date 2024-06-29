@@ -396,12 +396,10 @@ def select_nodes(graph, subgraphs):
     such that subgraph is a partition of graph
     '''
     for idx, subgraph in enumerate(subgraphs):
-        if idx == 6:
-            nodes = rolling_dijkstra(subgraph)
-            print(nodes)
-            for node in nodes:
-                stack_oppid = subgraph.stack_list[node[0]].oppid
-                original_stack = graph.stack_list[graph.id_to_idx[stack_oppid]]
-                original_stack.func_selection = node[1]
+        nodes = rolling_dijkstra(subgraph)
+        for node in nodes:
+            stack_oppid = subgraph.stack_list[node[0]].oppid
+            original_stack = graph.stack_list[graph.id_to_idx[stack_oppid]]
+            original_stack.func_selection = node[1]
 
 #endregion

@@ -21,11 +21,11 @@ with open(read_json_path)  as json_file:
 
 
 graph = sg.StackedGraph(raw_json=raw_json)
-gv.adj_to_graph(graph.adj_matrix, save=True, layout = 'spectral')
+# gv.adj_to_graph(graph.adj_matrix, save=True, layout = 'spectral')
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
 
-print(graph.forward())
+print(f'{graph.forward()=}')
 
 has_ph = 0
 selected_ph = 0
@@ -37,3 +37,5 @@ for stack in graph.stack_list:
 
 print(f'{has_ph=}')
 print(f'{selected_ph=}')
+
+print(f'{len(graph.schedule())=}')

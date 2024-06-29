@@ -279,3 +279,14 @@ class StackedGraph():
             total_time += connection_matrix[in_node_stack_idx][out_node_stack_idx]
 
         return total_time
+
+    def schedule(self):
+        order, layers_list, layer_count = self.kahn_topo_sort_working(transpose=True)
+
+        for output in self.output_nodes:
+            order.remove(output)
+            parent_node = self.stack_list[self.id_to_idx[output]].parents
+            parent_idx = order.index(parent_node[0])
+            order.insert(parent_idx+1, output)
+
+        return order
