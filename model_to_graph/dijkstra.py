@@ -399,6 +399,10 @@ def select_nodes(graph, subgraphs):
         nodes = rolling_dijkstra(subgraph)
         for node in nodes:
             stack_oppid = subgraph.stack_list[node[0]].oppid
+
+            subgraph_stack = subgraph.stack_list[subgraph.id_to_idx[stack_oppid]]
+            subgraph_stack.func_selection = node[1]
+
             original_stack = graph.stack_list[graph.id_to_idx[stack_oppid]]
             original_stack.func_selection = node[1]
 

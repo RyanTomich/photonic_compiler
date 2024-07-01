@@ -85,8 +85,15 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
     G = nx.from_numpy_array(adj_matrix, create_using=nx.DiGraph)
 
     labels = {}
+    colors = {}
     for idx, node in enumerate(G.nodes):
         labels[node] = graph.stack_list[idx].oppid
+        if graph.stack_list[idx].func_selection == 1:
+            colors[node] = 'lightcoral'
+        else:
+            colors[node] = 'lightblue'
+
+
     nx.set_node_attributes(G, labels, 'label')
 
 
@@ -101,14 +108,6 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
         # pos = nx.spring_layout(G, k=0.1, iterations=10)
         pos = nx.spring_layout(G, weight='weight', k=0.1, iterations=10)
 
-    nx.draw(G, pos, with_labels=True,labels=labels, node_color='lightblue', edge_color='gray', node_size=200, font_size=7, ax=ax)
+    nx.draw(G, pos, with_labels=True,labels=labels, node_color=[colors[node] for node in G.nodes], edge_color='gray', node_size=200, font_size=7, ax=ax)
     ax.set_title(title)
     ax.set_aspect('equal')
-
-
-    # nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=200, font_size=7)
-    # plt.title(title)
-    # if save:
-    #     plt.savefig('network.png')
-    # else:
-    #     plt.show()
