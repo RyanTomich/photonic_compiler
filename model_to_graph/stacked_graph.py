@@ -11,7 +11,7 @@ class StackedNode():
         self.func_stack = func_stack if relay_node is None else [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]]
         self.cost_stack = cost_stack if relay_node is None else [oc.cycle_to_s(oc.hardware_algs[func][3](self.input_shapes, self.output_shapes)) for func in self.func_stack]
         self.func_selection = 0 # func_stack and cost_stack index
-        self.hardware_choice = None
+        self.hardware_selection = None
         self.start_time = 0
 
     def _find_opp(self, func_name):
@@ -28,7 +28,16 @@ class StackedNode():
                 return part
 
     def __str__(self):
-        return f"{self.oppid=} \n {self.opp=} \n {self.parents=} \n {self.input_shapes=} \n {self.output_shapes=} \n {self.func_stack=} \n {self.cost_stack=} \n"
+        return (f"{self.oppid=}\n" +
+                f"{self.opp=}\n " +
+                f"{self.parents=}\n " +
+                f"{self.input_shapes=}\n " +
+                f"{self.output_shapes=}\n " +
+                f"{self.func_stack=}\n " +
+                f"{self.cost_stack=}\n " +
+                f"{self.func_selection=}\n " +
+                f"{self.hardware_selection=}\n " +
+                f"{self.start_time=}\n" )
 
 class StackedGraph():
     def __init__(self, stack_list=None, raw_json=None):

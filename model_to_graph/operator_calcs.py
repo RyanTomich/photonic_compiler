@@ -110,7 +110,7 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'tanh' : ('tanh', 'CPU' , func, lambda i, o: {"CPU": ten_elm(o[0])*4}),
     'power' : ('power', 'CPU' , func, all_elm),
     'transpose' : ('transpose', 'CPU' , func, all_elm),
-    'nop' : ('nop', 'CPU' , func, constnat(0)),
+    'nop' : ('nop', 'CPU' , func, constnat(1)),
     'less' : ('less', 'CPU' , func, constnat(1)),
     'take' : ('take', 'CPU' , func, constnat(1)),
     'split' : ('split', 'CPU', func, constnat(3)),
@@ -127,7 +127,7 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'dense_phu': ('dense', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
     'pack_phu': ('pack', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
 
-    'start' : ('null', 'start' , func, constnat(0)),
+    'start' : ('null', 'start' , func, constnat(1)),
 }
 
 hw_intercon ={('CPU', 'CPU'): lambda x: x/32 /CPU_CLOCK_SPEED,

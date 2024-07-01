@@ -25,27 +25,36 @@ graph = sg.StackedGraph(raw_json=raw_json)
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
 
-print(f'{graph.forward()=}')
+dijk.scheduling_dijkstra(subgraphs[0])
 
-has_ph = set()
-selected_ph = set()
-for stack in graph.stack_list:
-    if len(stack.func_stack) > 1:
-        has_ph.add(stack.oppid)
-    if stack.func_selection == 1:
-        selected_ph.add(stack.oppid)
+# for stack in subgraphs[0].stack_list:
+#     print(stack)
 
-print(f'{len(has_ph)=}')
-print(f'{len(selected_ph)=}')
 
-# print(f"{selected_ph=}")
 
-new_order, new_layers_list = graph.simple_schedule()
 
-print(f'{len(new_order)=}')
-print(f'{len(new_layers_list)=}')
 
-with open('schedule.txt', 'w') as file:
-    file.write(f'{new_order}')
-    for layer in new_layers_list:
-        file.write(f'{layer}\n')
+# print(f'{graph.forward()=}')
+
+# has_ph = set()
+# selected_ph = set()
+# for stack in graph.stack_list:
+#     if len(stack.func_stack) > 1:
+#         has_ph.add(stack.oppid)
+#     if stack.func_selection == 1:
+#         selected_ph.add(stack.oppid)
+
+# print(f'{len(has_ph)=}')
+# print(f'{len(selected_ph)=}')
+
+# # print(f"{selected_ph=}")
+
+# new_order, new_layers_list = graph.simple_schedule()
+
+# print(f'{len(new_order)=}')
+# print(f'{len(new_layers_list)=}')
+
+# with open('schedule.txt', 'w') as file:
+#     file.write(f'{new_order}')
+#     for layer in new_layers_list:
+#         file.write(f'{layer}\n')

@@ -410,6 +410,50 @@ def select_nodes(graph, subgraphs):
 # region ###### scheduling_dijkstra for embeded branched stacked graphs ######
 
 def scheduling_dijkstra(graph, start =(0,0)):
-    pass
+    indegree = {stack.oppid: len(stack.parents) for stack in graph.stack_list}
+    available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0}, 'PHU': {'PHU1': 0} }
+    visited = set()
+    que = []
+    for stack_id in graph.load_nodes:
+        que.append( (0, (graph.id_to_idx[stack_id],) ) )
+
+    while que:
+        cur_time, cur_path = que.pop(0) # minimum
+        cur_node = cur_path[-1] # last item in path
+
+        neighbor_stacks = graph.get_stack_neighbors(cur_node)
+
+        values = [val for inner_dict in available_hardware.values() for val in inner_dict.values()]
+        max_value = max(values)
+
+        for inner_dict in available_hardware.values():
+            for key in inner_dict:
+                inner_dict[key] = max_value
+
+
+        for neighbor in neighbor_stacks:
+            if neighbor not in visited:
+                neighbor_node = graph.stack_list[neighbor]
+                hardware_type = oc.hardware_algs[neighbor_node.func_stack[neighbor_node.func_selection]][1]
+                indegree[neighbor_node.oppid] -= 1
+                if indegree[neighbor_node.oppid] == 0:
+                    print(available_hardware)
+                    selected_hardware = min(available_hardware[hardware_type], key=lambda k: available_hardware[hardware_type][k])
+                    neighbor_node.hardware_selection = selected_hardware
+                    neighbor_node.start_time = available_hardware[hardware_type][selected_hardware]
+
+                    # print(f'{neighbor_node.oppid} - {neighbor_node.hardware_selection} - {neighbor_node.start_time}')
+
+                    stack_connection = graph.adj_matrix[cur_node][neighbor]
+                    node_cost = neighbor_node.cost_stack[neighbor_node.func_selection]
+                    edge_weight = stack_connection[graph.stack_list[cur_node].func_selection][neighbor_node.func_selection]
+                    new_time = cur_time + node_cost + edge_weight
+                    available_hardware[hardware_type][selected_hardware] += node_cost + edge_weight
+                    visited.add(neighbor)
+                    que.append( (new_time, cur_path + (neighbor,)) )
+
+
+
+
 
 #endregion
