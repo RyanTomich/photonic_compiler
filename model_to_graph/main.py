@@ -38,12 +38,12 @@ for stack in graph.stack_list:
 print(f'{len(has_ph)=}')
 print(f'{len(selected_ph)=}')
 
-print(f"{selected_ph=}")
+# print(f"{selected_ph=}")
 
-new_order, new_layers_list = graph.schedule()
+new_order, new_layers_list = graph.simple_schedule()
 
-print(len(new_order))
-print(len(new_layers_list))
+print(f'{len(new_order)=}')
+print(f'{len(new_layers_list)=}')
 
 with open('schedule.txt', 'w') as file:
     file.write(f'{new_order}')

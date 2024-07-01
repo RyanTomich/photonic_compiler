@@ -9,8 +9,10 @@ class StackedNode():
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
         self.func_stack = func_stack if relay_node is None else [alg for alg in oc.hardware_algs if self.opp == oc.hardware_algs[alg][0]]
-        self.cost_stack = cost_stack if relay_node is None else [oc.hardware_algs[func][3](self.input_shapes, self.output_shapes) for func in self.func_stack]
+        self.cost_stack = cost_stack if relay_node is None else [oc.cycle_to_s(oc.hardware_algs[func][3](self.input_shapes, self.output_shapes)) for func in self.func_stack]
         self.func_selection = 0 # func_stack and cost_stack index
+        self.hardware_choice = None
+        self.start_time = 0
 
     def _find_opp(self, func_name):
         '''
@@ -176,7 +178,7 @@ class StackedGraph():
             layer += 1
             layers_dic[layer] = set()
             if manual:
-                order.append("B")
+                order.append("B") # section Break
 
             for _ in range(len(que)):
                 par_nodes, cur_node = que.pop(0)
@@ -269,7 +271,7 @@ class StackedGraph():
             if stack.func_selection is None:
                 continue
             cost = stack.cost_stack[stack.func_selection]
-            total_time += oc.cycle_to_s(cost)
+            total_time += cost
 
         func = np.vectorize(lambda x: x is not None)
         mask = func(self.adj_matrix)
@@ -285,14 +287,16 @@ class StackedGraph():
 
         return total_time
 
-    def schedule(self):
+    def simple_schedule(self):
         order, layers_list, layer_count = self.kahn_topo_sort_working(transpose=True, manual=self.output_nodes)
 
+        # Add load_stacks JIT. ALAP
         for output in self.output_nodes:
             parent_node = self.stack_list[self.id_to_idx[output]].parents
             parent_idx = order.index(parent_node[0])
             order.insert(parent_idx+1, output)
 
+        # create new layers wihtout breaks 'B'
         new_order = []
         new_layers_list = []
         temp = set()
