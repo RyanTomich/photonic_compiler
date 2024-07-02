@@ -409,7 +409,7 @@ def select_nodes(graph, subgraphs):
 
 
 # region ###### scheduling_dijkstra for embeded branched stacked graphs ######
-def scheduling_dijkstra(graph, even=False, available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }):
+def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }):
     visited = {0}
     end_times = {0:0}
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
@@ -438,11 +438,7 @@ def scheduling_dijkstra(graph, even=False, available_hardware = {'CPU': {'CPU1':
                 if not less_than:
                     selected_hardware = min(available_hardware[hardware_type], key=lambda k: available_hardware[hardware_type][k]) #just use smallest
                 else:
-                    if even:
-                        selected_hardware = min(less_than, key=lambda k: available_hardware[hardware_type][k]) # bring smallest up
-                    else:
-                        selected_hardware = min(less_than, key=lambda k: parent_time - available_hardware[hardware_type][k]) # select minimum distance away
-
+                    selected_hardware = min(less_than, key=lambda k: parent_time - available_hardware[hardware_type][k]) # select minimum distance away
                     available_hardware[hardware_type][selected_hardware] = parent_time # realign hardware
 
 
@@ -457,6 +453,7 @@ def scheduling_dijkstra(graph, even=False, available_hardware = {'CPU': {'CPU1':
                 node_cost = neighbor_node.cost_stack[neighbor_node.func_selection]
                 edge_weight = stack_connection[graph.stack_list[cur_node].func_selection][neighbor_node.func_selection]
                 available_hardware[hardware_type][selected_hardware] += node_cost + edge_weight
+                # available_hardware[hardware_type][selected_hardware] += node_cost
                 new_time = available_hardware[hardware_type][selected_hardware]
                 visited.add(neighbor)
                 end_times[neighbor_node.oppid] = new_time

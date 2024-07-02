@@ -25,7 +25,7 @@ graph = sg.StackedGraph(raw_json=raw_json)
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
 available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
-dijk.scheduling_dijkstra(subgraphs[1], even=False, available_hardware=available_hardware)
+dijk.scheduling_dijkstra(subgraphs[1], available_hardware=available_hardware)
 
 # for stack in subgraphs[0].stack_list:
 #     print(stack)
