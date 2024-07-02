@@ -416,7 +416,7 @@ def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2':
 
     '''
     visited = {0}
-    end_times = {0:0}
+    end_times = {0:0} #TODO handling multiple input nodes not all point to 0
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
     que = []
     for stack_id in graph.load_nodes:
@@ -431,7 +431,7 @@ def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2':
                 small_val = end_times[ graph.stack_list[v[-1]].oppid ]
                 small_idx = idx
 
-        cur_path = que.pop(idx)
+        cur_path = que.pop(small_idx)
         cur_node = cur_path[-1]
 
         neighbor_stacks = graph.get_stack_neighbors(cur_node)
@@ -478,10 +478,14 @@ def schdeule_nodes(graph, subgraphs):
     graph = StackedGraph object, original graph
     subgraphs = Subgraph of
     '''
+    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0, 'PHU2': 0, 'PHU3': 0} }
+
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0} }
-    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
+    available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
-    available_hardware = {'CPU': {'CPU1': 0,}, 'PHU': {'PHU1': 0} }
+    # available_hardware = {'CPU': {'CPU1': 0,}, 'PHU': {'PHU1': 0} }
+
+    # merge subgraphs back to main graph
     cur_time = 0
     for subgraph in subgraphs:
         hardware_times = scheduling_dijkstra(subgraph, available_hardware=available_hardware)
@@ -491,7 +495,26 @@ def schdeule_nodes(graph, subgraphs):
             original_stack.hardware_selection = stack.hardware_selection
             original_stack.start_time = stack.start_time + cur_time
         cur_time = max(cur_time, max_value)
+        # print(cur_time)
 
-    return(cur_time)
+    # schedule load_nodes
+    adj_matrix = graph.adj_matrix
+
+    for node in graph.load_nodes:
+        stack_obj = graph.get_stack(node)
+        child = [(idx, val) for idx, val in enumerate(adj_matrix[node]) if val is not None][0]
+        child_obj = graph.get_stack(child[0])
+        stack_obj.start_time = child_obj.start_time - child[1][stack_obj.func_selection][child_obj.func_selection]
+        stack_obj.hardware_selection = 'memory'
+
+    for node in graph.output_nodes:
+        stack_obj = graph.get_stack(node)
+        parents = stack_obj.parents
+        parent_obj = graph.get_stack(parents[0])
+        stack_obj.start_time = parent_obj.start_time + parent_obj.cost_stack[parent_obj.func_selection]
+        stack_obj.hardware_selection = 'memory'
+
+    return cur_time
+
 
 #endregion

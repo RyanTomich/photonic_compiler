@@ -318,3 +318,6 @@ class StackedGraph():
                 temp.add(node)
 
         return new_order, new_layers_list
+
+    def get_stack(self, id):
+        return self.stack_list[self.id_to_idx[id]]
