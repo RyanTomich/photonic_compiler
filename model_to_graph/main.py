@@ -24,8 +24,7 @@ graph = sg.StackedGraph(raw_json=raw_json)
 # gv.adj_to_graph(graph.adj_matrix, save=True, layout = 'spectral')
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
-
-dijk.scheduling_dijkstra(subgraphs[0])
+# dijk.scheduling_dijkstra(subgraphs[1], even=True)
 
 # for stack in subgraphs[0].stack_list:
 #     print(stack)

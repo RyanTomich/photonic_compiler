@@ -407,53 +407,55 @@ def select_nodes(graph, subgraphs):
 
 #endregion
 
-# region ###### scheduling_dijkstra for embeded branched stacked graphs ######
 
-def scheduling_dijkstra(graph, start =(0,0)):
-    indegree = {stack.oppid: len(stack.parents) for stack in graph.stack_list}
-    available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0}, 'PHU': {'PHU1': 0} }
-    visited = set()
+# region ###### scheduling_dijkstra for embeded branched stacked graphs ######
+def scheduling_dijkstra(graph, even=False, available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }):
+    visited = {0}
+    indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
     que = []
     for stack_id in graph.load_nodes:
-        que.append( (0, (graph.id_to_idx[stack_id],) ) )
+        que.append((graph.id_to_idx[stack_id],))
 
     while que:
-        cur_time, cur_path = que.pop(0) # minimum
-        cur_node = cur_path[-1] # last item in path
+        cur_path = que.pop(0)
+        cur_node = cur_path[-1]
 
         neighbor_stacks = graph.get_stack_neighbors(cur_node)
 
-        values = [val for inner_dict in available_hardware.values() for val in inner_dict.values()]
-        max_value = max(values)
-
-        for inner_dict in available_hardware.values():
-            for key in inner_dict:
-                inner_dict[key] = max_value
-
-
         for neighbor in neighbor_stacks:
-            if neighbor not in visited:
+            indegree[neighbor] -= 1
+            if neighbor not in visited and indegree[neighbor] == 0 :
                 neighbor_node = graph.stack_list[neighbor]
                 hardware_type = oc.hardware_algs[neighbor_node.func_stack[neighbor_node.func_selection]][1]
-                indegree[neighbor_node.oppid] -= 1
-                if indegree[neighbor_node.oppid] == 0:
-                    print(available_hardware)
+
+                parents = [graph.stack_list[graph.id_to_idx[parent]] for parent in neighbor_node.parents]
+                parent_time = max(parent.start_time + parent.cost_stack[parent.func_selection] for parent in parents)
+
+                #select hardware
+                # less_than = [available for available in available_hardware[hardware_type] if available_hardware[hardware_type][available] < parent_time*1.1] # TODO Accounts for edge weight. Fix to be real edge weight
+                less_than = [available for available in available_hardware[hardware_type] if available_hardware[hardware_type][available] <= parent_time*1] # TODO Accounts for edge weight. Fix to be real edge weight
+                if not less_than:
                     selected_hardware = min(available_hardware[hardware_type], key=lambda k: available_hardware[hardware_type][k])
-                    neighbor_node.hardware_selection = selected_hardware
-                    neighbor_node.start_time = available_hardware[hardware_type][selected_hardware]
-
-                    # print(f'{neighbor_node.oppid} - {neighbor_node.hardware_selection} - {neighbor_node.start_time}')
-
-                    stack_connection = graph.adj_matrix[cur_node][neighbor]
-                    node_cost = neighbor_node.cost_stack[neighbor_node.func_selection]
-                    edge_weight = stack_connection[graph.stack_list[cur_node].func_selection][neighbor_node.func_selection]
-                    new_time = cur_time + node_cost + edge_weight
-                    available_hardware[hardware_type][selected_hardware] += node_cost + edge_weight
-                    visited.add(neighbor)
-                    que.append( (new_time, cur_path + (neighbor,)) )
+                else:
+                    if even:
+                        selected_hardware = min(less_than, key=lambda k: available_hardware[hardware_type][k])
+                    else:
+                        selected_hardware = less_than[0]
+                    available_hardware[hardware_type][selected_hardware] = parent_time
 
 
+                # selected_hardware = min(available_hardware[hardware_type], key=lambda k: available_hardware[hardware_type][k])
+                neighbor_node.hardware_selection = selected_hardware
+                assert neighbor_node.start_time == 0
+                neighbor_node.start_time = available_hardware[hardware_type][selected_hardware]
 
+                # add time
+                stack_connection = graph.adj_matrix[cur_node][neighbor]
 
-
+                node_cost = neighbor_node.cost_stack[neighbor_node.func_selection]
+                edge_weight = stack_connection[graph.stack_list[cur_node].func_selection][neighbor_node.func_selection]
+                # available_hardware[hardware_type][selected_hardware] += node_cost + edge_weight
+                available_hardware[hardware_type][selected_hardware] += node_cost
+                visited.add(neighbor)
+                que.append(cur_path + (neighbor,))
 #endregion
