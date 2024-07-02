@@ -45,18 +45,25 @@ graph = sg.StackedGraph(raw_json=raw_json)
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
 end_time = dijk.schdeule_nodes(graph, subgraphs)
+print(end_time)
 
 for stack in graph.stack_list:
     assert stack.hardware_selection != None
 
-print(end_time)
+schedule_data = create_schedule_data(graph)
+
+# for stack in graph.stack_list:
+#     if stack.hardware_selection == 'memory':
+#         print(stack)
+
+dijk.get_memory_profile(graph, schedule_data)
 
 
 ### Schedule Data ###
-schedule_data = create_schedule_data(graph)
-with open('schedule.txt', 'w') as file:
-    for index, row in schedule_data.iterrows():
-        file.write(f"{row['label']} --- {row['hardware']} ({row['start']})\n")
+# schedule_data = create_schedule_data(graph)
+# with open('schedule.txt', 'w') as file:
+#     for index, row in schedule_data.iterrows():
+#         file.write(f"{row['label']} --- {row['hardware']} ({row['start']})\n")
 
 # sorted_df = schedule_data.sort_values(by='start')
 # print(sorted_df)

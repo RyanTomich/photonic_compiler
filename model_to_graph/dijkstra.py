@@ -481,9 +481,9 @@ def schdeule_nodes(graph, subgraphs):
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0, 'PHU2': 0, 'PHU3': 0} }
 
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0} }
-    available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
+    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
-    # available_hardware = {'CPU': {'CPU1': 0,}, 'PHU': {'PHU1': 0} }
+    available_hardware = {'CPU': {'CPU1': 0,}, 'PHU': {'PHU1': 0} }
 
     # merge subgraphs back to main graph
     cur_time = 0
@@ -493,9 +493,9 @@ def schdeule_nodes(graph, subgraphs):
         for stack in subgraph.stack_list:
             original_stack = graph.stack_list[graph.id_to_idx[stack.oppid]]
             original_stack.hardware_selection = stack.hardware_selection
-            original_stack.start_time = stack.start_time + cur_time
+            original_stack.start_time = stack.start_time
+            # original_stack.start_time = stack.start_time + cur_time
         cur_time = max(cur_time, max_value)
-        # print(cur_time)
 
     # schedule load_nodes
     adj_matrix = graph.adj_matrix
@@ -516,5 +516,75 @@ def schdeule_nodes(graph, subgraphs):
 
     return cur_time
 
-
 #endregion
+
+# region ###### scheduling_dijkstra for embeded branched stacked graphs ######
+def get_memory_profile(graph, schedule_data):
+    dram = [] #(time, bits)
+    dram_total = 0
+    sram = [] #(time, bits)
+    sram_total = 0
+    outdegree = {}
+    for row in range(len(graph.adj_matrix)):
+        outdegree[row] = sum([True for i in graph.adj_matrix[row, :] if i is not None])
+
+
+
+    start_size = 0
+    for node in graph.load_nodes:
+        stack_obj = graph.get_stack(node)
+        start_size += oc.ten_elm(stack_obj.output_shapes[0])
+    dram_total = start_size
+    dram.append((0, dram_total))
+
+
+    sorted_stack_list = sorted(graph.stack_list, key = lambda x: x.start_time)
+
+    for stack_obj in sorted_stack_list:
+        # outdegree[graph.get_stack(stack_obj.oppid)] -= 1
+        in_size = sum (oc.ten_elm(x) for x in stack_obj.input_shapes)
+        out_size = sum (oc.ten_elm(x) for x in stack_obj.output_shapes)
+        assert out_size >= 0
+
+        if stack_obj.oppid in graph.load_nodes: # D -> S
+            dram_total -= out_size
+            dram.append( (stack_obj.start_time, dram_total) )
+
+            sram_total += out_size
+            sram.append((stack_obj.start_time + stack_obj.cost_stack[stack_obj.func_selection], sram_total))
+
+        elif stack_obj.oppid in graph.output_nodes: # S -> D
+            sram_total -= in_size
+            sram.append((stack_obj.start_time, sram_total))
+
+
+            dram_total += out_size
+            dram.append((stack_obj.start_time + stack_obj.cost_stack[stack_obj.func_selection], dram_total))
+
+        else:
+            for parent in stack_obj.parents:
+                parent_obj = graph.get_stack(parent)
+                outdegree[parent_obj.oppid] -= 1
+                if outdegree[parent_obj.oppid] == 0:
+                    size = sum (oc.ten_elm(x) for x in parent_obj.output_shapes)
+                    sram_total -= size
+                    sram.append((stack_obj.start_time, sram_total))
+
+            sram_total += out_size
+            sram.append((stack_obj.start_time + stack_obj.cost_stack[stack_obj.func_selection], sram_total))
+
+
+    print(f'{dram_total=}')
+    print(f'{sram_total=}')
+    return dram, sram
+
+
+
+
+
+
+
+
+
+
+# endregion
