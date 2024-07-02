@@ -24,17 +24,19 @@ graph = sg.StackedGraph(raw_json=raw_json)
 # gv.adj_to_graph(graph.adj_matrix, save=True, layout = 'spectral')
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
-available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
-dijk.scheduling_dijkstra(subgraphs[1], available_hardware=available_hardware)
+end_time = dijk.schdeule_nodes(graph, subgraphs)
 
-# for stack in subgraphs[0].stack_list:
-#     print(stack)
-
-
+# for stack in graph.stack_list:
+#     print(stack.hardware_selection)
+#     print(stack.start_time)
 
 
 
-# print(f'{graph.forward()=}')
+
+### FORWARD ###
+
+print(f'{end_time}')
+print(f'{graph.forward()=}')
 
 # has_ph = set()
 # selected_ph = set()

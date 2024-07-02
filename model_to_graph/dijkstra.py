@@ -410,6 +410,11 @@ def select_nodes(graph, subgraphs):
 
 # region ###### scheduling_dijkstra for embeded branched stacked graphs ######
 def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }):
+    '''
+    subgraph with mock start node.
+    available_hardware initilized to 0
+
+    '''
     visited = {0}
     end_times = {0:0}
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
@@ -418,7 +423,15 @@ def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2':
         que.append( (graph.id_to_idx[stack_id],) )
 
     while que:
-        cur_path = que.pop(0)
+        # select the one that can be done the soonest, parents have the earlies end time.
+        small_val = np.inf
+        small_idx = np.inf
+        for idx, v in enumerate(que):
+            if end_times[ graph.stack_list[v[-1]].oppid ] < small_val:
+                small_val = end_times[ graph.stack_list[v[-1]].oppid ]
+                small_idx = idx
+
+        cur_path = que.pop(idx)
         cur_node = cur_path[-1]
 
         neighbor_stacks = graph.get_stack_neighbors(cur_node)
@@ -458,4 +471,27 @@ def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2':
                 visited.add(neighbor)
                 end_times[neighbor_node.oppid] = new_time
                 que.append( cur_path + (neighbor,))
+    return available_hardware
+
+def schdeule_nodes(graph, subgraphs):
+    '''
+    graph = StackedGraph object, original graph
+    subgraphs = Subgraph of
+    '''
+    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0} }
+    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
+    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
+    available_hardware = {'CPU': {'CPU1': 0,}, 'PHU': {'PHU1': 0} }
+    cur_time = 0
+    for subgraph in subgraphs:
+        hardware_times = scheduling_dijkstra(subgraph, available_hardware=available_hardware)
+        max_value = max(max(inner_dict.values()) for inner_dict in hardware_times.values())
+        for stack in subgraph.stack_list:
+            original_stack = graph.stack_list[graph.id_to_idx[stack.oppid]]
+            original_stack.hardware_selection = stack.hardware_selection
+            original_stack.start_time = stack.start_time + cur_time
+        cur_time = max(cur_time, max_value)
+
+    return(cur_time)
+
 #endregion
