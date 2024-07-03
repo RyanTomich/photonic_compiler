@@ -409,20 +409,17 @@ def select_nodes(graph, subgraphs):
 
 
 # region ###### scheduling_dijkstra for embeded branched stacked graphs ######
-def hardware_synchronize(available_hardware):
-    max_value = max(max(inner_dict.values()) for inner_dict in available_hardware.values())
+def hardware_synchronize():
+    max_value = max(max(inner_dict.values()) for inner_dict in oc.available_hardware.values())
 
-    for sub_dict in available_hardware.values():
+    for sub_dict in oc.available_hardware.values():
         for key in sub_dict:
             sub_dict[key] = max_value
 
-    return available_hardware
-
-
-def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }):
+def scheduling_dijkstra(graph):
     '''
     subgraph with mock start node.
-    available_hardware initilized to 0
+    oc.available_hardware initilized to 0
 
     '''
     visited = {0}
@@ -456,48 +453,48 @@ def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0}, 'PHU':
                 parent_time = max(parent_end)
 
                 #select hardware
-                less_than = [available for available in available_hardware[hardware_type] if available_hardware[hardware_type][available] <= parent_time]
+                less_than = [available for available in oc.available_hardware[hardware_type] if oc.available_hardware[hardware_type][available] <= parent_time]
 
                 if not less_than:
-                    selected_hardware = min(available_hardware[hardware_type], key=lambda k: available_hardware[hardware_type][k]) #just use smallest
+                    selected_hardware = min(oc.available_hardware[hardware_type], key=lambda k: oc.available_hardware[hardware_type][k]) #just use smallest
                 else:
-                    selected_hardware = min(less_than, key=lambda k: parent_time - available_hardware[hardware_type][k]) # select minimum distance away
-                    available_hardware[hardware_type][selected_hardware] = parent_time # realign hardware
+                    selected_hardware = min(less_than, key=lambda k: parent_time - oc.available_hardware[hardware_type][k]) # select minimum distance away
+                    oc.available_hardware[hardware_type][selected_hardware] = parent_time # realign hardware
 
 
-                # selected_hardware = min(available_hardware[hardware_type], key=lambda k: available_hardware[hardware_type][k])
+                # selected_hardware = min(oc.available_hardware[hardware_type], key=lambda k: oc.available_hardware[hardware_type][k])
                 neighbor_node.hardware_selection = selected_hardware
                 assert neighbor_node.start_time == 0
-                neighbor_node.start_time = available_hardware[hardware_type][selected_hardware]
+                neighbor_node.start_time = oc.available_hardware[hardware_type][selected_hardware]
 
                 # add time
                 stack_connection = graph.adj_matrix[cur_node][neighbor]
 
                 node_cost = neighbor_node.cost_stack[neighbor_node.func_selection]
                 edge_weight = stack_connection[graph.stack_list[cur_node].func_selection][neighbor_node.func_selection]
-                available_hardware[hardware_type][selected_hardware] += node_cost + edge_weight
-                # available_hardware[hardware_type][selected_hardware] += node_cost
-                new_time = available_hardware[hardware_type][selected_hardware]
+                oc.available_hardware[hardware_type][selected_hardware] += node_cost + edge_weight
+                # oc.available_hardware[hardware_type][selected_hardware] += node_cost
+                new_time = oc.available_hardware[hardware_type][selected_hardware]
                 visited.add(neighbor)
                 end_times[neighbor_node.oppid] = new_time
                 que.append( cur_path + (neighbor,))
-    return available_hardware
+    return oc.available_hardware
 
-
-def schdeule_nodes(graph, subgraphs, available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }):
+def schdeule_nodes(graph, subgraphs):
     '''
     graph = StackedGraph object, original graph
     subgraphs = Subgraph of
     '''
     # merge subgraphs back to main graph
+    oc.initilize_hardware()
     break_points = []
     for subgraph in subgraphs:
-        hardware_times = scheduling_dijkstra(subgraph, available_hardware=available_hardware)
+        hardware_times = scheduling_dijkstra(subgraph)
         for stack in subgraph.stack_list:
             original_stack = graph.stack_list[graph.id_to_idx[stack.oppid]]
             original_stack.hardware_selection = stack.hardware_selection
             original_stack.start_time = stack.start_time
-        available_hardware = hardware_synchronize(available_hardware)
+        hardware_synchronize()
         break_points.append(max(max(inner_dict.values()) for inner_dict in hardware_times.values()))
 
 
@@ -525,7 +522,7 @@ def schdeule_nodes(graph, subgraphs, available_hardware = {'CPU': {'CPU1': 0}, '
 
 #endregion
 
-# region ###### scheduling_dijkstra for embeded branched stacked graphs ######
+# region ###### memory ######
 def get_memory_profile(graph, schedule_data):
     dram = [] #(time, bits)
     dram_total = 0

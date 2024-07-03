@@ -1,5 +1,6 @@
 import operator_calcs as oc
 import numpy as np
+import pandas as pd
 
 class StackedNode():
     def __init__(self, oppid, parents, input_shapes, output_shapes, opp=None, func_stack=None, cost_stack=None, relay_node=None):
@@ -321,3 +322,26 @@ class StackedGraph():
 
     def get_stack(self, id):
         return self.stack_list[self.id_to_idx[id]]
+
+    # metrics
+    def create_schedule_data(self):
+        '''
+        returns metadata about the schedule.
+        Graph must have been scheduled first.
+        '''
+        data = {
+            'hardware': [],
+            'start': [],
+            'end': [],
+            'label': []  # Labels for the blocks
+        }
+
+        # for stack in graph.stack_list[16:-6]:
+        for stack in self.stack_list[1:]:
+            data['hardware'].append(stack.hardware_selection)
+            data['start'].append(stack.start_time)
+            data['end'].append(stack.start_time + stack.cost_stack[stack.func_selection])
+            data['label'].append(stack.oppid)
+
+        df = pd.DataFrame(data)
+        return df

@@ -63,7 +63,20 @@ import numpy as np
 
 #endregion
 
-# Constants
+def creat_available_hardware(hardware_dict):
+    available_hardware = {}
+    for hw, count in hardware_dict.items():
+        in_dict = {}
+        for i in range(count):
+            in_dict[f'{hw}{i}'] = 0
+        available_hardware[hw] = in_dict
+    return available_hardware
+
+def initilize_hardware():
+    global available_hardware
+    available_hardware = creat_available_hardware({'CPU': CPU_CORES, 'PHU': PHU_CORES})
+
+
 def ten_elm(tensor_shape):
     ans = 1
     for dimention in tensor_shape:
@@ -81,18 +94,16 @@ def cycle_to_s(cost):
         total += cycle_to_time_funcs[hardware](cycles)
     return total
 
-def run_cpu():
-    print('1')
-def run_phu():
-    print('2')
-def run_gpu():
-    print('3')
 def func():
     print('placeholder')
 
-
 CPU_CLOCK_SPEED = 10**8 #.1Ghz
 PHU_CLOCK_SPEED = 10**10 # 10 Ghz
+PHU_CORES = 1
+CPU_CORES = 1
+
+# available_hardware = None
+
 cycle_to_time_funcs = {'CPU': lambda x: x / CPU_CLOCK_SPEED,
                        'PHU': lambda x: x / PHU_CLOCK_SPEED}
 
@@ -123,9 +134,9 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'erf' : ('erf', 'CPU' , func, constnat(1)), # Bert cumulative distribution function??
     # 'null' : ('null', 'CPU' , func, constnat(0)),
 
-    'matmul_phu': ('matmul', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
-    'dense_phu': ('dense', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
-    'pack_phu': ('pack', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+    'matmul_phu': ('matmul', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+    'dense_phu': ('dense', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
+    'pack_phu': ('pack', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
 
     'get_dram' : ('null', 'DRAM' , func, constnat(1)),
     'start' : ('start', 'start' , func, constnat(1)), # Here for mock start nodes in optimization.

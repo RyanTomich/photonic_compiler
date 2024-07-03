@@ -204,7 +204,7 @@ def tvm_validation(model_name):
 
 
 # prompt = "my favorite music is"
-# model_name = "gpt2"
+# model_name = "gpt2-large"
 
 # model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
 
@@ -215,7 +215,12 @@ def tvm_validation(model_name):
 
 '''modles
 
-"gpt2"
+
+'gpt2' : GPT2 - 12 blocks, 12 heads, emb_size 768
+'gpt2-med' : GPT2-med - 24 blocks, 16 heads, emb_size 1024
+'gpt2-large' : GPT2-large - 36 blocks, 20 heads, emb_size 1280
+'gpt2-xl' : GPT2-xl - 48 blocks, 24 heads, emb_size 1600
+
 "bert-base-uncased"
 "google-bert/bert-base-uncased"
 https://huggingface.co/docs/transformers/en/model_doc/auto
