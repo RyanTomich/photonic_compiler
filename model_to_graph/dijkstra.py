@@ -423,7 +423,7 @@ def scheduling_dijkstra(graph):
 
     '''
     visited = {0}
-    end_times = {0:0} #TODO handling multiple input nodes not all point to 0
+    end_times = {0:0} #TODO handling multiple input nodes not all point to 0 Like for BERT graph 0
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
     que = []
     for stack_id in graph.load_nodes:
