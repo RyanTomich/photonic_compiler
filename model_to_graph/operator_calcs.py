@@ -64,11 +64,6 @@ import numpy as np
 #endregion
 
 # Constants
-CPU_CLOCK_SPEED = 10**8 #.1Ghz
-PHU_CLOCK_SPEED = 10**10 # 10 Ghz
-cycle_to_time_funcs = {'CPU': lambda x: x / CPU_CLOCK_SPEED,
-                       'PHU': lambda x: x / PHU_CLOCK_SPEED}
-
 def ten_elm(tensor_shape):
     ans = 1
     for dimention in tensor_shape:
@@ -95,6 +90,11 @@ def run_gpu():
 def func():
     print('placeholder')
 
+
+CPU_CLOCK_SPEED = 10**8 #.1Ghz
+PHU_CLOCK_SPEED = 10**10 # 10 Ghz
+cycle_to_time_funcs = {'CPU': lambda x: x / CPU_CLOCK_SPEED,
+                       'PHU': lambda x: x / PHU_CLOCK_SPEED}
 
 all_elm = lambda i, o: {"CPU": ten_elm(o[0])}
 constnat = lambda c: lambda i, o:  {"CPU": c}
@@ -127,14 +127,20 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'dense_phu': ('dense', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
     'pack_phu': ('pack', 'PHU', run_cpu, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
 
-    'start' : ('null', 'start' , func, constnat(1)),
+    'get_dram' : ('null', 'DRAM' , func, constnat(1)),
+    'start' : ('start', 'start' , func, constnat(1)), # Here for mock start nodes in optimization.
 }
 
 hw_intercon ={('CPU', 'CPU'): lambda x: x/32 /CPU_CLOCK_SPEED,
               ('CPU', 'PHU'): lambda x: 3*x/32 /CPU_CLOCK_SPEED,
               ('PHU', 'PHU'): lambda x: np.inf,
 
-              ('CPU', 'start'): lambda x: 10/ CPU_CLOCK_SPEED, # DRAM to SRAM
-              ('PHU', 'start'): lambda x: 10/ CPU_CLOCK_SPEED,
-              ('start', 'start'): lambda x: 0,
+              ('CPU', 'DRAM'): lambda x: 10/ CPU_CLOCK_SPEED, # DRAM to SRAM
+              ('DRAM', 'PHU'): lambda x: 10/ CPU_CLOCK_SPEED,
+              ('DRAM', 'DRAM'): lambda x: np.inf,
+
+            # Here for mock start nodes in optimization.
+              ('CPU', 'start'): lambda x: 0, # DRAM to SRAM
+              ('PHU', 'start'): lambda x: 0,
+              ('start', 'start'): lambda x: np.inf,
 }
