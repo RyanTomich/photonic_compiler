@@ -1,6 +1,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 class GraphVisualization:
 
@@ -88,6 +89,7 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
     colors = {}
     for idx, node in enumerate(G.nodes):
         labels[node] = graph.stack_list[idx].oppid
+        # labels[node] = graph.stack_list[idx].opp
         if graph.stack_list[idx].func_selection == 1:
             colors[node] = 'lightcoral'
         else:
@@ -108,6 +110,62 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
         # pos = nx.spring_layout(G, k=0.1, iterations=10)
         pos = nx.spring_layout(G, weight='weight', k=0.1, iterations=10)
 
-    nx.draw(G, pos, with_labels=True,labels=labels, node_color=[colors[node] for node in G.nodes], edge_color='gray', node_size=200, font_size=7, ax=ax)
+    nx.draw(G, pos, with_labels=True,labels=labels, node_color=[colors[node] for node in G.nodes], edge_color='gray', node_size=200, font_size=5, ax=ax)
     ax.set_title(title)
     ax.set_aspect('equal')
+
+def make_schedule(graph, xlim_start=None, xlim_end=None):
+    data = {
+        'task': [],
+        'start': [],
+        'end': [],
+        'label': []  # Labels for the blocks
+    }
+    for stack in graph.stack_list:
+        data['task'].append(stack.hardware_selection)
+        data['start'].append(stack.start_time)
+        data['end'].append(stack.start_time + stack.cost_stack[stack.func_selection])
+        data['label'].append(stack.oppid)
+
+
+
+    df = pd.DataFrame(data)
+
+    if xlim_start is not None and xlim_end is not None:
+        df = df[(df['start'] >= xlim_start) & (df['end'] <= xlim_end)]
+
+    unique_combinations = df[['task', 'label']].drop_duplicates()
+    colors = plt.cm.get_cmap('tab10', len(unique_combinations))
+
+    color_map = {}
+    for idx, (task, label) in enumerate(unique_combinations.itertuples(index=False)):
+        color_map[(task, label)] = colors(idx)
+
+
+    fig, ax = plt.subplots(figsize=(30, 3))
+
+    # Iterate over each row in the dataframe and plot a horizontal line
+    for index, row in df.iterrows():
+        task_label = (row['task'], row['label'])
+        task_color = color_map[task_label]
+        ax.hlines(y=row['task'], xmin=row['start'], xmax=row['end'], color=task_color, linewidth=20)
+
+        # Adding label on the bar
+        label_text = f"{row['label']}"
+        ax.text((row['start'] + row['end']) / 2, row['task'], label_text, color='black', ha='center', va='center')
+
+    # Customize the plot
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Task')
+    if xlim_start and xlim_end:
+        ax.set_title(f'Task Schedule {round(xlim_start, 5)}-{round(xlim_end, 5)}')
+    else:
+        ax.set_title(f'Task Schedule all')
+    ax.grid(True)
+    # ax.legend()
+
+    # if xlim_start is not None and xlim_end is not None:
+    #     ax.set_xlim(xlim_start, xlim_end)
+
+
+    plt.show()

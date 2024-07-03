@@ -12,6 +12,12 @@ import testing as test
 import graph_visualization as gv
 import operator_calcs as oc
 
+# available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0, 'PHU2': 0, 'PHU3': 0} }
+# available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0} }
+# available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
+# available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
+available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }
+
 
 read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
@@ -41,14 +47,15 @@ def create_schedule_data(graph):
 
 graph = sg.StackedGraph(raw_json=raw_json)
 # gv.adj_to_graph(graph.adj_matrix, save=True, layout = 'spectral')
-# dijk.scheduling_dijkstra(subgraphs[0])
 subgraphs = list(dijk.graph_partition(graph))
 dijk.select_nodes(graph, subgraphs)
-end_time = dijk.schdeule_nodes(graph, subgraphs)
+end_time, break_points = dijk.schdeule_nodes(graph, subgraphs, available_hardware=available_hardware)
 print(end_time)
 
 for stack in graph.stack_list:
     assert stack.hardware_selection != None
+    # if stack.opp == 'null':
+    #     print(stack.func_stack)
 
 schedule_data = create_schedule_data(graph)
 

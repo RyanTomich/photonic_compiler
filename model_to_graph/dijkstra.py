@@ -409,6 +409,16 @@ def select_nodes(graph, subgraphs):
 
 
 # region ###### scheduling_dijkstra for embeded branched stacked graphs ######
+def hardware_synchronize(available_hardware):
+    max_value = max(max(inner_dict.values()) for inner_dict in available_hardware.values())
+
+    for sub_dict in available_hardware.values():
+        for key in sub_dict:
+            sub_dict[key] = max_value
+
+    return available_hardware
+
+
 def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }):
     '''
     subgraph with mock start node.
@@ -474,29 +484,25 @@ def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0}, 'PHU':
     return available_hardware
 
 
-def schdeule_nodes(graph, subgraphs):
+def schdeule_nodes(graph, subgraphs, available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }):
     '''
     graph = StackedGraph object, original graph
     subgraphs = Subgraph of
     '''
-    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0, 'PHU2': 0, 'PHU3': 0} }
-
-    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0} }
-    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
-    # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
-    available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }
-
     # merge subgraphs back to main graph
-    cur_time = 0
+    break_points = []
     for subgraph in subgraphs:
         hardware_times = scheduling_dijkstra(subgraph, available_hardware=available_hardware)
-        max_value = max(max(inner_dict.values()) for inner_dict in hardware_times.values())
         for stack in subgraph.stack_list:
             original_stack = graph.stack_list[graph.id_to_idx[stack.oppid]]
             original_stack.hardware_selection = stack.hardware_selection
             original_stack.start_time = stack.start_time
-            # original_stack.start_time = stack.start_time + cur_time
-        cur_time = max(cur_time, max_value)
+        available_hardware = hardware_synchronize(available_hardware)
+        break_points.append(max(max(inner_dict.values()) for inner_dict in hardware_times.values()))
+
+
+
+    cur_time = max(max(inner_dict.values()) for inner_dict in hardware_times.values())
 
     # schedule load_nodes
     adj_matrix = graph.adj_matrix
@@ -515,7 +521,7 @@ def schdeule_nodes(graph, subgraphs):
         stack_obj.start_time = parent_obj.start_time + parent_obj.cost_stack[parent_obj.func_selection]
         stack_obj.hardware_selection = 'memory'
 
-    return cur_time
+    return cur_time, break_points
 
 #endregion
 
@@ -578,14 +584,5 @@ def get_memory_profile(graph, schedule_data):
     print(f'{dram_total=}')
     print(f'{sram_total=}')
     return dram, sram
-
-
-
-
-
-
-
-
-
 
 # endregion
