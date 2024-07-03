@@ -104,6 +104,9 @@ PHU_CORES = 1
 CPU_CORES = 1
 
 DRAM_SRAM_WIDTH = 256 # bits per cycle
+SRAM_OVERHEAD = 5 # electronic cycles
+MODULATOR_CONST = 1 / CPU_CLOCK_SPEED # per bit time of electronic-photonic conversion
+BITS_PER_NUM = 8
 
 cycle_to_time_funcs = { 'CPU':  lambda x: x / CPU_CLOCK_SPEED,
                         'PHU':  lambda x: x / PHU_CLOCK_SPEED,
@@ -139,20 +142,30 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'dense_phu': ('dense', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
     'pack_phu': ('pack', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
 
-    'get_dram' : ('null', 'SRAM' , func, lambda i, o: {"DRAM": ten_elm(i) / DRAM_SRAM_WIDTH}),
+    'get_dram' : ('null', 'SRAM' , func, lambda i, o: {"DRAM": ten_elm(i) * BITS_PER_NUM/ DRAM_SRAM_WIDTH}),
     'start' : ('start', 'start' , func, constnat(1)), # Here for mock start nodes in optimization.
 }
 
-hw_intercon ={('CPU', 'CPU'): lambda x: 5/ CPU_CLOCK_SPEED,
-              ('CPU', 'PHU'): lambda x: 15/CPU_CLOCK_SPEED,
-              ('PHU', 'PHU'): lambda x: np.inf,
+def hw_intercon(hardware, bits):
+    if 'start' in hardware:
+        return 0
+    elif 'SRAM' in hardware:
+        return hw_intercon_dict[hardware](bits)
+    else:
+        total = 0
+        for to_sram in hardware:
+            total += hw_intercon_dict[ (to_sram, 'SRAM') ](bits)
 
-              ('CPU', 'SRAM'): lambda x: 5/ CPU_CLOCK_SPEED, # SRAM to CPU = 10 clock cycle overhead
-              ('PHU', 'SRAM'): lambda x: 5/ CPU_CLOCK_SPEED,
-              ('DRAM', 'DRAM'): lambda x: np.inf,
+    return total
+
+
+hw_intercon_dict = {
+            ('CPU', 'SRAM'): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED, # SRAM clock cycle overhead
+            ('PHU', 'SRAM'): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
+            ('SRAM', 'SRAM'): lambda x: np.inf,
 
             # Here for mock start nodes in optimization.
-              ('CPU', 'start'): lambda x: 0, # DRAM to SRAM
-              ('PHU', 'start'): lambda x: 0,
-              ('start', 'start'): lambda x: np.inf,
+            ('CPU', 'start'): lambda x: 0, # DRAM to SRAM
+            ('PHU', 'start'): lambda x: 0,
+            ('start', 'start'): lambda x: np.inf,
 }

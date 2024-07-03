@@ -102,7 +102,8 @@ class StackedGraph():
                 start_hw = oc.hardware_algs[start_stack[start_idx]][1]
                 end_hw = oc.hardware_algs[end_stack[end_idx]][1]
                 hw_connection = tuple(sorted( (start_hw, end_hw) ))
-                connection_matrix[start_idx][end_idx] = oc.hw_intercon[hw_connection](bit_transfer)
+                # connection_matrix[start_idx][end_idx] = oc.hw_intercon[hw_connection](bit_transfer)
+                connection_matrix[start_idx][end_idx] = oc.hw_intercon(hw_connection, bit_transfer)
 
         return connection_matrix
 
