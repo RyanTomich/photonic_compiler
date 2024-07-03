@@ -76,7 +76,6 @@ def initilize_hardware():
     global available_hardware
     available_hardware = creat_available_hardware({'CPU': CPU_CORES, 'PHU': PHU_CORES})
 
-
 def ten_elm(tensor_shape):
     ans = 1
     for dimention in tensor_shape:
@@ -97,15 +96,18 @@ def cycle_to_s(cost):
 def func():
     print('placeholder')
 
+# Constants
 CPU_CLOCK_SPEED = 10**8 #.1Ghz
 PHU_CLOCK_SPEED = 10**10 # 10 Ghz
+
 PHU_CORES = 1
 CPU_CORES = 1
 
-# available_hardware = None
+DRAM_SRAM_WIDTH = 256 # bits per cycle
 
-cycle_to_time_funcs = {'CPU': lambda x: x / CPU_CLOCK_SPEED,
-                       'PHU': lambda x: x / PHU_CLOCK_SPEED}
+cycle_to_time_funcs = { 'CPU':  lambda x: x / CPU_CLOCK_SPEED,
+                        'PHU':  lambda x: x / PHU_CLOCK_SPEED,
+                        'DRAM': lambda x: x / CPU_CLOCK_SPEED}
 
 all_elm = lambda i, o: {"CPU": ten_elm(o[0])}
 constnat = lambda c: lambda i, o:  {"CPU": c}
@@ -132,22 +134,21 @@ hardware_algs = { # name: (opp, hardware, func, cycles)
     'pack' : ('pack', 'CPU' , func, lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},),
     'where' : ('where', 'CPU' , func, constnat(1)),
     'erf' : ('erf', 'CPU' , func, constnat(1)), # Bert cumulative distribution function??
-    # 'null' : ('null', 'CPU' , func, constnat(0)),
 
     'matmul_phu': ('matmul', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
     'dense_phu': ('dense', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
     'pack_phu': ('pack', 'PHU', func, lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]}),
 
-    'get_dram' : ('null', 'DRAM' , func, constnat(1)),
+    'get_dram' : ('null', 'SRAM' , func, lambda i, o: {"DRAM": ten_elm(i) / DRAM_SRAM_WIDTH}),
     'start' : ('start', 'start' , func, constnat(1)), # Here for mock start nodes in optimization.
 }
 
-hw_intercon ={('CPU', 'CPU'): lambda x: x/32 /CPU_CLOCK_SPEED,
-              ('CPU', 'PHU'): lambda x: 3*x/32 /CPU_CLOCK_SPEED,
+hw_intercon ={('CPU', 'CPU'): lambda x: 5/ CPU_CLOCK_SPEED,
+              ('CPU', 'PHU'): lambda x: 15/CPU_CLOCK_SPEED,
               ('PHU', 'PHU'): lambda x: np.inf,
 
-              ('CPU', 'DRAM'): lambda x: 10/ CPU_CLOCK_SPEED, # DRAM to SRAM
-              ('DRAM', 'PHU'): lambda x: 10/ CPU_CLOCK_SPEED,
+              ('CPU', 'SRAM'): lambda x: 5/ CPU_CLOCK_SPEED, # SRAM to CPU = 10 clock cycle overhead
+              ('PHU', 'SRAM'): lambda x: 5/ CPU_CLOCK_SPEED,
               ('DRAM', 'DRAM'): lambda x: np.inf,
 
             # Here for mock start nodes in optimization.
