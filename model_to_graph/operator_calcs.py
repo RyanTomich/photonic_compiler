@@ -134,7 +134,7 @@ hw_intercon ={('CPU', 'CPU'): lambda x: x/32 /CPU_CLOCK_SPEED,
               ('CPU', 'PHU'): lambda x: 3*x/32 /CPU_CLOCK_SPEED,
               ('PHU', 'PHU'): lambda x: np.inf,
 
-              ('CPU', 'start'): lambda x: 0,
-              ('PHU', 'start'): lambda x: 0,
+              ('CPU', 'start'): lambda x: 10/ CPU_CLOCK_SPEED, # DRAM to SRAM
+              ('PHU', 'start'): lambda x: 10/ CPU_CLOCK_SPEED,
               ('start', 'start'): lambda x: 0,
 }

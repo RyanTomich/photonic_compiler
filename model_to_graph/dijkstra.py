@@ -409,7 +409,7 @@ def select_nodes(graph, subgraphs):
 
 
 # region ###### scheduling_dijkstra for embeded branched stacked graphs ######
-def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }):
+def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }):
     '''
     subgraph with mock start node.
     available_hardware initilized to 0
@@ -473,6 +473,7 @@ def scheduling_dijkstra(graph,  available_hardware = {'CPU': {'CPU1': 0, 'CPU2':
                 que.append( cur_path + (neighbor,))
     return available_hardware
 
+
 def schdeule_nodes(graph, subgraphs):
     '''
     graph = StackedGraph object, original graph
@@ -483,7 +484,7 @@ def schdeule_nodes(graph, subgraphs):
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0, 'CPU4': 0}, 'PHU': {'PHU1': 0} }
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0, 'CPU3': 0}, 'PHU': {'PHU1': 0} }
     # available_hardware = {'CPU': {'CPU1': 0, 'CPU2': 0,}, 'PHU': {'PHU1': 0} }
-    available_hardware = {'CPU': {'CPU1': 0,}, 'PHU': {'PHU1': 0} }
+    available_hardware = {'CPU': {'CPU1': 0}, 'PHU': {'PHU1': 0} }
 
     # merge subgraphs back to main graph
     cur_time = 0
@@ -504,7 +505,7 @@ def schdeule_nodes(graph, subgraphs):
         stack_obj = graph.get_stack(node)
         child = [(idx, val) for idx, val in enumerate(adj_matrix[node]) if val is not None][0]
         child_obj = graph.get_stack(child[0])
-        stack_obj.start_time = child_obj.start_time - child[1][stack_obj.func_selection][child_obj.func_selection]
+        stack_obj.start_time = child_obj.start_time - child[1][stack_obj.func_selection][child_obj.func_selection] - stack_obj.cost_stack[stack_obj.func_selection]
         stack_obj.hardware_selection = 'memory'
 
     for node in graph.output_nodes:
