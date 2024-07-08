@@ -1,13 +1,13 @@
-import os
-import sys
-import onnx
-import onnxruntime as ort
-from onnxruntime import quantization
-from onnxruntime.quantization import quantize_dynamic, QuantType
-import numpy as np
+# import os
+# import sys
+# import onnx
+# import onnxruntime as ort
+# from onnxruntime import quantization
+# from onnxruntime.quantization import quantize_dynamic, QuantType
+# import numpy as np
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+# import torch
+# from transformers import AutoModelForCausalLM, AutoTokenizer
 
 #region ### Creating new ONNX Model
 # filename = '../model_to_graph/Relay_compiler.py'
@@ -86,6 +86,25 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 #endregion
 
-#region ###
+#region ### intel extention for transformers
+
+
+from transformers import AutoTokenizer
+from intel_extension_for_transformers.transformers import AutoModel
+
+sentences_batch = ['sentence-1', 'sentence-2', 'sentence-3', 'sentence-4']
+tokenizer = AutoTokenizer.from_pretrained('BAAI/bge-small-en-v1.5')
+encoded_input = tokenizer(sentences_batch,
+                            padding=True,
+                            truncation=True,
+                            max_length=512,
+                            return_tensors="np")
+
+engine_input = [encoded_input['input_ids'], encoded_input['token_type_ids'], encoded_input['attention_mask']]
+
+model = AutoModel.from_pretrained('./model_and_tokenizer/int8-model.onnx', use_embedding_runtime=True)
+sentence_embeddings = model.generate(engine_input)['last_hidden_state:0']
+print("Sentence embeddings:", sentence_embeddings)
+
 
 #endregion
