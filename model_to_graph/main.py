@@ -1,23 +1,15 @@
 import json
-import networkx as nx
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import time
-import copy
 
 import dijkstra as dijk
 import stacked_graph as sg
-import graph_visualization as gv
-import testing as test
 
 
-read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
+JSON_PATH = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
-with open(read_json_path)  as json_file:
-    raw_json = json.load(json_file) # returns json file as dict
+with open(JSON_PATH, encoding="utf-8") as json_file:
+    raw_json = json.load(json_file)  # returns json file as dict
 
 graph = sg.StackedGraph(raw_json=raw_json)
 print(len(graph.stack_list))
@@ -27,10 +19,10 @@ end_time, break_points = dijk.schdeule_nodes(graph, subgraphs)
 print(end_time)
 
 for stack in graph.stack_list:
-    assert stack.hardware_selection != None
+    assert stack.hardware_selection is not None
 
 schedule_data = graph.create_schedule_data()
-dijk.get_memory_profile(graph, schedule_data)
+dijk.get_memory_profile(graph)
 
 # dijk.get_energy_profile(graph, schedule_data)
 
