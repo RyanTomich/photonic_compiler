@@ -178,17 +178,27 @@ def graph_partition(graph):
     for group in groups:
 
         start_stack = sg.StackedNode(
-            0, [], [[]], [[]], opp="start", func_stack=["start"], cost_stack=[0]
+            0, set(), [[]], [[]], opp="start", func_stack=["start"], cost_stack=[0]
         )
-        first_stack = copy.deepcopy(graph.stack_list[graph.id_to_idx[group[0]]])
-        first_stack.parents = [0]
 
-        subgraph_stack_list = [start_stack, first_stack]
-        for stack_id in group[1:]:
-            stack = graph.stack_list[graph.id_to_idx[stack_id]]
-            new_node = copy.deepcopy(stack)
-            new_node.parents = set(new_node.parents) - graph.load_nodes
-            subgraph_stack_list.append(new_node)
+        # replace parents if not satisfied in group
+        first_stacks = []
+        stacks_hit = set()
+        for stack in group:
+            stack_obj = graph.stack_list[graph.id_to_idx[stack]]
+            if all(parent not in group for parent in stack_obj.parents):
+                stacks_hit.add(stack_obj.stack_id)
+                first_stack = copy.deepcopy(stack_obj)
+                first_stack.parents = {0}
+                first_stacks.append(first_stack)
+
+        subgraph_stack_list = [start_stack] + first_stacks
+        for stack_id in group:
+            if stack_id not in stacks_hit:
+                stack = graph.stack_list[graph.id_to_idx[stack_id]]
+                new_node = copy.deepcopy(stack)
+                new_node.parents = set(new_node.parents) - graph.load_nodes
+                subgraph_stack_list.append(new_node)
 
         sub_graph = sg.StackedGraph(stack_list=subgraph_stack_list)
         yield sub_graph
@@ -231,12 +241,13 @@ def scheduling_dijkstra(graph):
     """
     subgraph with mock start node.
     oc.available_hardware initilized to 0
-
     """
-    visited = {0}
-    end_times = {
-        0: 0
-    }  # TODO handling multiple input nodes not all point to 0 Like for BERT graph 0
+    visited = {idx for idx, val in enumerate(graph.stack_list) if not val.parents}
+    end_times ={val.stack_id: 0 for val in graph.stack_list if not val.parents}
+    # visited = {0}
+    # end_times = {
+    #     0: 0
+    # }  # TODO handling multiple input nodes not all point to 0 Like for BERT graph 0
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
     que = []
     for stack_id in graph.load_nodes:
@@ -360,7 +371,7 @@ def schdeule_nodes(graph, subgraphs):
         )
         stack_obj.hardware_selection = "memory"
 
-    return cur_time, break_points
+    return round(cur_time, 5), break_points
 
 
 # endregion
@@ -438,8 +449,8 @@ def get_memory_profile(graph):
                 )
             )
 
-    print(f"{dram_total=}")
-    print(f"{sram_total=}")
+    # print(f"{dram_total=}")
+    # print(f"{sram_total=}")
     return dram, sram
 
 # endregion

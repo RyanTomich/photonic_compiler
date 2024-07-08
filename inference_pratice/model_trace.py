@@ -42,9 +42,9 @@ def file_write(name, opp=None, in_size=()):
 
 
 class DependancyNode():
-    def __init__(self, name, oppid, opp, input_size, hardware):
+    def __init__(self, name, stack_id, opp, input_size, hardware):
         self.name = name
-        self.oppid = oppid
+        self.stack_id = stack_id
         self.opp = opp
         self.input_size = input_size
         self.hardware = hardware
@@ -60,15 +60,15 @@ class DependancyNode():
             return np.prod(inputs[0])
 
     def __hash__(self):
-        return hash(self.oppid)
+        return hash(self.stack_id)
 
     def __eq__(self, other):
         if isinstance(other, DependancyNode):
-            return self.oppid == other.oppid
+            return self.stack_id == other.stack_id
         return False
 
     def __str__(self):
-        return f'{self.name=} \n{self.oppid=} \n{self.opp=} \n{self.input_size=} \n{self.hardware=}'
+        return f'{self.name=} \n{self.stack_id=} \n{self.opp=} \n{self.input_size=} \n{self.hardware=}'
 
 class DependancyGraph():
     def __init__(self):

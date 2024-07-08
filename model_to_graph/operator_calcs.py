@@ -76,7 +76,7 @@ def creat_available_hardware(hardware_dict):
 
 def initilize_hardware():
     global available_hardware
-    available_hardware = creat_available_hardware({"CPU": CPU_CORES, "PHU": PHU_CORES})
+    available_hardware = creat_available_hardware({"CPU": CPU_CORES, "PHU": PHU_PARTITIONS})
 
 
 def ten_elm(tensor_shape):
@@ -107,15 +107,14 @@ def func():
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
-PHU_CORES = 1
+PHU_CORES = 16
 CPU_CORES = 1
+PHU_PARTITIONS = 1
 
 DRAM_SRAM_WIDTH = 256  # bits per cycle
 SRAM_OVERHEAD = 5  # electronic cycles
 MODULATOR_CONST = 1 / PHU_CLOCK_SPEED  # per bit time of electronic-photonic conversion
 BITS_PER_NUM = 8
-
-# WATS_PER_BIT =
 
 cycle_to_time_funcs = {
     "CPU": lambda x: x / CPU_CLOCK_SPEED,
@@ -130,6 +129,11 @@ def all_elm(i, o):
 
 def constnat(c):
     return lambda i, o: {"CPU": c}
+
+
+def phu_matmul_time(i,o):
+    cores_per_partition = int(PHU_CORES/PHU_PARTITIONS)
+    return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
 
 
 hardware_algs = {  # name: (opp, hardware, func, cycles)
@@ -183,10 +187,13 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
         "matmul",
         "PHU",
         func,
-        lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]},
+        phu_matmul_time,
+        # lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]},
     ),
-    "dense_phu": ("dense", "PHU", func, lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]}),
-    "pack_phu": ("pack", "PHU", func, lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]}),
+    "dense_phu": ("dense", "PHU", func, phu_matmul_time),
+    "pack_phu": ("pack", "PHU", func, phu_matmul_time),
+    # "dense_phu": ("dense", "PHU", func, lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]}),
+    # "pack_phu": ("pack", "PHU", func, lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]}),
     "get_dram": (
         "null",
         "SRAM",

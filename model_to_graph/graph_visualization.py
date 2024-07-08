@@ -100,11 +100,14 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
         'end': [],
         'label': []  # Labels for the blocks
     }
+    hardware = set()
     for stack in graph.stack_list:
         data['task'].append(stack.hardware_selection)
+        hardware.add(stack.hardware_selection)
         data['start'].append(stack.start_time)
         data['end'].append(stack.start_time + stack.cost_stack[stack.func_selection])
         data['label'].append(stack.stack_id)
+    print(hardware)
 
 
 
