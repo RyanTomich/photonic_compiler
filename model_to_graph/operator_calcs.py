@@ -105,8 +105,10 @@ CPU_CORES = 1
 
 DRAM_SRAM_WIDTH = 256 # bits per cycle
 SRAM_OVERHEAD = 5 # electronic cycles
-MODULATOR_CONST = 1 / CPU_CLOCK_SPEED # per bit time of electronic-photonic conversion
+MODULATOR_CONST = 1 / PHU_CLOCK_SPEED # per bit time of electronic-photonic conversion
 BITS_PER_NUM = 8
+
+# WATS_PER_BIT =
 
 cycle_to_time_funcs = { 'CPU':  lambda x: x / CPU_CLOCK_SPEED,
                         'PHU':  lambda x: x / PHU_CLOCK_SPEED,

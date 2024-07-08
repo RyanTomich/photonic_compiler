@@ -57,27 +57,6 @@ class GraphVisualization:
         plt.savefig(filename, dpi=300)  # Adjust dpi as needed
         plt.close()
 
-
-# G = GraphVisualization()
-
-# graph = sg.DependancyGraph(sg.raw_json)
-# adj = graph.creat_adj_matrix_node_list()
-
-# G.visualize(layout='kk', filename='network.png') #### cant use weights
-# G.visualize(layout='spring', filename='network.png')
-# G.visualize(layout='shell', filename='network.png')
-# G.visualize(layout='spectral', filename='network.png')
-
-
-# # Plotting the adjacency matrix
-# plt.figure(figsize=(6, 6))
-# plt.imshow(adj, cmap='binary', interpolation='none')
-# plt.title('GPT2 Adjacency Matrix')
-# plt.colorbar()
-# plt.savefig('network.png', dpi=300)
-# plt.close()
-
-
 def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualization from Adjacency Matrix'):
     vectorized_function = np.vectorize(lambda x: 1 if x is not None else 0)
 
@@ -88,7 +67,7 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
     labels = {}
     colors = {}
     for idx, node in enumerate(G.nodes):
-        labels[node] = graph.stack_list[idx].oppid
+        labels[node] = graph.stack_list[idx].stack_id
         # labels[node] = graph.stack_list[idx].opp
         if graph.stack_list[idx].func_selection == 1:
             colors[node] = 'lightcoral'
@@ -114,7 +93,7 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
     ax.set_title(title)
     ax.set_aspect('equal')
 
-def make_schedule(graph, xlim_start=None, xlim_end=None):
+def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
     data = {
         'task': [],
         'start': [],
@@ -125,7 +104,7 @@ def make_schedule(graph, xlim_start=None, xlim_end=None):
         data['task'].append(stack.hardware_selection)
         data['start'].append(stack.start_time)
         data['end'].append(stack.start_time + stack.cost_stack[stack.func_selection])
-        data['label'].append(stack.oppid)
+        data['label'].append(stack.stack_id)
 
 
 

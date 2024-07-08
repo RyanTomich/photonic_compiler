@@ -53,13 +53,13 @@ def create_branching_stack(print_nodes = True):
         last_out = out_size
 
     out_size = np.random.randint(low=1, high=5, size=2).tolist()
-    node_list[-1].oppid = 5
+    node_list[-1].stack_id = 5
     node_list.append( sg.StackedNode(4, [1], node_list[1].output_shapes, [out_size], opp='test_opp', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=np.random.randint(low=1, high=5, size=3).tolist()))
 
     node_list[4].input_shapes.append(out_size)
     node_list[4].parents.append(4)
 
-    node_list.sort(key=lambda x: x.oppid)
+    node_list.sort(key=lambda x: x.stack_id)
 
     stacked_graph = sg.StackedGraph(stack_list = node_list)
 
@@ -115,7 +115,7 @@ def group_validate(graph, groups):
     '''
     for i,lst in enumerate(groups):
         # print(f'{lst}')
-        load_instructions = {stack.oppid for stack in graph.stack_list if stack.opp == 'null'}
+        load_instructions = {stack.stack_id for stack in graph.stack_list if stack.opp == 'null'}
         included = set(lst)
         for stack in lst[1:]:
             for parent in graph.stack_list[stack].parents:

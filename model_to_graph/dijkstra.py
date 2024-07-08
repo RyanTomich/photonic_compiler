@@ -211,7 +211,7 @@ import operator_calcs as oc
 
 #     que = [(0, [start]) ] #(distance, [path])
 #     paths = {x : [] for x in get_combinations(graph, aggreement_stacks)}
-#     coverage = {x : {i.oppid for i in graph.stack_list if i.opp != 'null'} for x in get_combinations(graph, aggreement_stacks)}
+#     coverage = {x : {i.stack_id for i in graph.stack_list if i.opp != 'null'} for x in get_combinations(graph, aggreement_stacks)}
 
 #     while que:
 #         print(que)
@@ -321,7 +321,7 @@ def rolling_dijkstra(graph, start=(0,0)):
     graph to optimize
     '''
     aggreement_stacks = make_aggreement_list(graph)
-    # all_nodes = {i.oppid for i in graph.stack_list if i.opp != 'null'}
+    # all_nodes = {i.stack_id for i in graph.stack_list if i.opp != 'null'}
     all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != 'null'}
 
     que = []
@@ -397,12 +397,12 @@ def select_nodes(graph, subgraphs):
     for idx, subgraph in enumerate(subgraphs):
         nodes = rolling_dijkstra(subgraph)
         for node in nodes:
-            stack_oppid = subgraph.stack_list[node[0]].oppid
+            stack_stack_id = subgraph.stack_list[node[0]].stack_id
 
-            subgraph_stack = subgraph.stack_list[subgraph.id_to_idx[stack_oppid]]
+            subgraph_stack = subgraph.stack_list[subgraph.id_to_idx[stack_stack_id]]
             subgraph_stack.func_selection = node[1]
 
-            original_stack = graph.stack_list[graph.id_to_idx[stack_oppid]]
+            original_stack = graph.stack_list[graph.id_to_idx[stack_stack_id]]
             original_stack.func_selection = node[1]
 
 #endregion
@@ -434,8 +434,8 @@ def scheduling_dijkstra(graph):
         small_val = np.inf
         small_idx = np.inf
         for idx, v in enumerate(que):
-            if end_times[ graph.stack_list[v[-1]].oppid ] < small_val:
-                small_val = end_times[ graph.stack_list[v[-1]].oppid ]
+            if end_times[ graph.stack_list[v[-1]].stack_id ] < small_val:
+                small_val = end_times[ graph.stack_list[v[-1]].stack_id ]
                 small_idx = idx
 
         cur_path = que.pop(small_idx)
@@ -476,7 +476,7 @@ def scheduling_dijkstra(graph):
                 # oc.available_hardware[hardware_type][selected_hardware] += node_cost
                 new_time = oc.available_hardware[hardware_type][selected_hardware]
                 visited.add(neighbor)
-                end_times[neighbor_node.oppid] = new_time
+                end_times[neighbor_node.stack_id] = new_time
                 que.append( cur_path + (neighbor,))
     return oc.available_hardware
 
@@ -491,7 +491,7 @@ def schdeule_nodes(graph, subgraphs):
     for subgraph in subgraphs:
         hardware_times = scheduling_dijkstra(subgraph)
         for stack in subgraph.stack_list:
-            original_stack = graph.stack_list[graph.id_to_idx[stack.oppid]]
+            original_stack = graph.stack_list[graph.id_to_idx[stack.stack_id]]
             original_stack.hardware_selection = stack.hardware_selection
             original_stack.start_time = stack.start_time
         hardware_synchronize()
@@ -529,10 +529,9 @@ def get_memory_profile(graph, schedule_data):
     sram = [] #(time, bits)
     sram_total = 0
     outdegree = {}
-    for row in range(len(graph.adj_matrix)):
-        outdegree[row] = sum([True for i in graph.adj_matrix[row, :] if i is not None])
-
-
+    outdegree = {idx: sum([True for i in row if i is not None]) for idx, row in enumerate(graph.adj_matrix)}
+    # for row in range(len(graph.adj_matrix)):
+    #     outdegree[row] = sum([True for i in graph.adj_matrix[row, :] if i is not None])
 
     start_size = 0
     for node in graph.load_nodes:
@@ -545,19 +544,18 @@ def get_memory_profile(graph, schedule_data):
     sorted_stack_list = sorted(graph.stack_list, key = lambda x: x.start_time)
 
     for stack_obj in sorted_stack_list:
-        # outdegree[graph.get_stack(stack_obj.oppid)] -= 1
         in_size = sum (oc.ten_elm(x) for x in stack_obj.input_shapes)
         out_size = sum (oc.ten_elm(x) for x in stack_obj.output_shapes)
         assert out_size >= 0
 
-        if stack_obj.oppid in graph.load_nodes: # D -> S
+        if stack_obj.stack_id in graph.load_nodes: # D -> S
             dram_total -= out_size
             dram.append( (stack_obj.start_time, dram_total) )
 
             sram_total += out_size
             sram.append((stack_obj.start_time + stack_obj.cost_stack[stack_obj.func_selection], sram_total))
 
-        elif stack_obj.oppid in graph.output_nodes: # S -> D
+        elif stack_obj.stack_id in graph.output_nodes: # S -> D
             sram_total -= in_size
             sram.append((stack_obj.start_time, sram_total))
 
@@ -568,8 +566,9 @@ def get_memory_profile(graph, schedule_data):
         else:
             for parent in stack_obj.parents:
                 parent_obj = graph.get_stack(parent)
-                outdegree[parent_obj.oppid] -= 1
-                if outdegree[parent_obj.oppid] == 0:
+                outdegree[parent_obj.stack_id] -= 1
+                # once all children are satisfied, we remove data from SRAM
+                if outdegree[parent_obj.stack_id] == 0:
                     size = sum (oc.ten_elm(x) for x in parent_obj.output_shapes)
                     sram_total -= size
                     sram.append((stack_obj.start_time, sram_total))
@@ -581,5 +580,34 @@ def get_memory_profile(graph, schedule_data):
     print(f'{dram_total=}')
     print(f'{sram_total=}')
     return dram, sram
+
+
+# def get_energy_profile(graph): #TODO rethink ...
+#     '''
+#     gets the energy consumption over time
+#     '''
+#     power = []
+#     power_total = 0
+#     outdegree = {idx: sum([True for i in row if i is not None]) for idx, row in enumerate(graph.adj_matrix)}
+#     hit = 0
+
+#     sorted_stack_list = sorted(graph.stack_list, key = lambda x: x.start_time)
+#     for stack_obj in sorted_stack_list:
+#         for parent in stack_obj.parents:
+#             parent_obj = graph.get_stack(parent)
+#             outdegree[parent_obj.stack_id] -= 1
+#             if outdegree[parent_obj.stack_id] == 0:
+#                 hit += 1
+#                 size = sum (oc.ten_elm(x) for x in parent_obj.output_shapes)
+#                 power_total += size
+#                 sram.append((stack_obj.start_time, sram_total))
+
+#     print(f'{hit=}')
+
+
+
+
+
+
 
 # endregion

@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 class StackedNode():
-    def __init__(self, oppid, parents, input_shapes, output_shapes, opp=None, func_stack=None, cost_stack=None, relay_node=None):
-        self.oppid = oppid
+    def __init__(self, stack_id, parents, input_shapes, output_shapes, opp=None, func_stack=None, cost_stack=None, relay_node=None):
+        self.stack_id = stack_id
         self.opp = opp if relay_node is None else (self._find_opp(relay_node['attrs']['func_name']) if 'attrs' in relay_node else 'null')
         self.parents = parents
         self.input_shapes = input_shapes
@@ -29,7 +29,7 @@ class StackedNode():
                 return part
 
     def __str__(self):
-        return (f"{self.oppid=}\n" +
+        return (f"{self.stack_id=}\n" +
                 f"{self.opp=}\n " +
                 f"{self.parents=}\n " +
                 f"{self.input_shapes=}\n " +
@@ -44,14 +44,23 @@ class StackedGraph():
     def __init__(self, stack_list=None, raw_json=None):
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_nodes()
-        self.id_to_idx = {v.oppid:i for i,v in enumerate(self.stack_list)}
-        self.output_nodes = self.get_output_nodes()
-        # self.load_nodes = {stack.oppid for stack in self.stack_list if stack.opp == 'null'}
-        self.load_nodes = {stack.oppid for stack in self.stack_list if not stack.parents}
+        self.id_to_idx = {v.stack_id:i for i,v in enumerate(self.stack_list)}
+        self.output_nodes = self._get_output_nodes()
+        self.load_nodes = {stack.stack_id for stack in self.stack_list if not stack.parents}
         self.adj_matrix = self._creat_adj_matrix()
 
     def __srt__(self):
         return f"{len(self.stack_list)=}"
+
+    def get_stack(self, id):
+        return self.stack_list[self.id_to_idx[id]]
+
+    def _get_output_nodes(self):
+        # retrives all lief nodes
+        outputs = {stack.stack_id for stack in self.stack_list}
+        for stack in self.stack_list:
+            outputs = outputs - set(stack.parents)
+        return outputs
 
     def _create_nodes(self):
         ajusted_shapes = []
@@ -115,7 +124,7 @@ class StackedGraph():
         for stack in self.stack_list:
             inputs = stack.parents
             for inp in inputs: # where each input is an index to another node.
-                dependancys.append( (inp, stack.oppid, self._bit_transfer(self.stack_list[self.id_to_idx[inp]])) ) # (1, 2) where 1's output are 2's inputs
+                dependancys.append( (inp, stack.stack_id, self._bit_transfer(self.stack_list[self.id_to_idx[inp]])) ) # (1, 2) where 1's output are 2's inputs
 
         # print(dependancys)
 
@@ -134,7 +143,7 @@ class StackedGraph():
         nodes = []
         height = 0
         for stack in self.stack_list:
-            nodes.append((self.id_to_idx[stack.oppid], len(stack.func_stack)-1))
+            nodes.append((self.id_to_idx[stack.stack_id], len(stack.func_stack)-1))
             height = max(height, len(stack.func_stack))
 
         node_matrix = np.full((len(self.stack_list), height), np.nan)
@@ -148,7 +157,7 @@ class StackedGraph():
         not_none = [i for i,v in enumerate(row) if v is not None]
         return not_none
 
-    def kahn_topo_sort_working(self, transpose=False, manual={}):
+    def _kahn_topo_sort_working(self, transpose=False, manual={}):
         '''
         Reversed True = ALAP (as late as posiable)
         Reversed False = ASAP (as soon as posiable)
@@ -220,7 +229,7 @@ class StackedGraph():
             return list(reversed(order)), list(reversed(layers_list)), layer_count
         return order, layers_list, layer_count
 
-    def get_cuts(self, layers_list):
+    def _get_cuts(self, layers_list):
         ''' returns the bridging nodes in the graph using topological sort
         layers_list: a list of layers of stacks whos results are still needed
         '''
@@ -237,12 +246,12 @@ class StackedGraph():
     def get_node_groups(self, ASAP = True):
 
         if ASAP: # ASAP
-            order,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+            order,layers_list,_ = self._kahn_topo_sort_working(transpose = False)
         else: # ALAP
-            order,_,_ = self.kahn_topo_sort_working(transpose = True)
-            _,layers_list,_ = self.kahn_topo_sort_working(transpose = False)
+            order,_,_ = self._kahn_topo_sort_working(transpose = True)
+            _,layers_list,_ = self._kahn_topo_sort_working(transpose = False)
 
-        cuts = self.get_cuts(layers_list)
+        cuts = self._get_cuts(layers_list)
 
         # ignore load and store(outputs) for optimization as they have flexability of when they should happen
         sparse_order = []
@@ -262,13 +271,6 @@ class StackedGraph():
                 group = [stack]
         if group:
             yield group
-
-    def get_output_nodes(self):
-        # retrives all lief nodes
-        outputs = {stack.oppid for stack in self.stack_list}
-        for stack in self.stack_list:
-            outputs = outputs - set(stack.parents)
-        return outputs
 
     # inference
     def forward(self):
@@ -299,7 +301,7 @@ class StackedGraph():
         return total_time
 
     def simple_schedule(self):
-        order, layers_list, layer_count = self.kahn_topo_sort_working(transpose=True, manual=self.output_nodes)
+        order, layers_list, layer_count = self._kahn_topo_sort_working(transpose=True, manual=self.output_nodes)
 
         # Add load_stacks JIT. ALAP
         for output in self.output_nodes:
@@ -321,9 +323,6 @@ class StackedGraph():
 
         return new_order, new_layers_list
 
-    def get_stack(self, id):
-        return self.stack_list[self.id_to_idx[id]]
-
     # metrics
     def create_schedule_data(self):
         '''
@@ -342,7 +341,7 @@ class StackedGraph():
             data['hardware'].append(stack.hardware_selection)
             data['start'].append(stack.start_time)
             data['end'].append(stack.start_time + stack.cost_stack[stack.func_selection])
-            data['label'].append(stack.oppid)
+            data['label'].append(stack.stack_id)
 
         df = pd.DataFrame(data)
         return df

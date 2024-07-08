@@ -13,8 +13,8 @@ import graph_visualization as gv
 
 ##### Woriing with JSON #####
 class DependancyNode():
-    def __init__(self, oppid, node, parents, input_shapes, output_shapes):
-        self.oppid = oppid
+    def __init__(self, stack_id, node, parents, input_shapes, output_shapes):
+        self.stack_id = stack_id
         self.func = 'null' if node['op'] == "null" else node['name']
         self.parents = parents
         self.input_shapes = input_shapes
@@ -24,16 +24,16 @@ class DependancyNode():
         self.hardware = None
 
     def __hash__(self):
-        return hash(self.oppid)
+        return hash(self.stack_id)
 
     def __eq__(self, other):
         if isinstance(other, DependancyNode):
-            return self.oppid == other.oppid
+            return self.stack_id == other.stack_id
         return False
 
     def __str__(self):
         return f"""
-        {self.oppid=}
+        {self.stack_id=}
         {self.func=}
         {self.opp=}
         {self.input_shapes=}
@@ -82,12 +82,12 @@ class DependancyGraph():
 
         nodes = []
         for index, node in enumerate(self.raw_json["nodes"]):
-            oppid = index
+            stack_id = index
             num_output = int(node['attrs']['num_outputs']) if 'attrs' in node else 1
             parents = [shape_idx[0] for shape_idx in node['inputs']]
             input_shapes = [ajusted_shapes[shape_idx[0]] for shape_idx in node['inputs']]
             output_shapes = [ajusted_shapes[index] for i in range(num_output)]
-            nodes.append(DependancyNode(oppid, node, parents, input_shapes, output_shapes))
+            nodes.append(DependancyNode(stack_id, node, parents, input_shapes, output_shapes))
         return nodes
 
     # Create the Adjancy Matrix for dependancy
@@ -115,10 +115,10 @@ class DependancyGraph():
         for node in self.node_list:
             inputs = node.parents
             for inp in inputs: # where each input is an index to another node.
-                dependancys.append((inp, node.oppid, self.bit_transfer(self.node_list[inp]))) # (1, 2) where 1's output are 2's inputs
-                # G.addEdge(inp, node.oppid, self.bit_transfer(node))
-                if 950< node.oppid < 1108:
-                    G.addEdge(inp, node.oppid)
+                dependancys.append((inp, node.stack_id, self.bit_transfer(self.node_list[inp]))) # (1, 2) where 1's output are 2's inputs
+                # G.addEdge(inp, node.stack_id, self.bit_transfer(node))
+                if 950< node.stack_id < 1108:
+                    G.addEdge(inp, node.stack_id)
 
         num_nodes = (len(self.node_list))
         adj_matrix = np.zeros((num_nodes, num_nodes))
