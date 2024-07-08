@@ -85,7 +85,7 @@ class StackedGraph:
         self.stack_list = stack_list if not raw_json else self._create_nodes()
         self.id_to_idx = {v.stack_id: i for i, v in enumerate(self.stack_list)}
         self.output_nodes = self._get_output_nodes()
-        self.load_nodes = {
+        self.in_nodes = {
             stack.stack_id for stack in self.stack_list if not stack.parents
         }
         self.adj_matrix = self._creat_adj_matrix()
@@ -295,12 +295,12 @@ class StackedGraph:
         """
         cuts = []
         for layer in layers_list:
-            if len(layer - self.load_nodes) == 1:
-                cut = (layer - self.load_nodes).pop()
+            if len(layer - self.in_nodes) == 1:
+                cut = (layer - self.in_nodes).pop()
                 if (
                     len(
                         set(self.stack_list[self.id_to_idx[cut]].parents)
-                        - self.load_nodes
+                        - self.in_nodes
                     )
                     > 1
                 ):
@@ -320,7 +320,7 @@ class StackedGraph:
         # ignore load and store for optimization
         sparse_order = []
         for i in order:
-            if i in self.load_nodes or i in self.output_nodes:
+            if i in self.in_nodes or i in self.output_nodes:
                 continue
             sparse_order.append(i)
 

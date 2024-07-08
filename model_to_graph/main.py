@@ -4,8 +4,8 @@ import dijkstra as dijk
 import stacked_graph as sg
 
 
-# JSON_PATH = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
-JSON_PATH = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
+JSON_PATH = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
+# JSON_PATH = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # JSON_PATH = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
 # JSON_PATH = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
 with open(JSON_PATH, encoding="utf-8") as json_file:

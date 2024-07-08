@@ -107,7 +107,7 @@ def func():
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
-PHU_CORES = 16
+PHU_CORES = 1
 CPU_CORES = 1
 PHU_PARTITIONS = 1
 
@@ -134,6 +134,7 @@ def constnat(c):
 def phu_matmul_time(i,o):
     cores_per_partition = int(PHU_CORES/PHU_PARTITIONS)
     return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
+    # return {'CPU': 50, "PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
 
 
 hardware_algs = {  # name: (opp, hardware, func, cycles)

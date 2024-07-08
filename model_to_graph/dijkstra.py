@@ -118,12 +118,10 @@ def rolling_dijkstra(graph):
     all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != "null"}
 
     que = []
-    for stack_id in graph.load_nodes:
+    for stack_id in graph.in_nodes:
         que.append((0, ((graph.id_to_idx[stack_id], 0),)))
 
-    groups = (
-        []
-    )
+    groups = []
 
     while que:
         cur_dist, cur_path = heapq.heappop(que)  # minimum
@@ -197,7 +195,7 @@ def graph_partition(graph):
             if stack_id not in stacks_hit:
                 stack = graph.stack_list[graph.id_to_idx[stack_id]]
                 new_node = copy.deepcopy(stack)
-                new_node.parents = set(new_node.parents) - graph.load_nodes
+                new_node.parents = set(new_node.parents) - graph.in_nodes
                 subgraph_stack_list.append(new_node)
 
         sub_graph = sg.StackedGraph(stack_list=subgraph_stack_list)
@@ -243,18 +241,14 @@ def scheduling_dijkstra(graph):
     oc.available_hardware initilized to 0
     """
     visited = {idx for idx, val in enumerate(graph.stack_list) if not val.parents}
-    end_times ={val.stack_id: 0 for val in graph.stack_list if not val.parents}
-    # visited = {0}
-    # end_times = {
-    #     0: 0
-    # }  # TODO handling multiple input nodes not all point to 0 Like for BERT graph 0
+    end_times = {val.stack_id: 0 for val in graph.stack_list if not val.parents}
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
     que = []
-    for stack_id in graph.load_nodes:
+    for stack_id in graph.in_nodes:
         que.append((graph.id_to_idx[stack_id],))
 
     while que:
-        # select the one that can be done the soonest, parents have the earlies end time.
+        # select the one that can be done the soonest, parents with the earlies end time
         small_val = np.inf
         small_idx = np.inf
         for idx, v in enumerate(que):
@@ -271,38 +265,41 @@ def scheduling_dijkstra(graph):
             indegree[neighbor] -= 1
             if neighbor not in visited and indegree[neighbor] == 0:
                 neighbor_node = graph.stack_list[neighbor]
+
                 hardware_type = oc.hardware_algs[
                     neighbor_node.func_stack[neighbor_node.func_selection]
                 ][1]
 
                 parent_end = [end_times[parent] for parent in neighbor_node.parents]
-                parent_time = max(parent_end)
+                max_parent_end = max(parent_end)
 
-                # select hardware
+                # select hardware to use
                 less_than = [
                     available
                     for available in oc.available_hardware[hardware_type]
-                    if oc.available_hardware[hardware_type][available] <= parent_time
+                    if oc.available_hardware[hardware_type][available] <= max_parent_end
                 ]
 
+                # no hardware
                 if not less_than:
                     selected_hardware = min(
                         oc.available_hardware[hardware_type],
                         key=lambda k: oc.available_hardware[hardware_type][k],
-                    )  # just use smallest
+                    )
                 else:
+                    # select minimum distance away for tightest packing
                     selected_hardware = min(
                         less_than,
-                        key=lambda k: parent_time
+                        key=lambda k: max_parent_end
                         - oc.available_hardware[hardware_type][k],
-                    )  # select minimum distance away
+                    )
+                    # bring hardware behind hardware up to current
                     oc.available_hardware[hardware_type][
                         selected_hardware
-                    ] = parent_time  # realign hardware
-
+                    ] = max_parent_end
 
                 neighbor_node.hardware_selection = selected_hardware
-                assert neighbor_node.start_time == 0
+                assert neighbor_node.start_time == 0  # not already scheduled
                 neighbor_node.start_time = oc.available_hardware[hardware_type][
                     selected_hardware
                 ]
@@ -317,7 +314,6 @@ def scheduling_dijkstra(graph):
                 oc.available_hardware[hardware_type][selected_hardware] += (
                     node_cost + edge_weight
                 )
-                # oc.available_hardware[hardware_type][selected_hardware] += node_cost
                 new_time = oc.available_hardware[hardware_type][selected_hardware]
                 visited.add(neighbor)
                 end_times[neighbor_node.stack_id] = new_time
@@ -327,6 +323,8 @@ def scheduling_dijkstra(graph):
 
 def schdeule_nodes(graph, subgraphs):
     """
+    merges scheduled subgraph nodes back to main graph
+    Schedules in and out nodes
     graph = StackedGraph object, original graph
     subgraphs = Subgraph of
     """
@@ -346,10 +344,10 @@ def schdeule_nodes(graph, subgraphs):
 
     cur_time = max(max(inner_dict.values()) for inner_dict in hardware_times.values())
 
-    # schedule load_nodes
     adj_matrix = graph.adj_matrix
 
-    for node in graph.load_nodes:
+    # schedule in_nodes
+    for node in graph.in_nodes:
         stack_obj = graph.get_stack(node)
         child = [
             (idx, val) for idx, val in enumerate(adj_matrix[node]) if val is not None
@@ -362,6 +360,7 @@ def schdeule_nodes(graph, subgraphs):
         )
         stack_obj.hardware_selection = "memory"
 
+    # schedule out_nodes
     for node in graph.output_nodes:
         stack_obj = graph.get_stack(node)
         parents = stack_obj.parents
@@ -391,7 +390,7 @@ def get_memory_profile(graph):
     #     outdegree[row] = sum([True for i in graph.adj_matrix[row, :] if i is not None])
 
     start_size = 0
-    for node in graph.load_nodes:
+    for node in graph.in_nodes:
         stack_obj = graph.get_stack(node)
         start_size += oc.ten_elm(stack_obj.output_shapes[0])
     dram_total = start_size
@@ -404,7 +403,7 @@ def get_memory_profile(graph):
         out_size = sum(oc.ten_elm(x) for x in stack_obj.output_shapes)
         assert out_size >= 0
 
-        if stack_obj.stack_id in graph.load_nodes:  # D -> S
+        if stack_obj.stack_id in graph.in_nodes:  # D -> S
             dram_total -= out_size
             dram.append((stack_obj.start_time, dram_total))
 
@@ -452,5 +451,6 @@ def get_memory_profile(graph):
     # print(f"{dram_total=}")
     # print(f"{sram_total=}")
     return dram, sram
+
 
 # endregion
