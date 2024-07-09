@@ -14,9 +14,7 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
 
 graph = sg.StackGraph(raw_json=raw_json)
 subgraphs = list(dijk.graph_partition(graph))
-# print('... Subgraphs Made ...')
-# dijk.select_nodes(graph, subgraphs)
-# print('... Nodes selected ...')
+flat_graph = dijk.select_nodes(graph, subgraphs)
 # end_time, break_points = dijk.schdeule_nodes(graph, subgraphs)
 # print('... Nodes Schdeuled ...')
 

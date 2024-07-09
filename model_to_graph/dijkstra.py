@@ -9,6 +9,43 @@ import operator_calcs as oc
 # region ###### Rolling Dijkstra for embeded branched stacked graphs ######
 
 
+def graph_partition(graph):
+    """Finds the Articulation Vertices and partitions the large graph into subgraphs
+    StackedGraph objects. Inclusive on both ends of range.
+    graph: StackedGraph
+    """
+    groups = list(graph.get_node_groups(asap=False))
+    assert test.group_validate(graph, groups)
+
+    for group in groups:
+
+        start_stack = sg.Stack(0, set(), [[]], [[]], opp="start", node_stack=[])
+        start_stack.node_stack.append(sg.Node("start", start_stack))
+
+        # replace parents if not satisfied in group
+        first_stacks = []
+        stacks_hit = set()
+        for stack in group:
+            stack_obj = graph.get_node_obj(stack)
+            if all(parent not in group for parent in stack_obj.parents):
+                stacks_hit.add(stack_obj.stack_id)
+                first_stack = copy.deepcopy(stack_obj)
+                first_stack.parents = {0}
+                first_stacks.append(first_stack)
+
+        subgraph_stack_list = [start_stack] + first_stacks
+        for stack_id in group:
+            if stack_id not in stacks_hit:
+                stack_obj = graph.get_node_obj(stack_id)
+                new_node = copy.deepcopy(stack_obj)
+                new_node.parents = set(new_node.parents) - graph.in_nodes
+                subgraph_stack_list.append(new_node)
+
+        sub_graph = sg.StackGraph(stack_list=subgraph_stack_list)
+        yield sub_graph
+    print("... Subgraphs Made ...")
+
+
 def extract_stacks(path):
     # returns set of stacks included in the path
     return {index[0] for index in path}
@@ -159,66 +196,44 @@ def rolling_dijkstra(graph):
 
         for neighbor in neighbor_stacks:
             stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
-            for node, node_cost in enumerate(graph.stack_list[neighbor].cost_stack):
+            for node, node_obj in enumerate(graph.stack_list[neighbor].node_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                new_distance = cur_dist + node_cost + edge_weight
+                new_distance = cur_dist + node_obj.time_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
 
 
-def graph_partition(graph):
-    """Finds the Articulation Vertices and partitions the large graph into subgraphs
-    StackedGraph objects. Inclusive on both ends of range.
+def select_nodes(graph, subgraphs):
+    """apply roling_dijkstra to each subgraph. Then apply those selections to the nodes
+    of the original graph.
     graph: StackedGraph
+    subgraph: StackedGraph
+    such that subgraph is a partition of graph
     """
-    groups = list(graph.get_node_groups(asap=False))
-    assert test.group_validate(graph, groups)
+    assert graph.node_list == graph.stack_list
+    selected_node_list = []
+    done = set()
+    for subgraph in subgraphs:
+        nodes = rolling_dijkstra(subgraph)
+        for node in nodes:
+            subgraph_stack = subgraph.stack_list[node[0]]
+            if subgraph_stack.opp != "start" and subgraph_stack.stack_id not in done:
+                done.add(subgraph_stack.stack_id)
+                subgraph_stack.node_selection = node[1]
+                selected_node = subgraph_stack.node_stack[subgraph_stack.node_selection]
+                selected_node = subgraph_stack.node_stack[subgraph_stack.node_selection]
+                new_node = sg.Node(
+                    selected_node.algorithm, graph.get_node_obj(subgraph_stack.stack_id)
+                )
+                selected_node_list.append(new_node)
 
-    for group in groups:
+    for list in graph.in_nodes, graph.out_nodes:
+        for stack in list:
+            node_obj = graph.get_node_obj(stack)
+            selected_node_list.append(node_obj.node_stack[0])
 
-        start_stack = sg.Stack(0, set(), [[]], [[]], opp="start", node_stack=[])
-        start_stack.node_stack.append(sg.Node('start', start_stack))
-
-
-        # replace parents if not satisfied in group
-        first_stacks = []
-        stacks_hit = set()
-        for stack in group:
-            stack_obj = graph.get_stack_obj(stack)
-            if all(parent not in group for parent in stack_obj.parents):
-                stacks_hit.add(stack_obj.stack_id)
-                first_stack = copy.deepcopy(stack_obj)
-                first_stack.parents = {0}
-                first_stacks.append(first_stack)
-
-        subgraph_stack_list = [start_stack] + first_stacks
-        for stack_id in group:
-            if stack_id not in stacks_hit:
-                stack_obj = graph.get_stack_obj(stack_id)
-                new_node = copy.deepcopy(stack_obj)
-                new_node.parents = set(new_node.parents) - graph.in_stacks
-                subgraph_stack_list.append(new_node)
-
-        sub_graph = sg.StackGraph(stack_list=subgraph_stack_list)
-        yield sub_graph
-
-
-# def select_nodes(graph, subgraphs):
-#     """apply roling_dijkstra to each subgraph. Then apply those selections to the nodes
-#     of the original graph.
-#     graph: StackedGraph
-#     subgraph: StackedGraph
-#     such that subgraph is a partition of graph
-#     """
-#     for subgraph in subgraphs:
-#         nodes = rolling_dijkstra(subgraph)
-#         for node in nodes:
-#             stack_stack_id = subgraph.stack_list[node[0]].stack_id
-
-#             subgraph_stack = subgraph.stack_list[subgraph.id_to_idx[stack_stack_id]]
-#             subgraph_stack.func_selection = node[1]
-
-#             original_stack = graph.stack_list[graph.id_to_idx[stack_stack_id]]
-#             original_stack.func_selection = node[1]
+    # print(subtotal)
+    print("... Nodes selected ...")
+    return sg.Graph(selected_node_list)
 
 
 # endregion
