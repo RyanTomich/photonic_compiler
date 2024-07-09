@@ -175,15 +175,15 @@ def graph_partition(graph):
 
     for group in groups:
 
-        start_stack = sg.StackedNode(
-            0, set(), [[]], [[]], opp="start", func_stack=["start"], cost_stack=[0]
-        )
+        start_stack = sg.Stack(0, set(), [[]], [[]], opp="start", node_stack=[])
+        start_stack.node_stack.append(sg.Node('start', start_stack))
+
 
         # replace parents if not satisfied in group
         first_stacks = []
         stacks_hit = set()
         for stack in group:
-            stack_obj = graph.stack_list[graph.id_to_idx[stack]]
+            stack_obj = graph.get_stack_obj(stack)
             if all(parent not in group for parent in stack_obj.parents):
                 stacks_hit.add(stack_obj.stack_id)
                 first_stack = copy.deepcopy(stack_obj)
@@ -193,32 +193,32 @@ def graph_partition(graph):
         subgraph_stack_list = [start_stack] + first_stacks
         for stack_id in group:
             if stack_id not in stacks_hit:
-                stack = graph.stack_list[graph.id_to_idx[stack_id]]
-                new_node = copy.deepcopy(stack)
-                new_node.parents = set(new_node.parents) - graph.in_nodes
+                stack_obj = graph.get_stack_obj(stack_id)
+                new_node = copy.deepcopy(stack_obj)
+                new_node.parents = set(new_node.parents) - graph.in_stacks
                 subgraph_stack_list.append(new_node)
 
-        sub_graph = sg.StackedGraph(stack_list=subgraph_stack_list)
+        sub_graph = sg.StackGraph(stack_list=subgraph_stack_list)
         yield sub_graph
 
 
-def select_nodes(graph, subgraphs):
-    """apply roling_dijkstra to each subgraph. Then apply those selections to the nodes
-    of the original graph.
-    graph: StackedGraph
-    subgraph: StackedGraph
-    such that subgraph is a partition of graph
-    """
-    for subgraph in subgraphs:
-        nodes = rolling_dijkstra(subgraph)
-        for node in nodes:
-            stack_stack_id = subgraph.stack_list[node[0]].stack_id
+# def select_nodes(graph, subgraphs):
+#     """apply roling_dijkstra to each subgraph. Then apply those selections to the nodes
+#     of the original graph.
+#     graph: StackedGraph
+#     subgraph: StackedGraph
+#     such that subgraph is a partition of graph
+#     """
+#     for subgraph in subgraphs:
+#         nodes = rolling_dijkstra(subgraph)
+#         for node in nodes:
+#             stack_stack_id = subgraph.stack_list[node[0]].stack_id
 
-            subgraph_stack = subgraph.stack_list[subgraph.id_to_idx[stack_stack_id]]
-            subgraph_stack.func_selection = node[1]
+#             subgraph_stack = subgraph.stack_list[subgraph.id_to_idx[stack_stack_id]]
+#             subgraph_stack.func_selection = node[1]
 
-            original_stack = graph.stack_list[graph.id_to_idx[stack_stack_id]]
-            original_stack.func_selection = node[1]
+#             original_stack = graph.stack_list[graph.id_to_idx[stack_stack_id]]
+#             original_stack.func_selection = node[1]
 
 
 # endregion

@@ -88,6 +88,7 @@ class Stack:
             + f"{self.node_selection=}\n "
         )
 
+
 class StackGraph:
     """Represents a Dependancy Graph of Stack Objects
     """
@@ -136,6 +137,7 @@ class StackGraph:
             )
         return stacks
 
+    # adj_matrix
     def _bit_transfer(self, stack, direction="out"):
         """
         Calculates the total number of bits passed out of a node
@@ -201,3 +203,139 @@ class StackGraph:
             connection_matrix = self._make_connection_matrix(*dep)
             adj_matrix[start_stack_idx][end_stack_idx] = connection_matrix
         return adj_matrix
+
+    # Node_selection
+
+    def get_stack_neighbors(self, stack_idx):
+        """given a stack id, return all accessable neighbors
+
+        Args:
+            stack_idx (int): stack index in StackGraph
+
+        Returns:
+            list: list of neighboring stack_idx's
+        """
+        row = self.adj_matrix[stack_idx]
+        not_none = [i for i, v in enumerate(row) if v is not None]
+        return not_none
+
+    def _kahn_topo_sort_working(self, transpose=False):
+        """
+        Reversed True = ALAP (as late as posiable)
+        Reversed False = ASAP (as soon as posiable)
+
+        produes a liner order obeying DAG
+        graph(np adjancy matrix): graph to sort
+        returns:
+            order: liner working order for each node
+            working_layers_list: nodes whos results are still needed
+            layer_count: number of layers before the stackes results are no longe needed.
+        """
+        graph = self.adj_matrix
+
+        if transpose:
+            graph = graph.T
+
+        node_indegree = {}
+        node_outdegree = {"START": np.inf}
+        node_parents = {}
+        for idx in range(len(graph)):
+
+            node_indegree[idx] = sum([True for i in graph[:, idx] if i is not None])
+            node_outdegree[idx] = sum([True for i in graph[idx, :] if i is not None])
+            node_parents[idx] = []
+
+        que = []
+        order = []
+        layer_count = {}
+        for node, val in node_indegree.items():
+            if val == 0:
+                que.append((["START"], node))
+                layer_count[node] = 0
+
+        layer = 0
+        layers_dic = {}
+        while que:
+            layer += 1
+            layers_dic[layer] = set()
+
+            for _ in range(len(que)):
+                par_nodes, cur_node = que.pop(0)
+                for par in par_nodes:
+                    node_outdegree[par] -= 1
+
+                order.append(cur_node)
+
+                layers_dic[layer].add(cur_node)
+                for next_node in [
+                    i for i, v in enumerate(graph[cur_node]) if v is not None
+                ]:
+                    node_indegree[next_node] -= 1
+                    node_parents[next_node].append(cur_node)
+                    if node_indegree[next_node] == 0:
+                        que.append((node_parents[next_node], next_node))
+                        layer_count[next_node] = 0
+
+            for working in order:
+                if node_outdegree[working] != 0:
+                    layers_dic[layer].add(working)
+                    layer_count[working] += 1
+
+        assert any(node_indegree.values()) is False
+
+        layers_list = [val for (key, val) in layers_dic.items()]
+        if transpose:
+            return list(reversed(order)), list(reversed(layers_list)), layer_count
+        return order, layers_list, layer_count
+
+    def _get_cuts(self, layers_list):
+        """returns the bridging nodes in the graph using topological sort
+        layers_list: a list of layers of stacks whos results are still needed
+        """
+        cuts = []
+        for layer in layers_list:
+            if len(layer - self.in_stacks) == 1:
+                cut = (layer - self.in_stacks).pop()
+                if (
+                    len(
+                        set(self.get_stack_obj(cut).parents)
+                        - self.in_stacks
+                    )
+                    > 1
+                ):
+                    cuts.append(cut)
+        return cuts
+
+    def get_node_groups(self, asap=True):
+        """generates groups cut at Articulation points
+
+        Args:
+            asap (bool, optional): nodes places as soon as dependancies are done. Defaults to True.
+            false means alap, nodes are placed after dependancies, but right before first child
+        Yields:
+            list: list of stack_id's
+        """
+        if asap:
+            order, layers_list, _ = self._kahn_topo_sort_working(transpose=False)
+        # ALAP
+        else:
+            order, _, _ = self._kahn_topo_sort_working(transpose=True)
+            _, layers_list, _ = self._kahn_topo_sort_working(transpose=False)
+
+        cuts = self._get_cuts(layers_list)
+
+        # ignore load and store for optimization
+        sparse_order = []
+        for i in order:
+            if i not in self.in_stacks and i not in self.out_stacks:
+                sparse_order.append(i)
+
+        cuts = set(cuts)
+        group = []
+        for stack in sparse_order:
+            group.append(stack)
+            if stack in cuts:
+                yield group
+                group = [stack]
+        if group:
+            yield group

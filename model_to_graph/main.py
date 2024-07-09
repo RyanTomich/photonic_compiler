@@ -12,30 +12,34 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
     raw_json = json.load(json_file)  # returns json file as dict
     print('... Json loaded ...')
 
-graph = sg.StackedGraph(raw_json=raw_json)
-print('... Graph Made ...')
-# print(len(graph.stack_list))
+graph = sg.StackGraph(raw_json=raw_json)
 subgraphs = list(dijk.graph_partition(graph))
-print('... Subgraphs Made ...')
-dijk.select_nodes(graph, subgraphs)
-print('... Nodes selected ...')
-end_time, break_points = dijk.schdeule_nodes(graph, subgraphs)
-print('... Nodes Schdeuled ...')
+# print('... Subgraphs Made ...')
+# dijk.select_nodes(graph, subgraphs)
+# print('... Nodes selected ...')
+# end_time, break_points = dijk.schdeule_nodes(graph, subgraphs)
+# print('... Nodes Schdeuled ...')
 
-for stack in graph.stack_list:
-    assert stack.hardware_selection is not None
-print('... ALL hardware selected ...')
+# for stack in graph.stack_list:
+#     assert stack.hardware_selection is not None
+# print('... ALL hardware selected ...')
 
-schedule_data = graph.create_schedule_data()
-# with open('schedule.txt', 'w') as file:
-#     for index, row in schedule_data.iterrows():
-#         file.write(f"{row['label']} --- {row['hardware']} ({row['start']})\n")
-print('... Schedule data made ...')
+# schedule_data = graph.create_schedule_data()
+# # with open('schedule.txt', 'w') as file:
+# #     for index, row in schedule_data.iterrows():
+# #         file.write(f"{row['label']} --- {row['hardware']} ({row['start']})\n")
+# print('... Schedule data made ...')
 
-dijk.get_memory_profile(graph)
-print('... Memory profile made ...')
+# dijk.get_memory_profile(graph)
+# print('... Memory profile made ...')
 
-print(end_time)
+# print(end_time)
+
+
+
+
+
+
 
 # dijk.get_energy_profile(graph, schedule_data)
 
