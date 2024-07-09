@@ -13,9 +13,10 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
     print('... Json loaded ...')
 
 graph = sg.StackGraph(raw_json=raw_json)
-subgraphs = list(dijk.graph_partition(graph))
-flat_graph = dijk.select_nodes(graph, subgraphs)
-# end_time, break_points = dijk.schdeule_nodes(graph, subgraphs)
+stacked_subgraphs = list(dijk.graph_partition(graph))
+flat_graph, flat_subgraphs = dijk.select_nodes(graph, stacked_subgraphs)
+# end_time, break_points = dijk.schdeule_nodes(graph, flat_subgraphs)
+
 # print('... Nodes Schdeuled ...')
 
 # for stack in graph.stack_list:

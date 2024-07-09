@@ -212,28 +212,36 @@ def select_nodes(graph, subgraphs):
     assert graph.node_list == graph.stack_list
     selected_node_list = []
     done = set()
+    flat_subgraphs = []
     for subgraph in subgraphs:
         nodes = rolling_dijkstra(subgraph)
+        subgraph_nodes_list = []
         for node in nodes:
             subgraph_stack = subgraph.stack_list[node[0]]
+            subgraph_stack.node_selection = node[1]
+            selected_node = subgraph_stack.node_stack[subgraph_stack.node_selection]
+
+            # for flat subgraph
+            subgraph_nodes_list.append(sg.Node(selected_node.algorithm, subgraph.get_node_obj(subgraph_stack.stack_id)))
+
+            # for full flat graph
             if subgraph_stack.opp != "start" and subgraph_stack.stack_id not in done:
                 done.add(subgraph_stack.stack_id)
-                subgraph_stack.node_selection = node[1]
-                selected_node = subgraph_stack.node_stack[subgraph_stack.node_selection]
-                selected_node = subgraph_stack.node_stack[subgraph_stack.node_selection]
                 new_node = sg.Node(
                     selected_node.algorithm, graph.get_node_obj(subgraph_stack.stack_id)
                 )
                 selected_node_list.append(new_node)
+
+
+        flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
 
     for list in graph.in_nodes, graph.out_nodes:
         for stack in list:
             node_obj = graph.get_node_obj(stack)
             selected_node_list.append(node_obj.node_stack[0])
 
-    # print(subtotal)
     print("... Nodes selected ...")
-    return sg.Graph(selected_node_list)
+    return sg.Graph(selected_node_list), flat_subgraphs
 
 
 # endregion
