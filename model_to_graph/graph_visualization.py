@@ -67,9 +67,9 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
     labels = {}
     colors = {}
     for idx, node in enumerate(G.nodes):
-        labels[node] = graph.stack_list[idx].stack_id
+        labels[node] = graph.node_list[idx].stack_id
         # labels[node] = graph.stack_list[idx].opp
-        if graph.stack_list[idx].func_selection == 1:
+        if graph.node_list[idx].get_algo_info('hardware') == 'PHU':
             colors[node] = 'lightcoral'
         else:
             colors[node] = 'lightblue'
@@ -101,12 +101,12 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
         'label': []  # Labels for the blocks
     }
     hardware = set()
-    for stack in graph.stack_list:
-        data['task'].append(stack.hardware_selection)
-        hardware.add(stack.hardware_selection)
-        data['start'].append(stack.start_time)
-        data['end'].append(stack.start_time + stack.cost_stack[stack.func_selection])
-        data['label'].append(stack.stack_id)
+    for node in graph.node_list:
+        data['task'].append(node.hardware_selection)
+        hardware.add(node.hardware_selection)
+        data['start'].append(node.start_time)
+        data['end'].append(node.start_time + node.time_cost)
+        data['label'].append(node.stack_id)
     print(hardware)
 
 

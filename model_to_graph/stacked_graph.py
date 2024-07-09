@@ -17,13 +17,20 @@ class Node:
         )
         self.power_cost = None  # TODO
 
-    def __srt__(self):
-        return (
-            f"{self.algorithm=}\n"
-            + f"{self.stack.stack_id=}\n "
-            + f"{self.input_shapes=}\n "
-            + f"{self.time_cost=}\n "
-            + f"{self.power_cost=}\n "
+        self.hardware_selection = None
+        self.start_time = None
+
+    def __str__(self):
+        return(
+            f"{self.algorithm}\n"
+            + f"{self.stack_id}\n"
+            + f"{self.parents}\n"
+            + f"{self.input_shapes}\n"
+            + f"{self.output_shapes}\n"
+            + f"{self.time_cost}\n"
+            + f"{self.power_cost}\n"
+            + f"{self.hardware_selection}\n"
+            + f"{self.start_time}\n"
         )
 
     def get_algo_info(self, type):

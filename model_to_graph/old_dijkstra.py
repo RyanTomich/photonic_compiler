@@ -9,43 +9,6 @@ import operator_calcs as oc
 # region ###### Rolling Dijkstra for embeded branched stacked graphs ######
 
 
-def graph_partition(graph):
-    """Finds the Articulation Vertices and partitions the large graph into subgraphs
-    StackedGraph objects. Inclusive on both ends of range.
-    graph: StackedGraph
-    """
-    groups = list(graph.get_node_groups(asap=False))
-    assert test.group_validate(graph, groups)
-
-    for group in groups:
-
-        start_stack = sg.Stack(0, set(), [[]], [[]], opp="start", node_stack=[])
-        start_stack.node_stack.append(sg.Node("start", start_stack))
-
-        # replace parents if not satisfied in group
-        first_stacks = []
-        stacks_hit = set()
-        for stack in group:
-            stack_obj = graph.get_node_obj(stack)
-            if all(parent not in group for parent in stack_obj.parents):
-                stacks_hit.add(stack_obj.stack_id)
-                first_stack = copy.deepcopy(stack_obj)
-                first_stack.parents = {0}
-                first_stacks.append(first_stack)
-
-        subgraph_stack_list = [start_stack] + first_stacks
-        for stack_id in group:
-            if stack_id not in stacks_hit:
-                stack_obj = graph.get_node_obj(stack_id)
-                new_node = copy.deepcopy(stack_obj)
-                new_node.parents = set(new_node.parents) - graph.in_nodes
-                subgraph_stack_list.append(new_node)
-
-        sub_graph = sg.StackGraph(stack_list=subgraph_stack_list)
-        yield sub_graph
-    print("... Subgraphs Made ...")
-
-
 def extract_stacks(path):
     # returns set of stacks included in the path
     return {index[0] for index in path}
@@ -196,10 +159,47 @@ def rolling_dijkstra(graph):
 
         for neighbor in neighbor_stacks:
             stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
-            for node, node_obj in enumerate(graph.stack_list[neighbor].node_stack):
+            for node, node_cost in enumerate(graph.stack_list[neighbor].cost_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                new_distance = cur_dist + node_obj.time_cost + edge_weight
+                new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
+
+
+def graph_partition(graph):
+    """Finds the Articulation Vertices and partitions the large graph into subgraphs
+    StackedGraph objects. Inclusive on both ends of range.
+    graph: StackedGraph
+    """
+    groups = list(graph.get_node_groups(asap=False))
+    assert test.group_validate(graph, groups)
+
+    for group in groups:
+
+        start_stack = sg.StackedNode(
+            0, set(), [[]], [[]], opp="start", func_stack=["start"], cost_stack=[0]
+        )
+
+        # replace parents if not satisfied in group
+        first_stacks = []
+        stacks_hit = set()
+        for stack in group:
+            stack_obj = graph.stack_list[graph.id_to_idx[stack]]
+            if all(parent not in group for parent in stack_obj.parents):
+                stacks_hit.add(stack_obj.stack_id)
+                first_stack = copy.deepcopy(stack_obj)
+                first_stack.parents = {0}
+                first_stacks.append(first_stack)
+
+        subgraph_stack_list = [start_stack] + first_stacks
+        for stack_id in group:
+            if stack_id not in stacks_hit:
+                stack = graph.stack_list[graph.id_to_idx[stack_id]]
+                new_node = copy.deepcopy(stack)
+                new_node.parents = set(new_node.parents) - graph.in_nodes
+                subgraph_stack_list.append(new_node)
+
+        sub_graph = sg.StackedGraph(stack_list=subgraph_stack_list)
+        yield sub_graph
 
 
 def select_nodes(graph, subgraphs):
@@ -209,39 +209,16 @@ def select_nodes(graph, subgraphs):
     subgraph: StackedGraph
     such that subgraph is a partition of graph
     """
-    assert graph.node_list == graph.stack_list
-    selected_node_list = []
-    done = set()
-    flat_subgraphs = []
     for subgraph in subgraphs:
         nodes = rolling_dijkstra(subgraph)
-        subgraph_nodes_list = []
         for node in nodes:
-            subgraph_stack = subgraph.stack_list[node[0]]
-            subgraph_stack.node_selection = node[1]
-            selected_node = subgraph_stack.node_stack[subgraph_stack.node_selection]
+            stack_stack_id = subgraph.stack_list[node[0]].stack_id
 
-            # for flat subgraph
-            subgraph_nodes_list.append(sg.Node(selected_node.algorithm, subgraph.get_node_obj(subgraph_stack.stack_id)))
+            subgraph_stack = subgraph.stack_list[subgraph.id_to_idx[stack_stack_id]]
+            subgraph_stack.func_selection = node[1]
 
-            # for full flat graph
-            if subgraph_stack.opp != "start" and subgraph_stack.stack_id not in done:
-                done.add(subgraph_stack.stack_id)
-                new_node = sg.Node(
-                    selected_node.algorithm, graph.get_node_obj(subgraph_stack.stack_id)
-                )
-                selected_node_list.append(new_node)
-
-
-        flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
-
-    for list in graph.in_nodes, graph.out_nodes:
-        for stack in list:
-            node_obj = graph.get_node_obj(stack)
-            selected_node_list.append(node_obj.node_stack[0])
-
-    print("... Nodes selected ...")
-    return sg.Graph(selected_node_list), flat_subgraphs
+            original_stack = graph.stack_list[graph.id_to_idx[stack_stack_id]]
+            original_stack.func_selection = node[1]
 
 
 # endregion
@@ -263,9 +240,9 @@ def scheduling_dijkstra(graph):
     subgraph with mock start node.
     oc.available_hardware initilized to 0
     """
-    visited = {idx for idx, val in enumerate(graph.node_list) if not val.parents}
-    end_times = {val.stack_id: 0 for val in graph.node_list if not val.parents}
-    indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.node_list)}
+    visited = {idx for idx, val in enumerate(graph.stack_list) if not val.parents}
+    end_times = {val.stack_id: 0 for val in graph.stack_list if not val.parents}
+    indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.stack_list)}
     que = []
     for stack_id in graph.in_nodes:
         que.append((graph.id_to_idx[stack_id],))
@@ -275,8 +252,8 @@ def scheduling_dijkstra(graph):
         small_val = np.inf
         small_idx = np.inf
         for idx, v in enumerate(que):
-            if end_times[graph.node_list[v[-1]].stack_id] < small_val:
-                small_val = end_times[graph.node_list[v[-1]].stack_id]
+            if end_times[graph.stack_list[v[-1]].stack_id] < small_val:
+                small_val = end_times[graph.stack_list[v[-1]].stack_id]
                 small_idx = idx
 
         cur_path = que.pop(small_idx)
@@ -287,10 +264,10 @@ def scheduling_dijkstra(graph):
         for neighbor in neighbor_stacks:
             indegree[neighbor] -= 1
             if neighbor not in visited and indegree[neighbor] == 0:
-                neighbor_node = graph.node_list[neighbor]
+                neighbor_node = graph.stack_list[neighbor]
 
                 hardware_type = oc.hardware_algs[
-                    neighbor_node.algorithm
+                    neighbor_node.func_stack[neighbor_node.func_selection]
                 ][1]
 
                 parent_end = [end_times[parent] for parent in neighbor_node.parents]
@@ -322,15 +299,20 @@ def scheduling_dijkstra(graph):
                     ] = max_parent_end
 
                 neighbor_node.hardware_selection = selected_hardware
-                assert neighbor_node.start_time == None  # not already scheduled
+                assert neighbor_node.start_time == 0  # not already scheduled
                 neighbor_node.start_time = oc.available_hardware[hardware_type][
                     selected_hardware
                 ]
 
                 # add time
-                edge_weight = graph.adj_matrix[cur_node][neighbor]
+                stack_connection = graph.adj_matrix[cur_node][neighbor]
+
+                node_cost = neighbor_node.cost_stack[neighbor_node.func_selection]
+                edge_weight = stack_connection[
+                    graph.stack_list[cur_node].func_selection
+                ][neighbor_node.func_selection]
                 oc.available_hardware[hardware_type][selected_hardware] += (
-                    neighbor_node.time_cost + edge_weight
+                    node_cost + edge_weight
                 )
                 new_time = oc.available_hardware[hardware_type][selected_hardware]
                 visited.add(neighbor)
@@ -339,7 +321,7 @@ def scheduling_dijkstra(graph):
     return oc.available_hardware
 
 
-def schdeule_nodes(graph, subgraphs): # TODO bert in-to-out issues
+def schdeule_nodes(graph, subgraphs):
     """
     merges scheduled subgraph nodes back to main graph
     Schedules in and out nodes
@@ -351,13 +333,10 @@ def schdeule_nodes(graph, subgraphs): # TODO bert in-to-out issues
     break_points = []
     for subgraph in subgraphs:
         hardware_times = scheduling_dijkstra(subgraph)
-
-        # merging subgraphs to main
-        for node in subgraph.node_list:
-            original_node = graph.get_node_obj(node.stack_id)
-            original_node.hardware_selection = node.hardware_selection
-            original_node.start_time = node.start_time
-
+        for stack in subgraph.stack_list:
+            original_stack = graph.stack_list[graph.id_to_idx[stack.stack_id]]
+            original_stack.hardware_selection = stack.hardware_selection
+            original_stack.start_time = stack.start_time
         hardware_synchronize()
         break_points.append(
             max(max(inner_dict.values()) for inner_dict in hardware_times.values())
@@ -365,44 +344,32 @@ def schdeule_nodes(graph, subgraphs): # TODO bert in-to-out issues
 
     cur_time = max(max(inner_dict.values()) for inner_dict in hardware_times.values())
 
-    for node in graph.node_list:
-        if node.stack_id not in graph.in_nodes and node.stack_id not in graph.out_nodes:
-            assert node.hardware_selection is not None
-            assert node.start_time is not None
-
     adj_matrix = graph.adj_matrix
-
 
     # schedule in_nodes
     for node in graph.in_nodes:
-        node_obj = graph.get_node_obj(node)
+        stack_obj = graph.get_stack(node)
         child = [
-            (idx, cost) for idx, cost in enumerate(adj_matrix[graph.id_to_idx[node]]) if cost is not None
+            (idx, val) for idx, val in enumerate(adj_matrix[node]) if val is not None
         ][0]
-        child_obj = graph.node_list[child[0]]
-
-        node_obj.start_time = (
+        child_obj = graph.get_stack(child[0])
+        stack_obj.start_time = (
             child_obj.start_time
-            - child[1]
-            - node_obj.time_cost
+            - child[1][stack_obj.func_selection][child_obj.func_selection]
+            - stack_obj.cost_stack[stack_obj.func_selection]
         )
-        node_obj.hardware_selection = "memory"
+        stack_obj.hardware_selection = "memory"
 
     # schedule out_nodes
-    for node in graph.out_nodes:
-        node_obj = graph.get_node_obj(node)
-        parents = node_obj.parents
-        largest = 0
-        for parent in parents:
-            parent_obj = graph.get_node_obj(parent)
-            largest = max(
-                largest,
-                parent_obj.start_time + parent_obj.time_cost
-            )
-        node_obj.start_time = largest
-        node_obj.hardware_selection = "memory"
+    for node in graph.output_nodes:
+        stack_obj = graph.get_stack(node)
+        parents = stack_obj.parents
+        parent_obj = graph.get_stack(parents[0])
+        stack_obj.start_time = (
+            parent_obj.start_time + parent_obj.cost_stack[parent_obj.func_selection]
+        )
+        stack_obj.hardware_selection = "memory"
 
-    print('... Nodes Schdeuled ...')
     return round(cur_time, 5), break_points
 
 

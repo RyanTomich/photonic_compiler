@@ -107,8 +107,8 @@ def func():
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
-PHU_CORES = 1
-CPU_CORES = 1
+PHU_CORES = 32
+CPU_CORES = 8
 PHU_PARTITIONS = 1
 
 DRAM_SRAM_WIDTH = 256  # bits per cycle
