@@ -2,6 +2,83 @@ import numpy as np
 import pandas as pd
 import operator_calcs as oc
 
+class Node:
+    '''
+    represent one algorithm for one opperation. Created by Stack objects
+    '''
+    def __init__(self, algorithm, stack):
+        self.algorithm = algorithm
+        self.stack = stack
+        self.time_cost = oc.cycle_to_s(oc.hardware_algs[algorithm][3](stack.input_shapes, stack.output_shapes))
+        self.power_cost = None # TODO
+
+    def __srt__(self):
+        return (
+            f"{self.algorithm=}\n"
+            + f"{self.stack.stack_id=}\n "
+            + f"{self.input_shapes=}\n "
+            + f"{self.time_cost=}\n "
+            + f"{self.power_cost=}\n "
+        )
+
+
+
+class Stack:
+    def __init__(
+        self,
+        stack_id,
+        parents,
+        input_shapes,
+        output_shapes,
+        opp=None,
+        relay_node=None,
+        node_stack=None,
+    ):
+        self.stack_id = stack_id
+        self.parents = parents
+        self.input_shapes = input_shapes
+        self.output_shapes = output_shapes
+        self.opp = (
+            opp
+            if relay_node is None
+            else (
+                self._find_opp(relay_node["attrs"]["func_name"])
+                if "attrs" in relay_node
+                else "null"
+            )
+        )
+        self.node_stack = (
+            node_stack
+            if relay_node is None
+            else [Node(alg, self) for alg, info in oc.hardware_algs.items() if self.opp == info[0]]
+        )
+        self.node_selection = None
+
+    def _find_opp(self, func_name):
+        """
+        func_name(srt) - whole tvm function name
+        returns (srt) - last collection of letters, which is the name
+        """
+        name_parts = func_name.split("_")
+        for part in reversed(name_parts):
+            try:
+                int(part)
+                continue
+            except ValueError:
+                return part
+
+    def __str__(self):
+        return (
+            f"{self.stack_id=}\n"
+            + f"{self.parents=}\n "
+            + f"{self.input_shapes=}\n "
+            + f"{self.output_shapes=}\n "
+            + f"{self.opp=}\n "
+            + f"{len(self.node_stack)=}\n "
+            + f"{self.node_selection=}\n "
+        )
+
+
 
 class StackedNode:
     """represents a hypernode in the dependancy graph. A collection of nodes
