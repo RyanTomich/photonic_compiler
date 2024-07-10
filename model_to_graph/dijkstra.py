@@ -253,7 +253,7 @@ def scheduling_dijkstra(graph):
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.node_list)}
     que = []
     for stack_id in graph.in_nodes:
-        que.append((graph.id_to_idx[stack_id],))
+        que.append( (graph.id_to_idx[stack_id],) )
 
     while que:
         # select the one that can be done the soonest, parents with the earlies end time
@@ -324,29 +324,41 @@ def scheduling_dijkstra(graph):
     return oc.available_hardware
 
 
-def schdeule_nodes(graph, subgraphs): # TODO bert in-to-out issues
+def schdeule_nodes(subgraphs): # TODO bert in-to-out issues
     """
-    merges scheduled subgraph nodes back to main graph
-    Schedules in and out nodes
+    merges subgraphs
+    schedules in and out nodes
     graph = StackedGraph object, original graph
     subgraphs = Subgraph of
     """
-    # merge subgraphs back to main graph
+    # Schedule subgraphs and merge
     oc.initilize_hardware()
+
     break_points = []
+    nodes_seen = set()
+    full_node_list = []
     for subgraph in subgraphs:
         hardware_times = scheduling_dijkstra(subgraph)
 
         # merging subgraphs to main
         for node in subgraph.node_list:
-            original_node = graph.get_node_obj(node.stack_id)
-            original_node.hardware_selection = node.hardware_selection
-            original_node.start_time = node.start_time
+            if node.algorithm != 'start' and node.stack_id not in nodes_seen:
+                if 0 in node.parents:
+                    node.parents.remove(0)
+                full_node_list.append(node)
+                nodes_seen.add(node.stack_id)
 
         hardware_synchronize()
         break_points.append(
             max(max(inner_dict.values()) for inner_dict in hardware_times.values())
         )
+
+
+    for node in full_node_list:
+        if 0 in node.parents:
+            print(node)
+
+    graph = sg.Graph(full_node_list)
 
     cur_time = max(max(inner_dict.values()) for inner_dict in hardware_times.values())
 
@@ -388,7 +400,7 @@ def schdeule_nodes(graph, subgraphs): # TODO bert in-to-out issues
         node_obj.hardware_selection = "memory"
 
     print('... Nodes Schdeuled ...')
-    return round(cur_time, 5), break_points
+    return graph, round(cur_time, 5), break_points
 
 
 # endregion

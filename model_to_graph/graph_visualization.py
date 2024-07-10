@@ -124,7 +124,7 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
         color_map[(task, label)] = colors(idx)
 
 
-    fig, ax = plt.subplots(figsize=(30, 3))
+    fig, ax = plt.subplots(figsize=(60, 10))
 
     # Iterate over each row in the dataframe and plot a horizontal line
     for index, row in df.iterrows():
@@ -145,6 +145,9 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
         ax.set_title(f'Task Schedule all')
     ax.grid(True)
     # ax.legend()
+
+    # x_ticks = np.arange(start=float(xlim_start), stop=float(xlim_end), step=float(1e-8 / 10))
+    # ax.set_xticks(x_ticks)
 
     # if xlim_start is not None and xlim_end is not None:
     #     ax.set_xlim(xlim_start, xlim_end)

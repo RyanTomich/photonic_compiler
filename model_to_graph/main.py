@@ -16,10 +16,8 @@ graph = sg.StackGraph(raw_json=raw_json)
 stacked_subgraphs = list(dijk.graph_partition(graph))
 flat_subgraphs = dijk.select_nodes(stacked_subgraphs)
 expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
-
-
-
-# end_time, break_points = dijk.schdeule_nodes(flat_graph, flat_subgraphs)
+scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(expanded_flat_subgraphs)
+print(len(scheduled_flat_graph.node_list))
 
 # for stack in flat_graph.node_list:
 #     assert stack.hardware_selection is not None

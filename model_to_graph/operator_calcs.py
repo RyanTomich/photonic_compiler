@@ -1,68 +1,5 @@
 import numpy as np
 
-# region ### Depracated
-
-# run_cpu_cycles = {
-#     'add':      all_elm,
-#     'subtract': all_elm,
-#     'multiply': all_elm,
-#     'divide':   all_elm,
-#     'sqrt':     all_elm,
-#     'rsqrt':    all_elm,
-#     'tanh':     lambda i, o: {"CPU": ten_elm(o[0])*4}, #e^x definition
-#     'power':    all_elm,
-#     'transpose':all_elm,
-#     'nop':      constnat(0),
-#     'less':     constnat(1),
-#     'take':     constnat(1),
-#     'split':    constnat(3),
-#     'mean':     lambda i, o: {"CPU":(i[0][-1]+1)* i[0][-2]},
-#     'softmax':  lambda i, o: {"CPU": ten_elm(o[0])*6},
-#     'matmul':   lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},
-#     'dense':    lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},
-#     'pack':     lambda i, o: {"CPU": ten_elm(i[0])*i[1][-2]*2},
-#     'where':    constnat(1),
-# }
-
-# run_phu_cycles = {
-#     'matmul':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
-#     'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
-#     'dense':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
-#     'pack':  lambda i, o: {"PHU": ten_elm(i[0])*i[1][-2]},
-# }
-
-# cycle_funcions = {"run_cpu": run_cpu_cycles, "run_phu": run_phu_cycles}
-
-
-# def opp_time_func(opp, input_shapes, output_shapes, hardware_config):
-#     '''
-#     get the total clock cycles for each hardware choice
-#     opp(srt)
-#     input_shapes(list of list)
-#     output_shapes(list of list)
-#     run_hardware[str]: which hardware to run computation.
-
-#     matriceis representing cost of hardware choice
-#     ["CPU", #, # ...]
-
-#     [
-#         ["CPU", #, # ...]
-#         ["PHU", #, # ...]
-#     ]
-#     '''
-#     opp_cycle_dict = cycle_funcions[hardware_config]
-
-#     if opp in opp_cycle_dict:
-#         cycles_dict = opp_cycle_dict[opp](input_shapes, output_shapes)
-#         time_total = 0
-#         for hardware, cycles in cycles_dict.items():
-#             time_total += cycle_to_time_funcs[hardware](cycles)
-#         return time_total
-
-#     return np.inf
-
-# endregion
-
 # Time Estamates
 def phu_matmul_task_para_time(i,o):
     cores_per_partition = int(PHU_CORES)
@@ -85,7 +22,7 @@ def creat_available_hardware(hardware_dict):
 
 def initilize_hardware():
     global available_hardware
-    available_hardware = creat_available_hardware({"CPU": CPU_CORES, "PHU": PHU_PARTITIONS})
+    available_hardware = creat_available_hardware({"CPU": CPU_CORES, "PHU": PHU_CORES, "SRAM": 1})
 
 
 def ten_elm(tensor_shape):
@@ -118,10 +55,9 @@ NODE_COUNT = 0
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
-PHU_CORES = 32
-PHU_MULTIPLEX = 20
+PHU_CORES = 64
+PHU_MULTIPLEX = 32
 CPU_CORES = 8
-PHU_PARTITIONS = 1
 
 DRAM_SRAM_WIDTH = 256  # bits per cycle
 SRAM_OVERHEAD = 5  # electronic cycles
