@@ -5,6 +5,7 @@ import stacked_graph as sg
 
 import testing as test
 import operator_calcs as oc
+import photonic_algorithms as pa
 
 # region ###### Rolling Dijkstra for embeded branched stacked graphs ######
 
@@ -409,7 +410,33 @@ def schdeule_nodes(graph, subgraphs): # TODO bert in-to-out issues
 # endregion
 
 
-# region ###### memory ######
+# region ###### Node Expansion ######
+
+def matmul_graph(node):
+    m1, m2 = node.input_shapes
+    dot_products = list(pa.nd_tensor_product(m1, m2))
+    print(len(dot_products))
+
+
+
+def expand_nodes(flat_graph, flat_subgraphs):
+    new_node_list = [node for node in flat_graph.node_list]
+    for node in new_node_list:
+        if node.algorithm in {'dense_phu','pack_phu', 'matmul_phu'}:
+            replacement_nodes = matmul_graph(node)
+
+            # # fix node parrents
+            # node.parrents
+
+            # # fix node childrn
+            # node_idx = flat_graph.id_to_idx(node.stack_id)
+            # child_nodes = flat_graph.get_stack_neighbors(node_idx)
+
+
+# endregion
+
+
+# region ###### memory ###### # TODO make work with Node, Stack and Graph
 def get_memory_profile(graph):
     dram = []  # (time, bits)
     dram_total = 0

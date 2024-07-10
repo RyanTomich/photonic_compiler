@@ -108,6 +108,7 @@ CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
 PHU_CORES = 32
+PHU_MULTIPLEX = 20
 CPU_CORES = 8
 PHU_PARTITIONS = 1
 
@@ -189,12 +190,9 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
         "PHU",
         func,
         phu_matmul_time,
-        # lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]},
     ),
     "dense_phu": ("dense", "PHU", func, phu_matmul_time),
     "pack_phu": ("pack", "PHU", func, phu_matmul_time),
-    # "dense_phu": ("dense", "PHU", func, lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]}),
-    # "pack_phu": ("pack", "PHU", func, lambda i, o: {"PHU": ten_elm(i[0]) * i[1][-2]}),
     "get_dram": (
         "null",
         "SRAM",

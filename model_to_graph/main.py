@@ -15,11 +15,17 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
 graph = sg.StackGraph(raw_json=raw_json)
 stacked_subgraphs = list(dijk.graph_partition(graph))
 flat_graph, flat_subgraphs = dijk.select_nodes(graph, stacked_subgraphs)
-end_time, break_points = dijk.schdeule_nodes(flat_graph, flat_subgraphs)
 
-for stack in flat_graph.node_list:
-    assert stack.hardware_selection is not None
-print('... ALL hardware selected ...')
+# for node in flat_graph.node_list:
+#     if node.algorithm in {'dense_phu','pack_phu', 'matmul_phu'}:
+#         print(node)
+
+flat_graph, flat_subgraphs = dijk.expand_nodes(flat_graph, flat_subgraphs)
+# end_time, break_points = dijk.schdeule_nodes(flat_graph, flat_subgraphs)
+
+# for stack in flat_graph.node_list:
+#     assert stack.hardware_selection is not None
+# print('... ALL hardware selected ...')
 
 
 # schedule_data = graph.create_schedule_data()
