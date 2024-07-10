@@ -8,6 +8,7 @@ class Node:
 
     def __init__(self, algorithm, stack):
         self.algorithm = algorithm
+        self.stack = stack
         self.stack_id = stack.stack_id
         self.parents = stack.parents
         self.input_shapes = stack.input_shapes
@@ -200,6 +201,7 @@ class StackGraph(Graph):
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_stacks()
         super().__init__(self.stack_list)
+        assert self.node_list == self.stack_list
         print("... Graph Made ...")
 
     def _create_stacks(self):
@@ -223,6 +225,8 @@ class StackGraph(Graph):
             stacks.append(
                 Stack(index, parents, input_shapes, output_shapes, relay_node=node)
             )
+
+        oc.NODE_COUNT = max(oc.NODE_COUNT, index)
         return stacks
 
     # adj_matrix

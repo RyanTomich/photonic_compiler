@@ -1,4 +1,7 @@
+import copy
+
 import operator_calcs as oc
+import stacked_graph as sg
 
 # Create Dot Products
 def matmul(m1, m2, preamble):
@@ -14,7 +17,7 @@ def matmul(m1, m2, preamble):
     """
     for row in range(m1[-2]):
         for col in range(m2[-2]):
-            yield (preamble + (row, ':'), preamble + (col, ':'), m1[-1]) # (v1, v2, size)
+            yield ((1,) + preamble + (row, ':'), (2,) + preamble + (col, ':'), m1[-1]) # (m1.v1, m2.v2, size)
             # yield f'm1{preamble + [row, ':']} * m2{preamble + [col, ':']}  -  {m1[-1]}'
 
 def nd_tensor_product(m1, m2, preamble = ()):
@@ -36,7 +39,7 @@ def nd_tensor_product(m1, m2, preamble = ()):
             yield from nd_tensor_product(m1[1:], m2[1:], preamble=preamble)
             preamble = preamble[:-1]
 
-def multiplex_groups(common_operand, unique_operands):
+def multiplex_groups(size, common_operand, unique_operands):
     full = int(len(unique_operands)/oc.PHU_MULTIPLEX)
     start = 0
     end = oc.PHU_MULTIPLEX
@@ -48,17 +51,36 @@ def multiplex_groups(common_operand, unique_operands):
     assert end >= len(unique_operands)
     if len(unique_operands)%oc.PHU_MULTIPLEX:
         assert end > len(unique_operands)
-        yield (common_operand, unique_operands[start:])
+        yield (size, common_operand, unique_operands[start:])
 
 
+def task_para_node_gen(node, size, common_operand, unique_operands):
+    """takes group of dot dot products and creates list of nodes for a computational graph
 
-
-def task_para_node_gen(common_operand, unique_operands):
+    Args:
+        size (int): lenth of each dorproduct
+        common_operand (tup): m1()
+        unique_operands (_type_): _description_
+    """
     # unique = {}
-    for multiplex in multiplex_groups(common_operand, unique_operands):
+    subnodes = []
+    for multiplex in multiplex_groups(size, common_operand, unique_operands):
         # dot = f'{multiplex[0]} - {len(multiplex[1])}'
         # unique.setdefault(dot, 0)
         # unique[dot] += 1
+
+        subnode = sg.Node('dot_prod_phu', node.stack)
+        subnode.parrents = node.stack_id + 0.1
+        subnode.input_shapes = [[1, size], [1, size]]
+        subnode.output_shapes = [[1,1]]
+
+        oc.NODE_COUNT += 1
+        subnode.stack_id = oc.NODE_COUNT
+        subnodes.append(subnode)
+
+    return subnodes
+
+
 
 
 def dynamic_para_node_gen(common_operand, unique_operands):

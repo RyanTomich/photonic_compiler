@@ -63,6 +63,15 @@ import numpy as np
 
 # endregion
 
+# Time Estamates
+def phu_matmul_task_para_time(i,o):
+    cores_per_partition = int(PHU_CORES)
+    return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
+
+def phu_matmul_dynamic_para_time(i,o):
+    cores_per_partition = int(PHU_CORES)
+    return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
+
 
 def creat_available_hardware(hardware_dict):
     hardware = {}
@@ -104,6 +113,8 @@ def func():
 
 
 # Constants
+NODE_COUNT = 0
+
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
@@ -130,13 +141,6 @@ def all_elm(i, o):
 
 def constnat(c):
     return lambda i, o: {"CPU": c}
-
-
-def phu_matmul_time(i,o):
-    cores_per_partition = int(PHU_CORES/PHU_PARTITIONS)
-    return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
-    # return {'CPU': 50, "PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
-
 
 hardware_algs = {  # name: (opp, hardware, func, cycles)
     "add": ("add", "CPU", func, all_elm),
@@ -185,14 +189,14 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
     ),
     "where": ("where", "CPU", func, constnat(1)),
     "erf": ("erf", "CPU", func, constnat(1)),  # Bert cumulative distribution function??
-    "matmul_phu": (
-        "matmul",
-        "PHU",
-        func,
-        phu_matmul_time,
-    ),
-    "dense_phu": ("dense", "PHU", func, phu_matmul_time),
-    "pack_phu": ("pack", "PHU", func, phu_matmul_time),
+
+    "task_para_matmul_phu": ("matmul","PHU",func,phu_matmul_task_para_time),
+    "dynamic_para_matmul_phu": ("matmul","PHU",func,phu_matmul_dynamic_para_time),
+    "task_para_dense_phu": ("dense", "PHU", func, phu_matmul_task_para_time),
+    "dynamic_para_dense_phu": ("dense", "PHU", func, phu_matmul_dynamic_para_time),
+    "task_para_pack_phu": ("pack", "PHU", func, phu_matmul_task_para_time),
+    "dynamic_para_pack_phu": ("pack", "PHU", func, phu_matmul_dynamic_para_time),
+
     "get_dram": (
         "null",
         "SRAM",
@@ -205,6 +209,15 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
         func,
         constnat(1),
     ),  # Here for mock start nodes in optimization.
+
+    "ghost": (
+        "ghost",
+        "start",
+        func,
+        constnat(0),
+    ),
+
+    'dot_prod_phu': ('dot_prod', 'PHU', func, lambda i, o: {'PHU': i[0][-1]}),
 }
 
 

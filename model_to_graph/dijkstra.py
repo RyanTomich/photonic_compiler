@@ -203,14 +203,12 @@ def rolling_dijkstra(graph):
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
 
 
-def select_nodes(graph, subgraphs):
-    """apply roling_dijkstra to each subgraph. Then apply those selections to the nodes
-    of the original graph.
+def select_nodes(subgraphs):
+    """apply roling_dijkstra to each subgraph.
     graph: StackedGraph
     subgraph: StackedGraph
     such that subgraph is a partition of graph
     """
-    assert graph.node_list == graph.stack_list
     selected_node_list = []
     done = set()
     flat_subgraphs = []
@@ -225,24 +223,10 @@ def select_nodes(graph, subgraphs):
             # for flat subgraph
             subgraph_nodes_list.append(sg.Node(selected_node.algorithm, subgraph.get_node_obj(subgraph_stack.stack_id)))
 
-            # for full flat graph
-            if subgraph_stack.opp != "start" and subgraph_stack.stack_id not in done:
-                done.add(subgraph_stack.stack_id)
-                new_node = sg.Node(
-                    selected_node.algorithm, graph.get_node_obj(subgraph_stack.stack_id)
-                )
-                selected_node_list.append(new_node)
-
-
         flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
 
-    for list in graph.in_nodes, graph.out_nodes:
-        for stack in list:
-            node_obj = graph.get_node_obj(stack)
-            selected_node_list.append(node_obj.node_stack[0])
-
     print("... Nodes selected ...")
-    return sg.Graph(selected_node_list), flat_subgraphs
+    return flat_subgraphs
 
 
 # endregion
@@ -411,26 +395,73 @@ def schdeule_nodes(graph, subgraphs): # TODO bert in-to-out issues
 
 
 # region ###### Node Expansion ######
+def group_dot_products(m1, m2):
+    """given to tensors, returns dotproducts grouped by most common vector used
+
+    Args:
+        m1 (tuple): m1 shape
+        m2 (tuple): m2 shape
+
+    Returns:
+        dict: common_opperand: [unique_operands]
+    """
+    groups = {}
+    if m1[-2] <= m2[-2]: # a <= c in axb @ bxc
+        for dot_prod in pa.nd_tensor_product(m1, m2):
+            groups.setdefault(dot_prod[0], (dot_prod[2],[])) [1].append(dot_prod[1])
+    else: # a > c
+        for dot_prod in pa.nd_tensor_product(m1, m2):
+            groups.setdefault(dot_prod[1], (dot_prod[2],[])) [1].append(dot_prod[0])
+    return groups
+
+
 
 def matmul_graph(node):
+    """given a photonic node, create expanded computational graph to replace it
+
+    Args:
+        node (Node): Photonic algorithm
+    """
     m1, m2 = node.input_shapes
-    dot_products = list(pa.nd_tensor_product(m1, m2))
-    print(len(dot_products))
+    dot_prod_groups = group_dot_products(m1, m2)
+
+    start_node = sg.Node("ghost", node.stack)
+    start_node.stack_id += 0.1
+    start_node.output_shapes = []
+
+    end_node = sg.Node("ghost", node.stack)
+    end_node.stack_id += 0.2
+    end_node.parents = {}
+    end_node.input_shapes = []
+
+    node_expansion_func = pa.node_expansion[node.algorithm]
+    subnodes = []
+    for common_operand, operand_info in dot_prod_groups.items():
+        subnodes += node_expansion_func(node, operand_info[0], common_operand, operand_info[1]) #(size, common, unique)
+
+    end_node.parents = {subnode.stack_id for subnode in subnodes}
+    return [start_node, end_node] + subnodes
 
 
 
-def expand_nodes(flat_graph, flat_subgraphs):
-    new_node_list = [node for node in flat_graph.node_list]
-    for node in new_node_list:
-        if node.algorithm in {'dense_phu','pack_phu', 'matmul_phu'}:
-            replacement_nodes = matmul_graph(node)
+def expand_nodes(flat_subgraphs):
+    """given a flat_graph, replace all photonic nodes with their complete subgraphs
 
-            # # fix node parrents
-            # node.parrents
+    Args:
+        flat_graph (Graph): entire Computation
+        flat_subgraphs (Graph):
+    """
+    for subgraph in flat_subgraphs:
+        for node in subgraph.node_list:
+            if node.algorithm in pa.node_expansion:
+                replacement_nodes = matmul_graph(node)
 
-            # # fix node childrn
-            # node_idx = flat_graph.id_to_idx(node.stack_id)
-            # child_nodes = flat_graph.get_stack_neighbors(node_idx)
+                # # fix node parrents
+                # node.parrents
+
+                # # fix node childrn
+                # node_idx = flat_graph.id_to_idx(node.stack_id)
+                # child_nodes = flat_graph.get_stack_neighbors(node_idx)
 
 
 # endregion
