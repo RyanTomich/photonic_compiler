@@ -425,22 +425,24 @@ def matmul_graph(node):
     m1, m2 = node.input_shapes
     dot_prod_groups = group_dot_products(m1, m2)
 
-    start_node = sg.Node("ghost", node.stack)
-    start_node.stack_id -= 0.1
-    # start_node.output_shapes = []
+    split_node = sg.Node("split", node.stack)
+    split_node.stack_id -= 0.1
+    split_node.output_shapes = []
 
-    end_node = sg.Node("ghost", node.stack)
-    end_node.stack_id += 0.1
-    end_node.parents = {}
-    # end_node.input_shapes = []
+    merge_node = sg.Node("split", node.stack)
+    merge_node.stack_id += 0.1
+    merge_node.parents = {}
+    merge_node.input_shapes = []
 
     node_expansion_func = pa.node_expansion[node.algorithm]
     subnodes = []
     for common_operand, operand_info in dot_prod_groups.items():
-        subnodes += node_expansion_func(node, operand_info[0], common_operand, operand_info[1]) #(size, common, unique)
+        subnodes += node_expansion_func(node, operand_info[0], common_operand, operand_info[1]) #(node, size, common, unique)
+        split_node.output_shapes.append( [2,operand_info[0]] )
+        merge_node.input_shapes.append( [2,operand_info[0]] )
 
-    end_node.parents = {subnode.stack_id for subnode in subnodes}
-    return [start_node, end_node] + subnodes
+    merge_node.parents = {subnode.stack_id for subnode in subnodes}
+    return [split_node, merge_node] + subnodes
 
 
 def update_children(graph, node_idx):

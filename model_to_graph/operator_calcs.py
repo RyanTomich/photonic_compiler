@@ -156,7 +156,7 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
     "nop": ("nop", "CPU", func, constnat(1)),
     "less": ("less", "CPU", func, constnat(1)),
     "take": ("take", "CPU", func, constnat(1)),
-    "split": ("split", "CPU", func, constnat(3)),
+    "split": ("split", "SRAM", func, constnat(3)),
     "mean": (
         "mean",
         "CPU",
@@ -210,13 +210,6 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
         constnat(1),
     ),  # Here for mock start nodes in optimization.
 
-    "ghost": (
-        "ghost",
-        "start",
-        func,
-        constnat(0),
-    ),
-
     'dot_prod_phu': ('dot_prod', 'PHU', func, lambda i, o: {'PHU': i[0][-1]}),
 }
 
@@ -234,12 +227,12 @@ def hw_intercon(hardware, bits):
 
 
 hw_intercon_dict = {
-    ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD
-    / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
+    ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
     ("PHU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
     ("SRAM", "SRAM"): lambda x: np.inf,
-    # Here for mock start nodes in optimization.
-    ("CPU", "start"): lambda x: 0,  # DRAM to SRAM
+
+    # mock start nodes in optimization.
+    ("CPU", "start"): lambda x: 0,
     ("PHU", "start"): lambda x: 0,
     ("start", "start"): lambda x: np.inf,
 }
