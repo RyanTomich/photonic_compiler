@@ -426,13 +426,13 @@ def matmul_graph(node):
     dot_prod_groups = group_dot_products(m1, m2)
 
     start_node = sg.Node("ghost", node.stack)
-    start_node.stack_id += 0.1
-    start_node.output_shapes = []
+    start_node.stack_id -= 0.1
+    # start_node.output_shapes = []
 
     end_node = sg.Node("ghost", node.stack)
-    end_node.stack_id += 0.2
+    end_node.stack_id += 0.1
     end_node.parents = {}
-    end_node.input_shapes = []
+    # end_node.input_shapes = []
 
     node_expansion_func = pa.node_expansion[node.algorithm]
     subnodes = []
@@ -443,6 +443,12 @@ def matmul_graph(node):
     return [start_node, end_node] + subnodes
 
 
+def update_children(graph, node_idx):
+    node_obj = graph.node_list[node_idx]
+    for child_idx in graph.get_stack_neighbors(node_idx):
+        child_obj = graph.node_list[child_idx]
+        child_obj.parents = [parent+0.1 if parent == node_obj.stack_id else parent for parent in child_obj.parents]
+
 
 def expand_nodes(flat_subgraphs):
     """given a flat_graph, replace all photonic nodes with their complete subgraphs
@@ -451,19 +457,24 @@ def expand_nodes(flat_subgraphs):
         flat_graph (Graph): entire Computation
         flat_subgraphs (Graph):
     """
+    new_subgraphs = []
     for subgraph in flat_subgraphs:
-        for node in subgraph.node_list:
+        new_subgraph_node_list = []
+
+        # add replacement nodes
+        for node_idx, node in enumerate(subgraph.node_list):
             if node.algorithm in pa.node_expansion:
                 replacement_nodes = matmul_graph(node)
+                new_subgraph_node_list += replacement_nodes
+                update_children(subgraph, node_idx)
 
-                # # fix node parrents
-                # node.parrents
+        # add rest, some have been modified
+        for node_idx, node in enumerate(subgraph.node_list):
+            if node.algorithm not in pa.node_expansion:
+                new_subgraph_node_list.append(node)
 
-                # # fix node childrn
-                # node_idx = flat_graph.id_to_idx(node.stack_id)
-                # child_nodes = flat_graph.get_stack_neighbors(node_idx)
-
-
+        new_subgraphs.append(sg.Graph(new_subgraph_node_list))
+    return new_subgraphs
 # endregion
 
 

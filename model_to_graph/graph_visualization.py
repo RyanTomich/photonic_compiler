@@ -87,7 +87,7 @@ def adj_to_graph(graph, ax, save=False, layout = 'shell', title ='Graph Visualiz
         pos = nx.kamada_kawai_layout(G, dist=lengths)
     elif layout == 'spring':
         # pos = nx.spring_layout(G, k=0.1, iterations=10)
-        pos = nx.spring_layout(G, weight='weight', k=0.1, iterations=10)
+        pos = nx.spring_layout(G, weight='weight', k=0.3, iterations=10)
 
     nx.draw(G, pos, with_labels=True,labels=labels, node_color=[colors[node] for node in G.nodes], edge_color='gray', node_size=200, font_size=5, ax=ax)
     ax.set_title(title)

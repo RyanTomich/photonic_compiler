@@ -70,7 +70,7 @@ def task_para_node_gen(node, size, common_operand, unique_operands):
         # unique[dot] += 1
 
         subnode = sg.Node('dot_prod_phu', node.stack)
-        subnode.parrents = node.stack_id + 0.1
+        subnode.parents = [node.stack_id - 0.1]
         subnode.input_shapes = [[1, size], [1, size]]
         subnode.output_shapes = [[1,1]]
 
