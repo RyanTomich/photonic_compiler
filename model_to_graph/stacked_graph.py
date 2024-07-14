@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import operator_calcs as oc
+import testing as test
 
 
 class Node:
@@ -22,7 +23,7 @@ class Node:
         self.start_time = None
 
     def __str__(self):
-        return(
+        return (
             f"{self.algorithm}\n"
             + f"{self.stack_id}\n"
             + f"{self.parents}\n"
@@ -104,6 +105,7 @@ class Stack:
 
 class Graph:
     def __init__(self, node_list):
+        test.node_list_complete(node_list)
         self.node_list = node_list
         self.id_to_idx = {v.stack_id: i for i, v in enumerate(self.node_list)}
         self.in_nodes = self._get_in()
@@ -217,7 +219,7 @@ class StackGraph(Graph):
         stacks = []
         for index, node in enumerate(self.raw_json["nodes"]):
             num_output = int(node["attrs"]["num_outputs"]) if "attrs" in node else 1
-            parents = [shape_idx[0] for shape_idx in node["inputs"]]
+            parents = {shape_idx[0] for shape_idx in node["inputs"]}
             input_shapes = [
                 ajusted_shapes[shape_idx[0]] for shape_idx in node["inputs"]
             ]

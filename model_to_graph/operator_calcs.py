@@ -1,11 +1,13 @@
 import numpy as np
 
+
 # Time Estamates
-def phu_matmul_task_para_time(i,o):
+def phu_matmul_task_para_time(i, o):
     cores_per_partition = int(PHU_CORES)
     return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
 
-def phu_matmul_dynamic_para_time(i,o):
+
+def phu_matmul_dynamic_para_time(i, o):
     cores_per_partition = int(PHU_CORES)
     return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
 
@@ -22,7 +24,9 @@ def creat_available_hardware(hardware_dict):
 
 def initilize_hardware():
     global available_hardware
-    available_hardware = creat_available_hardware({"CPU": CPU_CORES, "PHU": PHU_CORES, "SRAM": 1})
+    available_hardware = creat_available_hardware(
+        {"CPU": CPU_CORES, "PHU": PHU_CORES, "SRAM": 1}
+    )
 
 
 def ten_elm(tensor_shape):
@@ -78,6 +82,7 @@ def all_elm(i, o):
 def constnat(c):
     return lambda i, o: {"CPU": c}
 
+
 hardware_algs = {  # name: (opp, hardware, func, cycles)
     "add": ("add", "CPU", func, all_elm),
     "subtract": ("subtract", "CPU", func, all_elm),
@@ -125,17 +130,15 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
     ),
     "where": ("where", "CPU", func, constnat(1)),
     "erf": ("erf", "CPU", func, constnat(1)),  # Bert cumulative distribution function??
-
-    "task_para_matmul_phu": ("matmul","PHU",func,phu_matmul_task_para_time),
-    "dynamic_para_matmul_phu": ("matmul","PHU",func,phu_matmul_dynamic_para_time),
+    "task_para_matmul_phu": ("matmul", "PHU", func, phu_matmul_task_para_time),
+    "dynamic_para_matmul_phu": ("matmul", "PHU", func, phu_matmul_dynamic_para_time),
     "task_para_dense_phu": ("dense", "PHU", func, phu_matmul_task_para_time),
     "dynamic_para_dense_phu": ("dense", "PHU", func, phu_matmul_dynamic_para_time),
     "task_para_pack_phu": ("pack", "PHU", func, phu_matmul_task_para_time),
     "dynamic_para_pack_phu": ("pack", "PHU", func, phu_matmul_dynamic_para_time),
-
     "get_dram": (
         "null",
-        "SRAM",
+        "DRAM",
         func,
         lambda i, o: {"DRAM": ten_elm(i) * BITS_PER_NUM / DRAM_SRAM_WIDTH},
     ),
@@ -145,8 +148,7 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
         func,
         constnat(1),
     ),  # Here for mock start nodes in optimization.
-
-    'dot_prod_phu': ('dot_prod', 'PHU', func, lambda i, o: {'PHU': i[0][-1]}),
+    "dot_prod_phu": ("dot_prod", "PHU", func, lambda i, o: {"PHU": i[0][-1]}),
 }
 
 
@@ -163,10 +165,11 @@ def hw_intercon(hardware, bits):
 
 
 hw_intercon_dict = {
-    ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
+    ("DRAM", "SRAM"): lambda x: 10 / CPU_CLOCK_SPEED,
+    ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD
+    / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
     ("PHU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
     ("SRAM", "SRAM"): lambda x: np.inf,
-
     # mock start nodes in optimization.
     ("CPU", "start"): lambda x: 0,
     ("PHU", "start"): lambda x: 0,

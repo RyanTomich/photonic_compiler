@@ -221,7 +221,12 @@ def select_nodes(subgraphs):
             selected_node = subgraph_stack.node_stack[subgraph_stack.node_selection]
 
             # for flat subgraph
-            subgraph_nodes_list.append(sg.Node(selected_node.algorithm, subgraph.get_node_obj(subgraph_stack.stack_id)))
+            subgraph_nodes_list.append(
+                sg.Node(
+                    selected_node.algorithm,
+                    subgraph.get_node_obj(subgraph_stack.stack_id),
+                )
+            )
 
         flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
 
@@ -253,7 +258,7 @@ def scheduling_dijkstra(graph):
     indegree = {idx: len(stack.parents) for idx, stack in enumerate(graph.node_list)}
     que = []
     for stack_id in graph.in_nodes:
-        que.append( (graph.id_to_idx[stack_id],) )
+        que.append((graph.id_to_idx[stack_id],))
 
     while que:
         # select the one that can be done the soonest, parents with the earlies end time
@@ -274,9 +279,7 @@ def scheduling_dijkstra(graph):
             if neighbor not in visited and indegree[neighbor] == 0:
                 neighbor_node = graph.node_list[neighbor]
 
-                hardware_type = oc.hardware_algs[
-                    neighbor_node.algorithm
-                ][1]
+                hardware_type = oc.hardware_algs[neighbor_node.algorithm][1]
 
                 parent_end = [end_times[parent] for parent in neighbor_node.parents]
                 max_parent_end = max(parent_end)
@@ -321,10 +324,91 @@ def scheduling_dijkstra(graph):
                 visited.add(neighbor)
                 end_times[neighbor_node.stack_id] = new_time
                 que.append(cur_path + (neighbor,))
-    return oc.available_hardware
 
 
-def schdeule_nodes(subgraphs): # TODO bert in-to-out issues
+def time_shift(graph, time):
+    for node in graph.node_list:
+        node.start_time += time
+        assert node.start_time >= 0, "start times not all positive"
+
+    for sub_dict in oc.available_hardware.values():
+        for key in sub_dict:
+            sub_dict[key] += time
+
+
+def add_in_out(original_graph, node_list):
+    all_nodes = set()
+
+    # input_nodes
+    for node in node_list:
+        all_nodes.add(node.stack_id)
+        if node.algorithm is not "dot_prod_phu":
+            if (
+                node.stack_id in original_graph.id_to_idx
+                or node.stack_id + 0.1 in original_graph.id_to_idx
+            ):
+                node.parents = set(node.parents)
+                current_parents = {int(parent) for parent in node.parents}
+                parents_added = (
+                    original_graph.get_node_obj(round(node.stack_id)).parents
+                    - current_parents
+                )
+                node.parents.update(parents_added)
+
+    for input in original_graph.in_nodes:
+        new_node = original_graph.get_node_obj(input).node_stack[0]
+        node_list.append(new_node)
+
+    # output_nodes
+    for out_node in original_graph.out_nodes:
+        out_nod_obj = original_graph.get_node_obj(out_node)
+        new_parents = []
+        for parent in out_nod_obj.parents:
+            if parent in all_nodes:
+                new_parents.append(parent)
+            else:
+                new_parents.append(parent + 0.1)
+
+        new_node = out_nod_obj.node_stack[0]
+        new_node.parents = new_parents
+        node_list.append(new_node)
+
+    assert test.node_list_complete(node_list)
+
+
+def schedule_in_out(graph):
+    # schedule in_nodes
+    min_start_time = np.inf
+    for node in graph.in_nodes:
+        node_obj = graph.get_node_obj(node)
+        child = [
+            (idx, cost)
+            for idx, cost in enumerate(graph.adj_matrix[graph.id_to_idx[node]])
+            if cost is not None
+        ][0]
+        child_obj = graph.node_list[child[0]]
+
+        node_obj.start_time = child_obj.start_time - child[1] - node_obj.time_cost
+        min_start_time = min(min_start_time, node_obj.start_time)
+        node_obj.hardware_selection = "memory"
+
+    # schedule out_nodes
+    for node in graph.out_nodes:
+        node_obj = graph.get_node_obj(node)
+        parents = node_obj.parents
+        largest = 0
+        for parent in parents:
+            parent_obj = graph.get_node_obj(parent)
+            largest = max(largest, parent_obj.start_time + parent_obj.time_cost)
+        node_obj.start_time = largest
+        node_obj.hardware_selection = "memory"
+
+    # 0 time pass
+    if min_start_time < 0:
+        time_shift(graph, -min_start_time)
+
+
+def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
     """
     merges subgraphs
     schedules in and out nodes
@@ -338,11 +422,10 @@ def schdeule_nodes(subgraphs): # TODO bert in-to-out issues
     nodes_seen = set()
     full_node_list = []
     for subgraph in subgraphs:
-        hardware_times = scheduling_dijkstra(subgraph)
+        scheduling_dijkstra(subgraph)
 
-        # merging subgraphs to main
         for node in subgraph.node_list:
-            if node.algorithm != 'start' and node.stack_id not in nodes_seen:
+            if node.algorithm != "start" and node.stack_id not in nodes_seen:
                 if 0 in node.parents:
                     node.parents.remove(0)
                 full_node_list.append(node)
@@ -350,57 +433,35 @@ def schdeule_nodes(subgraphs): # TODO bert in-to-out issues
 
         hardware_synchronize()
         break_points.append(
-            max(max(inner_dict.values()) for inner_dict in hardware_times.values())
+            max(
+                max(inner_dict.values())
+                for inner_dict in oc.available_hardware.values()
+            )
         )
 
-
-    for node in full_node_list:
-        if 0 in node.parents:
-            print(node)
+    test.merge_i_o(full_node_list, original_graph)
+    add_in_out(original_graph, full_node_list)
 
     graph = sg.Graph(full_node_list)
-
-    cur_time = max(max(inner_dict.values()) for inner_dict in hardware_times.values())
+    schedule_in_out(graph)
 
     for node in graph.node_list:
         if node.stack_id not in graph.in_nodes and node.stack_id not in graph.out_nodes:
             assert node.hardware_selection is not None
             assert node.start_time is not None
 
-    adj_matrix = graph.adj_matrix
-
-
-    # schedule in_nodes
-    for node in graph.in_nodes:
-        node_obj = graph.get_node_obj(node)
-        child = [
-            (idx, cost) for idx, cost in enumerate(adj_matrix[graph.id_to_idx[node]]) if cost is not None
-        ][0]
-        child_obj = graph.node_list[child[0]]
-
-        node_obj.start_time = (
-            child_obj.start_time
-            - child[1]
-            - node_obj.time_cost
-        )
-        node_obj.hardware_selection = "memory"
-
-    # schedule out_nodes
-    for node in graph.out_nodes:
-        node_obj = graph.get_node_obj(node)
-        parents = node_obj.parents
-        largest = 0
-        for parent in parents:
-            parent_obj = graph.get_node_obj(parent)
-            largest = max(
-                largest,
-                parent_obj.start_time + parent_obj.time_cost
-            )
-        node_obj.start_time = largest
-        node_obj.hardware_selection = "memory"
-
-    print('... Nodes Schdeuled ...')
-    return graph, round(cur_time, 5), break_points
+    print("... Nodes Schdeuled ...")
+    return (
+        graph,
+        round(
+            max(
+                max(inner_dict.values())
+                for inner_dict in oc.available_hardware.values()
+            ),
+            5,
+        ),
+        break_points,
+    )
 
 
 # endregion
@@ -418,14 +479,13 @@ def group_dot_products(m1, m2):
         dict: common_opperand: [unique_operands]
     """
     groups = {}
-    if m1[-2] <= m2[-2]: # a <= c in axb @ bxc
+    if m1[-2] <= m2[-2]:  # a <= c in axb @ bxc
         for dot_prod in pa.nd_tensor_product(m1, m2):
-            groups.setdefault(dot_prod[0], (dot_prod[2],[])) [1].append(dot_prod[1])
-    else: # a > c
+            groups.setdefault(dot_prod[0], (dot_prod[2], []))[1].append(dot_prod[1])
+    else:  # a > c
         for dot_prod in pa.nd_tensor_product(m1, m2):
-            groups.setdefault(dot_prod[1], (dot_prod[2],[])) [1].append(dot_prod[0])
+            groups.setdefault(dot_prod[1], (dot_prod[2], []))[1].append(dot_prod[0])
     return groups
-
 
 
 def matmul_graph(node):
@@ -449,9 +509,11 @@ def matmul_graph(node):
     node_expansion_func = pa.node_expansion[node.algorithm]
     subnodes = []
     for common_operand, operand_info in dot_prod_groups.items():
-        subnodes += node_expansion_func(node, operand_info[0], common_operand, operand_info[1]) #(node, size, common, unique)
-        split_node.output_shapes.append( [2,operand_info[0]] )
-        merge_node.input_shapes.append( [2,operand_info[0]] )
+        subnodes += node_expansion_func(
+            node, operand_info[0], common_operand, operand_info[1]
+        )  # (node, size, common, unique)
+        split_node.output_shapes.append([2, operand_info[0]])
+        merge_node.input_shapes.append([2, operand_info[0]])
 
     merge_node.parents = {subnode.stack_id for subnode in subnodes}
     return [split_node, merge_node] + subnodes
@@ -461,7 +523,10 @@ def update_children(graph, node_idx):
     node_obj = graph.node_list[node_idx]
     for child_idx in graph.get_stack_neighbors(node_idx):
         child_obj = graph.node_list[child_idx]
-        child_obj.parents = [parent+0.1 if parent == node_obj.stack_id else parent for parent in child_obj.parents]
+        child_obj.parents = [
+            parent + 0.1 if parent == node_obj.stack_id else parent
+            for parent in child_obj.parents
+        ]
 
 
 def expand_nodes(flat_subgraphs):
@@ -489,6 +554,8 @@ def expand_nodes(flat_subgraphs):
 
         new_subgraphs.append(sg.Graph(new_subgraph_node_list))
     return new_subgraphs
+
+
 # endregion
 
 

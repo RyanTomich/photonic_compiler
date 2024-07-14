@@ -10,14 +10,31 @@ JSON_PATH = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # JSON_PATH = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
 with open(JSON_PATH, encoding="utf-8") as json_file:
     raw_json = json.load(json_file)  # returns json file as dict
-    print('... Json loaded ...')
+    print("... Json loaded ...")
 
 graph = sg.StackGraph(raw_json=raw_json)
+# print(len(graph.node_list))
+# a = set()
+# for node in graph.node_list:
+#     if node.opp not in ['matmul', 'dense', 'pack']:
+#         a.add(node.stack_id)
+
+# print(len(a))
+
+# b = set()
+# for node in graph.node_list:
+#     if node.stack_id not in graph.in_nodes and node.stack_id not in graph.out_nodes:
+#         b.add(node.stack_id)
+# print(len(b))
+
+
 stacked_subgraphs = list(dijk.graph_partition(graph))
 flat_subgraphs = dijk.select_nodes(stacked_subgraphs)
 expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
-scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(expanded_flat_subgraphs)
-print(len(scheduled_flat_graph.node_list))
+scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
+    graph, expanded_flat_subgraphs
+)
+print(end_time)
 
 # for stack in flat_graph.node_list:
 #     assert stack.hardware_selection is not None
@@ -34,11 +51,6 @@ print(len(scheduled_flat_graph.node_list))
 # print('... Memory profile made ...')
 
 # print(end_time)
-
-
-
-
-
 
 
 # dijk.get_energy_profile(graph, schedule_data)
