@@ -147,7 +147,7 @@ class Graph:
         if direction == "out":
             total_bits += oc.ten_elm(
                 node.output_shapes[0]
-            )  # assuming uniform outputs(splits are all the same)
+            )  # assuming uniform outputs(splits are all the same) # TODO fix this assumption...
         else:
             for shape in node.input_shapes:
                 total_bits += oc.ten_elm(shape)

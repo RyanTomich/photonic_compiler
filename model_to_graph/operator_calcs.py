@@ -1,12 +1,17 @@
 import numpy as np
+import math
 
 
 # Time Estamates
 def phu_matmul_task_para_time(i, o):
-    return {"PHU": ten_elm(i[0]) * i[1][-2] / PHU_CORES / PHU_MULTIPLEX}
+    num_dot_products = ten_elm(i[0]) / i[0][-1]
+    length_dot_products = i[0][-1]
+    compute_time = math.ceil(math.ceil(num_dot_products / PHU_MULTIPLEX) / PHU_CORES ) * length_dot_products * (1/PHU_CLOCK_SPEED)
+    return compute_time
 
 
-def phu_matmul_dynamic_para_time(i, o):
+
+def phu_matmul_dynamic_para_time(i, o): # TODO
     cores_per_partition = int(PHU_CORES)
     return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
 
@@ -158,18 +163,19 @@ def hw_intercon(hardware, bits):
     if any(i in ['start', 'SRAM'] for i in hardware):
         return hw_intercon_dict[hardware](bits)
     else: # must go through SRAM
-        # total = 0
-        # for to_sram in hardware:
-        #     total += hw_intercon_dict[(to_sram, "SRAM")](bits)
-        # return total
         return sum(hw_intercon_dict[(to_sram, "SRAM")](bits) for to_sram in hardware)
 
 
 hw_intercon_dict = {
-    ("DRAM", "SRAM"): lambda x: 10 / CPU_CLOCK_SPEED,
-    ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD
-    / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
-    ("PHU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
+    # ("DRAM", "SRAM"): lambda x: 10 / CPU_CLOCK_SPEED,
+    # ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD
+    # / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
+    # ("PHU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
+
+    ("DRAM", "SRAM"): lambda x: 1 / CPU_CLOCK_SPEED,
+    ("CPU", "SRAM"): lambda x: 1 / CPU_CLOCK_SPEED,
+    ("PHU", "SRAM"): lambda x: 1 / CPU_CLOCK_SPEED,
+
     ("SRAM", "SRAM"): lambda x: np.inf,
 
     ("CPU", "start"): lambda x: 0,

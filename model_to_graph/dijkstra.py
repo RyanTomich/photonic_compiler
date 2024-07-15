@@ -229,6 +229,8 @@ def select_nodes(subgraphs):
             )
 
         flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
+        print("...     ... Subgraph Nodes selected ...")
+
 
     print("... Nodes selected ...")
     return flat_subgraphs
@@ -562,6 +564,8 @@ def expand_nodes(flat_subgraphs):
                 new_subgraph_node_list.append(node)
 
         new_subgraphs.append(sg.Graph(new_subgraph_node_list))
+        print("...     ... sungraph Nodes Expanded ...")
+
     print('... Nodes Expanded ...')
     return new_subgraphs
 

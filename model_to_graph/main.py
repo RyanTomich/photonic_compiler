@@ -21,19 +21,6 @@ scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
     graph, expanded_flat_subgraphs
 )
 print(end_time)
-
-
-# print(scheduled_flat_graph.get_node_obj(126.1))
-# print(scheduled_flat_graph.get_node_obj(125.9))
-# for parent in scheduled_flat_graph.get_node_obj(126.1).parents:
-#     child_idx = scheduled_flat_graph.id_to_idx[126.1]
-#     parent_idx = scheduled_flat_graph.id_to_idx[parent]
-#     parent_obj = scheduled_flat_graph.get_node_obj(parent)
-    # print(f'{parent} - {scheduled_flat_graph.node_list[child_idx].stack_id}')
-    # print(f'{parent} - {scheduled_flat_graph.node_list[child_idx].stack_id}')
-    # print(f'{scheduled_flat_graph.adj_matrix[parent_idx] [child_idx]} - {parent} - {parent_obj.output_shapes[0]} ')
-
-
 schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
 test.schedule_validate(schedule_df)
 
