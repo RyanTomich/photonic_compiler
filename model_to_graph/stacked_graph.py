@@ -195,6 +195,40 @@ class Graph:
             adj_matrix[start_stack_idx][end_stack_idx] = connection
         return adj_matrix
 
+    def create_schedule_data(self, write=False):
+        """
+        returns metadata about the schedule.
+        Graph must have been scheduled first.
+        """
+        data = {
+            "hardware": [],
+            "start": [],
+            "end": [],
+            "label": [],  # Labels for the blocks
+        }
+
+        # for stack in graph.stack_list[16:-6]:
+        for node in self.node_list[1:]:
+            data["hardware"].append(node.hardware_selection)
+            data["start"].append(node.start_time)
+            data["end"].append(
+                node.start_time + node.time_cost
+            )
+            data["label"].append(node.stack_id)
+
+
+        schedule_data = pd.DataFrame(data).sort_values(by='start')
+
+
+        if write is True:
+            with open('schedule.txt', 'w') as file:
+                for index, row in schedule_data.iterrows():
+                    file.write(f"{row['label']} --- {row['hardware']} ({row['start']})\n")
+
+        print('... Schedule Data written ...')
+        return schedule_data
+
+
 
 class StackGraph(Graph):
     """Represents a Dependancy Graph of Stack Objects"""

@@ -107,11 +107,11 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
         data['start'].append(node.start_time)
         data['end'].append(node.start_time + node.time_cost)
         data['label'].append(node.stack_id)
-    print(hardware)
 
 
 
     df = pd.DataFrame(data)
+    print(df.shape)
 
     if xlim_start is not None and xlim_end is not None:
         df = df[(df['start'] >= xlim_start) & (df['end'] <= xlim_end)]
@@ -133,8 +133,8 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
         ax.hlines(y=row['task'], xmin=row['start'], xmax=row['end'], color=task_color, linewidth=20)
 
         # Adding label on the bar
-        label_text = f"{row['label']}"
-        ax.text((row['start'] + row['end']) / 2, row['task'], label_text, color='black', ha='center', va='center')
+        # label_text = f"{row['label']}"
+        # ax.text((row['start'] + row['end']) / 2, row['task'], label_text, color='black', ha='center', va='center')
 
     # Customize the plot
     ax.set_xlabel('Time')

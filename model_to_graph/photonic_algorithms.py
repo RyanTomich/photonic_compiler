@@ -44,7 +44,7 @@ def multiplex_groups(size, common_operand, unique_operands):
     start = 0
     end = oc.PHU_MULTIPLEX
     for i in range(full):
-        yield (common_operand, unique_operands[start:end])
+        yield (size, common_operand, unique_operands[start:end])
         start = end
         end += oc.PHU_MULTIPLEX
 
@@ -53,26 +53,23 @@ def multiplex_groups(size, common_operand, unique_operands):
         assert end > len(unique_operands)
         yield (size, common_operand, unique_operands[start:])
 
-
 def task_para_node_gen(node, size, common_operand, unique_operands):
     """takes group of dot dot products and creates list of nodes for a computational graph
 
     Args:
         size (int): lenth of each dorproduct
         common_operand (tup): m1()
-        unique_operands (_type_): _description_
+        unique_operands (list): list of m2()
     """
-    # unique = {}
     subnodes = []
     for multiplex in multiplex_groups(size, common_operand, unique_operands):
-        # dot = f'{multiplex[0]} - {len(multiplex[1])}'
-        # unique.setdefault(dot, 0)
-        # unique[dot] += 1
+        size, common_operand, unique_subset = multiplex
 
         subnode = sg.Node('dot_prod_phu', node.stack)
         subnode.parents = [node.stack_id - 0.1]
-        subnode.input_shapes = [[1, size], [1, size]]
-        subnode.output_shapes = [[1,1]]
+
+        subnode.input_shapes = [ [len(unique_subset) + 1, size] ]
+        subnode.output_shapes = [ [1, len(unique_subset) + 1] ]
 
         oc.NODE_COUNT += 1
         subnode.stack_id = oc.NODE_COUNT
@@ -80,18 +77,16 @@ def task_para_node_gen(node, size, common_operand, unique_operands):
 
     return subnodes
 
-
-
-
 def dynamic_para_node_gen(common_operand, unique_operands):
     pass
 
 
 node_expansion = {
     'task_para_matmul_phu': task_para_node_gen,
-    'dynamic_para_matmul_phu': dynamic_para_node_gen,
     'task_para_dense_phu': task_para_node_gen,
-    'dynamic_para_dense_phu': dynamic_para_node_gen,
     'task_para_pack_phu': task_para_node_gen,
+
+    'dynamic_para_matmul_phu': dynamic_para_node_gen,
+    'dynamic_para_dense_phu': dynamic_para_node_gen,
     'dynamic_para_pack_phu': dynamic_para_node_gen,
 }

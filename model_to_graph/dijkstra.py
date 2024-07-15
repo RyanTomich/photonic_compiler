@@ -374,6 +374,7 @@ def add_in_out(original_graph, node_list):
         node_list.append(new_node)
 
     assert test.node_list_complete(node_list)
+    print('...     ... graph i/o added ...')
 
 
 def schedule_in_out(graph):
@@ -407,6 +408,8 @@ def schedule_in_out(graph):
     if min_start_time < 0:
         time_shift(graph, -min_start_time)
 
+    print('...     ... graph i/o scheduled ...')
+
 
 def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
     """
@@ -438,6 +441,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
                 for inner_dict in oc.available_hardware.values()
             )
         )
+        print('...     ... Subgraph Scheduled ...')
 
     test.merge_i_o(full_node_list, original_graph)
     add_in_out(original_graph, full_node_list)
@@ -450,16 +454,18 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
             assert node.hardware_selection is not None
             assert node.start_time is not None
 
-    print("... Nodes Schdeuled ...")
-    return (
-        graph,
-        round(
+    end_time = round(
             max(
                 max(inner_dict.values())
                 for inner_dict in oc.available_hardware.values()
             ),
             5,
-        ),
+        )
+
+    print("... Nodes Schdeuled ...")
+    return (
+        graph,
+        end_time,
         break_points,
     )
 
@@ -509,11 +515,14 @@ def matmul_graph(node):
     node_expansion_func = pa.node_expansion[node.algorithm]
     subnodes = []
     for common_operand, operand_info in dot_prod_groups.items():
+        size, unique_operands = operand_info
         subnodes += node_expansion_func(
-            node, operand_info[0], common_operand, operand_info[1]
-        )  # (node, size, common, unique)
-        split_node.output_shapes.append([2, operand_info[0]])
-        merge_node.input_shapes.append([2, operand_info[0]])
+            node, operand_info[0], common_operand, unique_operands
+        )  # (node, size, common_operand, unique_operands)
+
+    for subnode in subnodes:
+        split_node.output_shapes += subnode.input_shapes
+        merge_node.input_shapes += subnode.output_shapes
 
     merge_node.parents = {subnode.stack_id for subnode in subnodes}
     return [split_node, merge_node] + subnodes
@@ -553,6 +562,7 @@ def expand_nodes(flat_subgraphs):
                 new_subgraph_node_list.append(node)
 
         new_subgraphs.append(sg.Graph(new_subgraph_node_list))
+    print('... Nodes Expanded ...')
     return new_subgraphs
 
 

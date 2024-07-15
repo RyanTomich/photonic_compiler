@@ -3,8 +3,7 @@ import numpy as np
 
 # Time Estamates
 def phu_matmul_task_para_time(i, o):
-    cores_per_partition = int(PHU_CORES)
-    return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
+    return {"PHU": ten_elm(i[0]) * i[1][-2] / PHU_CORES / PHU_MULTIPLEX}
 
 
 def phu_matmul_dynamic_para_time(i, o):
@@ -60,8 +59,8 @@ CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
 PHU_CORES = 64
-PHU_MULTIPLEX = 32
-CPU_CORES = 8
+PHU_MULTIPLEX = 20
+CPU_CORES = 1
 
 DRAM_SRAM_WIDTH = 256  # bits per cycle
 SRAM_OVERHEAD = 5  # electronic cycles
@@ -97,7 +96,7 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
     "nop": ("nop", "CPU", func, constnat(1)),
     "less": ("less", "CPU", func, constnat(1)),
     "take": ("take", "CPU", func, constnat(1)),
-    "split": ("split", "SRAM", func, constnat(3)),
+    "split": ("split", "SRAM", func, constnat(1)),
     "mean": (
         "mean",
         "CPU",
@@ -114,28 +113,31 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
         "matmul",
         "CPU",
         func,
-        lambda i, o: {"CPU": ten_elm(i[0]) * i[1][-2] * 2},
+        lambda i, o: {"CPU": ten_elm(i[0]) * i[1][-2]},
     ),
     "dense": (
         "dense",
         "CPU",
         func,
-        lambda i, o: {"CPU": ten_elm(i[0]) * i[1][-2] * 2},
+        lambda i, o: {"CPU": ten_elm(i[0]) * i[1][-2]},
     ),
     "pack": (
         "pack",
         "CPU",
         func,
-        lambda i, o: {"CPU": ten_elm(i[0]) * i[1][-2] * 2},
+        lambda i, o: {"CPU": ten_elm(i[0]) * i[1][-2]},
     ),
     "where": ("where", "CPU", func, constnat(1)),
     "erf": ("erf", "CPU", func, constnat(1)),  # Bert cumulative distribution function??
+
     "task_para_matmul_phu": ("matmul", "PHU", func, phu_matmul_task_para_time),
-    "dynamic_para_matmul_phu": ("matmul", "PHU", func, phu_matmul_dynamic_para_time),
     "task_para_dense_phu": ("dense", "PHU", func, phu_matmul_task_para_time),
-    "dynamic_para_dense_phu": ("dense", "PHU", func, phu_matmul_dynamic_para_time),
     "task_para_pack_phu": ("pack", "PHU", func, phu_matmul_task_para_time),
+
+    "dynamic_para_matmul_phu": ("matmul", "PHU", func, phu_matmul_dynamic_para_time),
+    "dynamic_para_dense_phu": ("dense", "PHU", func, phu_matmul_dynamic_para_time),
     "dynamic_para_pack_phu": ("pack", "PHU", func, phu_matmul_dynamic_para_time),
+
     "get_dram": (
         "null",
         "DRAM",
@@ -153,15 +155,14 @@ hardware_algs = {  # name: (opp, hardware, func, cycles)
 
 
 def hw_intercon(hardware, bits):
-    if "start" in hardware:
-        return 0
-    elif "SRAM" in hardware:
+    if any(i in ['start', 'SRAM'] for i in hardware):
         return hw_intercon_dict[hardware](bits)
-    else:
-        total = 0
-        for to_sram in hardware:
-            total += hw_intercon_dict[(to_sram, "SRAM")](bits)
-        return total
+    else: # must go through SRAM
+        # total = 0
+        # for to_sram in hardware:
+        #     total += hw_intercon_dict[(to_sram, "SRAM")](bits)
+        # return total
+        return sum(hw_intercon_dict[(to_sram, "SRAM")](bits) for to_sram in hardware)
 
 
 hw_intercon_dict = {
@@ -170,8 +171,9 @@ hw_intercon_dict = {
     / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
     ("PHU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
     ("SRAM", "SRAM"): lambda x: np.inf,
-    # mock start nodes in optimization.
+
     ("CPU", "start"): lambda x: 0,
     ("PHU", "start"): lambda x: 0,
+    ("start", "SRAM"): lambda x: 0,
     ("start", "start"): lambda x: np.inf,
 }

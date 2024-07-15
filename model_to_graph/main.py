@@ -2,6 +2,7 @@ import json
 
 import dijkstra as dijk
 import stacked_graph as sg
+import testing as test
 
 
 JSON_PATH = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
@@ -13,21 +14,6 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
     print("... Json loaded ...")
 
 graph = sg.StackGraph(raw_json=raw_json)
-# print(len(graph.node_list))
-# a = set()
-# for node in graph.node_list:
-#     if node.opp not in ['matmul', 'dense', 'pack']:
-#         a.add(node.stack_id)
-
-# print(len(a))
-
-# b = set()
-# for node in graph.node_list:
-#     if node.stack_id not in graph.in_nodes and node.stack_id not in graph.out_nodes:
-#         b.add(node.stack_id)
-# print(len(b))
-
-
 stacked_subgraphs = list(dijk.graph_partition(graph))
 flat_subgraphs = dijk.select_nodes(stacked_subgraphs)
 expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
@@ -36,16 +22,20 @@ scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
 )
 print(end_time)
 
-# for stack in flat_graph.node_list:
-#     assert stack.hardware_selection is not None
-# print('... ALL hardware selected ...')
+
+# print(scheduled_flat_graph.get_node_obj(126.1))
+# print(scheduled_flat_graph.get_node_obj(125.9))
+# for parent in scheduled_flat_graph.get_node_obj(126.1).parents:
+#     child_idx = scheduled_flat_graph.id_to_idx[126.1]
+#     parent_idx = scheduled_flat_graph.id_to_idx[parent]
+#     parent_obj = scheduled_flat_graph.get_node_obj(parent)
+    # print(f'{parent} - {scheduled_flat_graph.node_list[child_idx].stack_id}')
+    # print(f'{parent} - {scheduled_flat_graph.node_list[child_idx].stack_id}')
+    # print(f'{scheduled_flat_graph.adj_matrix[parent_idx] [child_idx]} - {parent} - {parent_obj.output_shapes[0]} ')
 
 
-# schedule_data = graph.create_schedule_data()
-# # with open('schedule.txt', 'w') as file:
-# #     for index, row in schedule_data.iterrows():
-# #         file.write(f"{row['label']} --- {row['hardware']} ({row['start']})\n")
-# print('... Schedule data made ...')
+schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
+test.schedule_validate(schedule_df)
 
 # dijk.get_memory_profile(graph)
 # print('... Memory profile made ...')
