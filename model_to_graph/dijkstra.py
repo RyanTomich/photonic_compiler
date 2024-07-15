@@ -1,3 +1,7 @@
+"""
+All complex graph operations and redefinitions
+"""
+
 import copy
 import heapq
 import numpy as np
@@ -48,7 +52,14 @@ def graph_partition(graph):
 
 
 def extract_stacks(path):
-    # returns set of stacks included in the path
+    """returns set of stacks included in the path
+
+    Args:
+        path (list of tuples): [ (stack, node) ]
+
+    Returns:
+        set: stacks included in the path
+    """
     return {index[0] for index in path}
 
 
@@ -146,18 +157,57 @@ def add_group(groups, group, stack_aggreement, cur_path, stack_coverage):
         group["total_coverage"].update(stack_coverage)
 
 
-def rolling_dijkstra(graph, optimization_variable = 'time'):
+def ending_node(cur_path, aggreement_stacks, groups, all_nodes):
+    """checks if ending node has made a match. All inputs mutable
+
+    Returns:
+        set: set of working nodes if end satisfies
+    """
+
+    stack_aggreement = get_aggreement(cur_path, aggreement_stacks)
+    stack_coverage = extract_stacks(cur_path)
+
+    added = False
+    for group in groups:
+        if (
+            ap_works(group["ap"], stack_aggreement)
+            and stack_coverage not in group["coverage_groups"]
+            and group["total_coverage"] - stack_coverage != {}
+        ):  # same coverage, new path
+            add_group(groups, group, stack_aggreement, cur_path, stack_coverage)
+            added = True
+
+    if not added:
+        groups.append(
+            {
+                "ap": (stack_aggreement),
+                "paths": tuple(cur_path),
+                "coverage_groups": [stack_coverage],
+                "total_coverage": stack_coverage,
+            }
+        )
+
+    for group in groups:
+        # group reached full coverage:
+        if group["total_coverage"] == all_nodes:
+            return set(group["paths"])
+
+    return None
+
+
+def rolling_dijkstra(graph, optimization_variable="time"):
     """
     Dijkstra untill there is full coverage on a combination of aggreement stacks
     graph to optimize
     """
     aggreement_stacks = make_aggreement_list(graph)
-    # all_nodes = {i.stack_id for i in graph.stack_list if i.opp != 'null'}
     all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != "null"}
 
     que = []
     for stack_id in graph.in_nodes:
-        que.append((0, ((graph.id_to_idx[stack_id], 0),))) # (cur_dist, ( (graph.id_to_idx[stack_id], 0), ) )
+        que.append(
+            (0, ((graph.id_to_idx[stack_id], 0),))
+        )  # (cur_dist, ( (graph.id_to_idx[stack_id], 0), ) )
     groups = []
 
     while que:
@@ -166,33 +216,10 @@ def rolling_dijkstra(graph, optimization_variable = 'time'):
         neighbor_stacks = graph.get_stack_neighbors(cur_node[0])
 
         if neighbor_stacks == []:  # ending node
-            stack_aggreement = get_aggreement(cur_path, aggreement_stacks)
-            stack_coverage = extract_stacks(cur_path)
 
-            added = False
-            for group in groups:
-                if (
-                    ap_works(group["ap"], stack_aggreement)
-                    and stack_coverage not in group["coverage_groups"]
-                    and group["total_coverage"] - stack_coverage != {}
-                ):  # same coverage, new path
-                    add_group(groups, group, stack_aggreement, cur_path, stack_coverage)
-                    added = True
-
-            if not added:
-                groups.append(
-                    {
-                        "ap": (stack_aggreement),
-                        "paths": tuple(cur_path),
-                        "coverage_groups": [stack_coverage],
-                        "total_coverage": stack_coverage,
-                    }
-                )
-
-            for group in groups:
-                # group reached full coverage:
-                if group["total_coverage"] == all_nodes:
-                    return set(group["paths"])
+            found = ending_node(cur_path, aggreement_stacks, groups, all_nodes)
+            if found:
+                return found
 
         for neighbor in neighbor_stacks:
             stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
@@ -201,9 +228,10 @@ def rolling_dijkstra(graph, optimization_variable = 'time'):
                 node_cost = oc.node_value_selection[optimization_variable](node_obj)
                 new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
+    return None
 
 
-def select_nodes(subgraphs, optimization_variable='time'):
+def select_nodes(subgraphs, optimization_variable="time"):
     """apply roling_dijkstra to each subgraph.
 
     Args:
@@ -241,6 +269,7 @@ def select_nodes(subgraphs, optimization_variable='time'):
 
 # region ###### scheduling_dijkstra for embeded branched stacked graphs ######
 def hardware_synchronize():
+    """brings all hardware times up to the max"""
     max_value = max(
         max(inner_dict.values()) for inner_dict in oc.available_hardware.values()
     )
@@ -275,13 +304,14 @@ def scheduling_dijkstra(graph):
         cur_node = cur_path[-1]
 
         neighbor_stacks = graph.get_stack_neighbors(cur_node)
+        hardware_type = None
+        max_parent_end = None
 
         for neighbor in neighbor_stacks:
             indegree[neighbor] -= 1
             if neighbor not in visited and indegree[neighbor] == 0:
                 neighbor_node = graph.node_list[neighbor]
 
-                # hardware_type = oc.hardware_algs[neighbor_node.algorithm][1]
                 hardware_type = oc.hardware_algs[neighbor_node.algorithm].hardware
 
                 parent_end = [end_times[parent] for parent in neighbor_node.parents]
@@ -313,7 +343,7 @@ def scheduling_dijkstra(graph):
                     ] = max_parent_end
 
                 neighbor_node.hardware_selection = selected_hardware
-                assert neighbor_node.start_time == None  # not already scheduled
+                assert neighbor_node.start_time is None  # not already scheduled
                 neighbor_node.start_time = oc.available_hardware[hardware_type][
                     selected_hardware
                 ]
@@ -330,6 +360,12 @@ def scheduling_dijkstra(graph):
 
 
 def time_shift(graph, time):
+    """Shift all nodes =
+
+    Args:
+        graph (Graph):
+        time (int): + for forwared, - for back
+    """
     for node in graph.node_list:
         node.start_time += time
         assert node.start_time >= 0, "start times not all positive"
@@ -340,6 +376,12 @@ def time_shift(graph, time):
 
 
 def add_in_out(original_graph, node_list):
+    """add i/o nodes to graph
+
+    Args:
+        original_graph (StackGraph): graph from Json
+        node_list (list): list of nodes for new graph, scheduled
+    """
     all_nodes = set()
 
     # input_nodes
@@ -358,8 +400,8 @@ def add_in_out(original_graph, node_list):
                 )
                 node.parents.update(parents_added)
 
-    for input in original_graph.in_nodes:
-        new_node = original_graph.get_node_obj(input).node_stack[0]
+    for in_node in original_graph.in_nodes:
+        new_node = original_graph.get_node_obj(in_node).node_stack[0]
         node_list.append(new_node)
 
     # output_nodes
@@ -381,7 +423,11 @@ def add_in_out(original_graph, node_list):
 
 
 def schedule_in_out(graph):
-    # schedule in_nodes
+    """Schedule the i/o nodes in a graph
+
+    Args:
+        graph (Graph)
+    """
     min_start_time = np.inf
     for node in graph.in_nodes:
         node_obj = graph.get_node_obj(node)
@@ -517,7 +563,7 @@ def matmul_graph(node):
     for common_operand, operand_info in dot_prod_groups.items():
         size, unique_operands = operand_info
         subnodes += node_expansion_func(
-            node, operand_info[0], common_operand, unique_operands
+            node, size, common_operand, unique_operands
         )  # (node, size, common_operand, unique_operands)
 
     for subnode in subnodes:
@@ -529,6 +575,12 @@ def matmul_graph(node):
 
 
 def update_children(graph, node_idx):
+    """propogate patrent id change to children
+
+    Args:
+        graph (Graph):
+        node_idx (int): location of node that changed
+    """
     node_obj = graph.node_list[node_idx]
     for child_idx in graph.get_stack_neighbors(node_idx):
         child_obj = graph.node_list[child_idx]
@@ -571,8 +623,16 @@ def expand_nodes(flat_subgraphs):
 # endregion
 
 
-# region ###### memory ###### # TODO make work with Node, Stack and Graph
+# region ###### memory ######
 def get_memory_profile(graph):
+    """time datapoints of memory changes in bits
+
+    Args:
+        graph (Graph):
+
+    Returns:
+        lsit of tuples: representing total and change in
+    """
     delta_dram = []
     delta_sram = []
     dram = []  # (time, bits)
@@ -581,7 +641,7 @@ def get_memory_profile(graph):
     sram_total = 0
 
     outdegree = {
-        idx: sum([True for i in row if i is not None])
+        idx: sum(1 for i in row if i is not None)
         for idx, row in enumerate(graph.adj_matrix)
     }
 
@@ -658,7 +718,7 @@ def get_memory_profile(graph):
 
     # print(f"{dram_total=}")
     # print(f"{sram_total=}")
-    print('... Memory profile made ...')
+    print("... Memory profile made ...")
     return dram, delta_dram, sram, delta_sram
 
 

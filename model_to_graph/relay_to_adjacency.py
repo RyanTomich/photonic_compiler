@@ -12,15 +12,17 @@ import graph_visualization as gv
 
 
 ##### Woriing with JSON #####
-class DependancyNode():
+class DependancyNode:
     def __init__(self, stack_id, node, parents, input_shapes, output_shapes):
         self.stack_id = stack_id
-        self.func = 'null' if node['op'] == "null" else node['name']
+        self.func = "null" if node["op"] == "null" else node["name"]
         self.parents = parents
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
-        self.opp = self._find_opp(node['attrs']['func_name']) if 'attrs' in node else 'null'
-        self.time = self._unfsed_node_time(node) #(CPU, PHU)
+        self.opp = (
+            self._find_opp(node["attrs"]["func_name"]) if "attrs" in node else "null"
+        )
+        self.time = self._unfsed_node_time(node)  # (CPU, PHU)
         self.hardware = None
 
     def __hash__(self):
@@ -42,11 +44,11 @@ class DependancyNode():
         {self.time=}"""
 
     def _find_opp(self, func_name):
-        '''
+        """
         func_name(srt) - whole tvm function name
         returns (srt) - last collection of letters, which is the name
-        '''
-        name_parts = func_name.split('_')
+        """
+        name_parts = func_name.split("_")
         for part in reversed(name_parts):
             try:
                 int(part)
@@ -55,81 +57,101 @@ class DependancyNode():
                 return part
 
     def _unfsed_node_time(self, node):
-        '''
+        """
         node(DependancyNode object)
         returns(tuple) - the time tuple for each node for each hardware configuration
-        '''
-        if 'attrs' in node:
-            return [oc.opp_time_func(self.opp, self.input_shapes, self.output_shapes, hardware_config) for hardware_config in hardware_config_list]
+        """
+        if "attrs" in node:
+            return [
+                oc.opp_time_func(
+                    self.opp, self.input_shapes, self.output_shapes, hardware_config
+                )
+                for hardware_config in hardware_config_list
+            ]
         return [0, np.inf]
 
-class DependancyGraph():
-    def __init__ (self, raw_json):
+
+class DependancyGraph:
+    def __init__(self, raw_json):
         self.raw_json = raw_json
         self.node_list = self.create_nodes()
-        self.hardware_selection_funcs = {'always_CPU': self._always_CPU, 'naive_min': self._naive_min, 'always_PHU': self._always_PHU}
+        self.hardware_selection_funcs = {
+            "always_CPU": self._always_CPU,
+            "naive_min": self._naive_min,
+            "always_PHU": self._always_PHU,
+        }
 
     def create_nodes(self):
-        '''
+        """
         Uses raw_json of the DependancyGraph to make list of DependancyNode objects
-        '''
+        """
         ajusted_shapes = []
         split_shift = 0
         for index, node in enumerate(self.raw_json["nodes"]):
-            ajusted_shapes.append(self.raw_json['attrs']['shape'][1][index + split_shift])
-            if 'split' in node['name']:
+            ajusted_shapes.append(
+                self.raw_json["attrs"]["shape"][1][index + split_shift]
+            )
+            if "split" in node["name"]:
                 split_shift += 2
 
         nodes = []
         for index, node in enumerate(self.raw_json["nodes"]):
             stack_id = index
-            num_output = int(node['attrs']['num_outputs']) if 'attrs' in node else 1
-            parents = [shape_idx[0] for shape_idx in node['inputs']]
-            input_shapes = [ajusted_shapes[shape_idx[0]] for shape_idx in node['inputs']]
+            num_output = int(node["attrs"]["num_outputs"]) if "attrs" in node else 1
+            parents = [shape_idx[0] for shape_idx in node["inputs"]]
+            input_shapes = [
+                ajusted_shapes[shape_idx[0]] for shape_idx in node["inputs"]
+            ]
             output_shapes = [ajusted_shapes[index] for i in range(num_output)]
-            nodes.append(DependancyNode(stack_id, node, parents, input_shapes, output_shapes))
+            nodes.append(
+                DependancyNode(stack_id, node, parents, input_shapes, output_shapes)
+            )
         return nodes
 
     # Create the Adjancy Matrix for dependancy
     def creat_adj_matrix_json(self):
-        '''
+        """
         Creates an adjancy matrix of the dependencies using raw_json
-        '''
+        """
         dependancys = []
-        for node_index, node in enumerate(self.raw_json['nodes']):
-            inputs = node.get('inputs', [])
-            for inp in inputs: # where each input is an index to another node.
-                dependancys.append((inp[0], node_index)) # (1, 2) where 2 takes 1's output
+        for node_index, node in enumerate(self.raw_json["nodes"]):
+            inputs = node.get("inputs", [])
+            for inp in inputs:  # where each input is an index to another node.
+                dependancys.append(
+                    (inp[0], node_index)
+                )  # (1, 2) where 2 takes 1's output
 
-        num_nodes = (len(self.raw_json['nodes']))
+        num_nodes = len(self.raw_json["nodes"])
         adj_matrix = np.zeros((num_nodes, num_nodes))
         for dep in dependancys:
             adj_matrix[dep[0]][dep[1]] = 1
         return adj_matrix
 
     def creat_adj_matrix_node_list(self):
-        '''
+        """
         Creates an adjancy matrix of the dependencies using node_list
-        '''
+        """
         dependancys = []
         for node in self.node_list:
             inputs = node.parents
-            for inp in inputs: # where each input is an index to another node.
-                dependancys.append((inp, node.stack_id, self.bit_transfer(self.node_list[inp]))) # (1, 2) where 1's output are 2's inputs
+            for inp in inputs:  # where each input is an index to another node.
+                dependancys.append(
+                    (inp, node.stack_id, self.bit_transfer(self.node_list[inp]))
+                )  # (1, 2) where 1's output are 2's inputs
                 # G.addEdge(inp, node.stack_id, self.bit_transfer(node))
-                if 950< node.stack_id < 1108:
+                if 950 < node.stack_id < 1108:
                     G.addEdge(inp, node.stack_id)
 
-        num_nodes = (len(self.node_list))
+        num_nodes = len(self.node_list)
         adj_matrix = np.zeros((num_nodes, num_nodes))
         for dep in dependancys:
             adj_matrix[dep[0]][dep[1]] = dep[2]
         return adj_matrix
 
     def matrix_to_CSR(self, matrix):
-        '''
+        """
         Retursn matrix in compressed sparse row format
-        '''
+        """
         data = []
         column_offset = []
         node_row_ptr = [0]
@@ -145,13 +167,13 @@ class DependancyGraph():
 
     # node opps
     def write_graph(self):
-        '''
+        """
         Creates a custom text based representation of the node list
-        '''
-        with open('custon_graph.txt', "w") as f:
+        """
+        with open("custon_graph.txt", "w") as f:
             for node in self.node_list:
-                if node.opp != 'null':
-                    f.write(f'{node.func}\n')
+                if node.opp != "null":
+                    f.write(f"{node.func}\n")
 
     def create_cost_vec(self):
         CPU_cost = [node.time[0] for node in self.node_list]
@@ -159,27 +181,27 @@ class DependancyGraph():
         return CPU_cost, PHU_cost
 
     def get_opp_spread(self):
-        '''
+        """
         Creates a distrabution of the time spent on each opporation type
-        '''
+        """
         cycles_per_op = {}
         for node in self.node_list:
             cycles_per_op.setdefault(node.opp, 0)
-            cycles_per_op[node.opp] += node.time[0] # CPU
+            cycles_per_op[node.opp] += node.time[0]  # CPU
         return cycles_per_op
 
     # Time
     def execution_time(self, hardware_selection, adj_matrix):
-        '''
+        """
         optimization(srt) which hardware optimization to use from self.optimization
-        '''
+        """
         total_time = 0
 
         # node_time
         for node in self.node_list:
             total_time += self.hardware_selection_funcs[hardware_selection](node)
 
-        #connection time
+        # connection time
         start, end = np.nonzero(adj_matrix)
         for i in range(len(start)):
             bits = adj_matrix[start[i]][end[i]]
@@ -187,85 +209,86 @@ class DependancyGraph():
             # print(f"{self.node_list[start[i]].hardware} == {self.node_list[end[i]].hardware}")
             assert self.node_list[start[i]].hardware != None
             assert self.node_list[end[i]].hardware != None
-            if self.node_list[start[i]].hardware == self.node_list[end[i]].hardware: # E->E
-                total_time += bits*E_E_BIT_COST
+            if (
+                self.node_list[start[i]].hardware == self.node_list[end[i]].hardware
+            ):  # E->E
+                total_time += bits * E_E_BIT_COST
             else:
-                total_time += bits*E_PH_BIT_COST
+                total_time += bits * E_PH_BIT_COST
 
         return round(total_time, 4)
 
-    def bit_transfer(self, node, direction = 'out'):
-        '''
+    def bit_transfer(self, node, direction="out"):
+        """
         Calculates the total number of bits passed out of a node
-        '''
+        """
         total_bits = 0
-        if direction == 'out':
-            total_bits += oc.ten_elm(node.output_shapes[0])*32 #
+        if direction == "out":
+            total_bits += oc.ten_elm(node.output_shapes[0]) * 32  #
             # for shape in node.output_shapes:
             #     total += oc.ten_elm(shape)*32 # float32 numbes
         else:
             for shape in node.input_shapes:
-                total_bits += oc.ten_elm(shape)*32 # float32 numbes
+                total_bits += oc.ten_elm(shape) * 32  # float32 numbes
 
         return total_bits
 
     def _always_CPU(self, node):
-        '''
+        """
         returns the selected time and changes the node.hardwrae to reflect the choice
         node(DependancyNode)
         CPU_time(list): List of the cost of run_CPU
         PHU_time(list): list of the cost of run_PHU
-        '''
-        node.hardware = 'CPU'
+        """
+        node.hardware = "CPU"
         return node.time[0]
 
     def _always_PHU(self, node):
-        '''
+        """
         selects the photonic hardware choice  is available and returns the time.
         changes node.hardware to reflect choice
         node(DependancyNode)
         CPU_time(list): List of the cost of run_CPU
         PHU_time(list): list of the cost of run_PHU
-        '''
+        """
         CPU_time, PHU_time = node.time
 
         if PHU_time < np.inf:
-            node.hardware = 'PHU'
+            node.hardware = "PHU"
             return PHU_time
-        node.hardware = 'CPU'
+        node.hardware = "CPU"
         return CPU_time
 
     def _naive_min(self, node):
-        '''
+        """
         selects the minimum cost hardware choice and returns the time.
         changes node.hardware to reflect choice
         node(DependancyNode)
         CPU_time(list): List of the cost of run_CPU
         PHU_time(list): list of the cost of run_PHU
-        '''
+        """
         CPU_time, PHU_time = node.time
 
         # if (node.time[0] + self.bit_transfer(node)*E_E_BIT_COST) < (node.time[1] + self.bit_transfer(node)*E_PH_BIT_COST):
 
-        if PHU_time < CPU_time and self.bit_transfer(node)>1_000_000:
-            node.hardware = 'PHU'
+        if PHU_time < CPU_time and self.bit_transfer(node) > 1_000_000:
+            node.hardware = "PHU"
             return PHU_time
-        node.hardware = 'CPU'
+        node.hardware = "CPU"
         return CPU_time
 
     # scheduling
     def kahn_topo_sort(self, graph):
-        '''
+        """
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
         returns:
             order(list): liner order
             layers_list(list of lists): each entry is a dependancy layer
-        '''
+        """
         node_indegree = {}
         for idx in range(len(graph)):
             node_indegree[idx] = np.sum(graph[:, idx] != 0)
-
 
         que = []
         order = []
@@ -289,33 +312,32 @@ class DependancyGraph():
 
         assert any(node_indegree.values()) == False
 
-        layers_list =  [val for (key, val) in layers_dic.items()]
+        layers_list = [val for (key, val) in layers_dic.items()]
         return order, layers_list
 
     def kahn_topo_sort_working(self, graph):
-        '''
+        """
         produes a liner order obeying DAG
         graph(np adjancy matrix): graph to sort
         returns:
             order: liner working order for each node
             working_layers_list: nodes that can work on each layer
             layer_count: the amount of layers each node can work on
-        '''
+        """
         node_indegree = {}
         node_parents = {}
-        node_outdegree = {'START': np.inf}
+        node_outdegree = {"START": np.inf}
         for idx in range(len(graph)):
             node_indegree[idx] = np.sum(graph[:, idx] != 0)
             node_outdegree[idx] = np.sum(graph[idx, :] != 0)
             node_parents[idx] = []
-
 
         que = []
         order = []
         layer_count = {}
         for node, val in node_indegree.items():
             if val == 0:
-                que.append(( ['START'] ,node))
+                que.append((["START"], node))
                 layer_count[node] = 0
 
         layer = 0
@@ -345,22 +367,21 @@ class DependancyGraph():
 
         assert any(node_indegree.values()) == False
 
-        layers_list =  [val for (key, val) in layers_dic.items()]
+        layers_list = [val for (key, val) in layers_dic.items()]
         return order, layers_list, layer_count
 
 
-
-read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json'
+read_json_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # read_json_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # read_json_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
-with open(read_json_path)  as json_file:
-    raw_json = json.load(json_file) # returns json file as dict
+with open(read_json_path) as json_file:
+    raw_json = json.load(json_file)  # returns json file as dict
 
 # Constants
 hardware_config_list = ["run_cpu", "run_phu"]
 
-E_PH_BIT_COST = 3 /oc.CPU_CLOCK_SPEED
-E_E_BIT_COST = 1 /oc.CPU_CLOCK_SPEED #TODO get right number
+E_PH_BIT_COST = 3 / oc.CPU_CLOCK_SPEED
+E_E_BIT_COST = 1 / oc.CPU_CLOCK_SPEED  # TODO get right number
 
 
 # # making graph
@@ -392,7 +413,7 @@ graph = DependancyGraph(raw_json)
 print(G)
 adj = graph.creat_adj_matrix_node_list()
 
-G.visualize(layout='kk', filename='graph_group.png')
+G.visualize(layout="kk", filename="graph_group.png")
 # G.visualize(layout='spring', filename='graph_group.png')
 # G.visualize(layout='shell', filename='graph_group.png')
 # G.visualize(layout='spectral', filename='graph_group.png')

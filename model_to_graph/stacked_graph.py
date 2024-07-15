@@ -1,3 +1,7 @@
+"""
+Graph types
+"""
+
 import numpy as np
 import pandas as pd
 import operator_calcs as oc
@@ -14,8 +18,12 @@ class Node:
         self.parents = stack.parents
         self.input_shapes = stack.input_shapes
         self.output_shapes = stack.output_shapes
-        self.time_cost = oc.hardware_algs[algorithm].time_cost(stack.input_shapes, stack.output_shapes)
-        self.energy_cost = oc.hardware_algs[algorithm].energy_cost(stack.input_shapes, stack.output_shapes)
+        self.time_cost = oc.hardware_algs[algorithm].time_cost(
+            stack.input_shapes, stack.output_shapes
+        )
+        self.energy_cost = oc.hardware_algs[algorithm].energy_cost(
+            stack.input_shapes, stack.output_shapes
+        )
 
         self.hardware_selection = None
         self.start_time = None
@@ -28,15 +36,19 @@ class Node:
             + f"{self.input_shapes}\n"
             + f"{self.output_shapes}\n"
             + f"{self.time_cost}\n"
-            + f"{self.power_cost}\n"
+            + f"{self.energy_cost}\n"
             + f"{self.hardware_selection}\n"
             + f"{self.start_time}\n"
         )
 
-    def get_algo_info(self, type): # TODO let node carry around algorithm object
+    def get_algo_info(self, info_type):  # TODO let node carry around algorithm object
         algorithm_obj = oc.hardware_algs[self.algorithm]
-        info = {"opp": algorithm_obj.opp, "hardware": algorithm_obj.hardware, "func": algorithm_obj.func}
-        return info[type]
+        info = {
+            "opp": algorithm_obj.opp,
+            "hardware": algorithm_obj.hardware,
+            "func": algorithm_obj.func,
+        }
+        return info[info_type]
 
 
 class Stack:
@@ -88,6 +100,7 @@ class Stack:
                 continue
             except ValueError:
                 return part
+        return None
 
     def __str__(self):
         return (
@@ -102,7 +115,7 @@ class Stack:
 
 
 class Graph:
-    def __init__(self, node_list, optimization_variable='time'):
+    def __init__(self, node_list, optimization_variable="time"):
         test.node_list_complete(node_list)
         self.node_list = node_list
         self.id_to_idx = {v.stack_id: i for i, v in enumerate(self.node_list)}
@@ -153,7 +166,7 @@ class Graph:
 
         return total_bits * oc.BITS_PER_NUM
 
-    def _make_connection(self, start_node, end_node, bit_transfer) -> int:
+    def _make_connection(self, start_node_idx, end_node_idx, bit_transfer) -> int:
         """makes connection cost for flat graphs
 
         Args:
@@ -164,14 +177,16 @@ class Graph:
         Returns:
             int: time cost between
         """
-        start_node = self.get_node_obj(start_node)
-        end_node = self.get_node_obj(end_node)
+        start_node = self.get_node_obj(start_node_idx)
+        end_node = self.get_node_obj(end_node_idx)
 
         start_hw = start_node.get_algo_info("hardware")
         end_hw = end_node.get_algo_info("hardware")
         hw_connection = tuple(sorted((start_hw, end_hw)))
         # connection = oc.hw_time_intercon(hw_connection, bit_transfer)
-        connection = oc.edge_value_selection[self.optimization_variable](hw_connection, bit_transfer)
+        connection = oc.edge_value_selection[self.optimization_variable](
+            hw_connection, bit_transfer
+        )
 
         return connection
 
@@ -185,7 +200,7 @@ class Graph:
             for inp in inputs:  # where each input is an index to another node.
                 dependancys.append(
                     (inp, node.stack_id, self._bit_transfer(self.get_node_obj(inp)))
-                ) # (1, 2, bit_transfer) where 1's output are 2's inputs
+                )  # (1, 2, bit_transfer) where 1's output are 2's inputs
 
         num_nodes = len(self.node_list)
         adj_matrix = np.empty((num_nodes, num_nodes), dtype=object)  # block matrix
@@ -212,29 +227,26 @@ class Graph:
         for node in self.node_list[1:]:
             data["hardware"].append(node.hardware_selection)
             data["start"].append(node.start_time)
-            data["end"].append(
-                node.start_time + node.time_cost
-            )
+            data["end"].append(node.start_time + node.time_cost)
             data["label"].append(node.stack_id)
 
-
-        schedule_data = pd.DataFrame(data).sort_values(by='start')
-
+        schedule_data = pd.DataFrame(data).sort_values(by="start")
 
         if write is True:
-            with open('schedule.txt', 'w') as file:
-                for index, row in schedule_data.iterrows():
-                    file.write(f"{row['label']} --- {row['hardware']} ({row['start']})\n")
+            with open("schedule.txt", "w", encoding="utf-8") as file:
+                for _, row in schedule_data.iterrows():
+                    file.write(
+                        f"{row['label']} --- {row['hardware']} ({row['start']})\n"
+                    )
 
-        print('... Schedule Data written ...')
+        print("... Schedule Data written ...")
         return schedule_data
-
 
 
 class StackGraph(Graph):
     """Represents a Dependancy Graph of Stack Objects"""
 
-    def __init__(self, optimization_variable='time', stack_list=None, raw_json=None):
+    def __init__(self, optimization_variable="time", stack_list=None, raw_json=None):
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_stacks()
         super().__init__(self.stack_list, optimization_variable)
@@ -268,7 +280,7 @@ class StackGraph(Graph):
 
     # adj_matrix
 
-    def _make_connection(self, start_node, end_node, bit_transfer) -> np.array:
+    def _make_connection(self, start_node_idx, end_node_idx, bit_transfer) -> np.array:
         """makes connection cost for flat graphs
 
         Args:
@@ -280,23 +292,23 @@ class StackGraph(Graph):
             matrix: time cost between all nodes in the two stacks
         """
 
-        start_node = self.get_node_obj(start_node)
-        end_node = self.get_node_obj(end_node)
+        start_stack = self.get_node_obj(start_node_idx)
+        end_stack = self.get_node_obj(end_node_idx)
 
-        start_stack = start_node.node_stack
-        end_stack = end_node.node_stack
-        assert type(start_stack) == type(end_stack) == list
+        start_node_list = start_stack.node_stack
+        end_node_list = end_stack.node_stack
+        assert isinstance(start_stack, list)
+        assert isinstance(end_stack, list)
 
-        connection_matrix = np.empty((len(start_stack), len(end_stack)))
-        for start_idx, start_node in enumerate(start_stack):
-            for end_idx, end_node in enumerate(end_stack):
+        connection_matrix = np.empty((len(start_node_list), len(end_node_list)))
+        for start_idx, start_node in enumerate(start_node_list):
+            for end_idx, end_node in enumerate(end_node_list):
                 start_hw = start_node.get_algo_info("hardware")
                 end_hw = end_node.get_algo_info("hardware")
                 hw_connection = tuple(sorted((start_hw, end_hw)))
-                # connection_matrix[start_idx][end_idx] = oc.hw_time_intercon(
-                #     hw_connection, bit_transfer
-                # )
-                connection_matrix[start_idx][end_idx] = oc.edge_value_selection[self.optimization_variable](hw_connection, bit_transfer)
+                connection_matrix[start_idx][end_idx] = oc.edge_value_selection[
+                    self.optimization_variable
+                ](hw_connection, bit_transfer)
         return connection_matrix
 
     # Node_selection
@@ -323,8 +335,8 @@ class StackGraph(Graph):
         node_parents = {}
         for idx in range(len(graph)):
 
-            node_indegree[idx] = sum([True for i in graph[:, idx] if i is not None])
-            node_outdegree[idx] = sum([True for i in graph[idx, :] if i is not None])
+            node_indegree[idx] = sum(1 for i in graph[:, idx] if i is not None)
+            node_outdegree[idx] = sum(1 for i in graph[idx, :] if i is not None)
             node_parents[idx] = []
 
         que = []

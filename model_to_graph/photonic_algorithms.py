@@ -1,7 +1,10 @@
-import copy
+"""
+Functions for expanding photnic matrix multiplication
+"""
 
 import operator_calcs as oc
 import stacked_graph as sg
+
 
 # Create Dot Products
 def matmul(m1, m2, preamble):
@@ -17,10 +20,15 @@ def matmul(m1, m2, preamble):
     """
     for row in range(m1[-2]):
         for col in range(m2[-2]):
-            yield ((1,) + preamble + (row, ':'), (2,) + preamble + (col, ':'), m1[-1]) # (m1.v1, m2.v2, size)
+            yield (
+                (1,) + preamble + (row, ":"),
+                (2,) + preamble + (col, ":"),
+                m1[-1],
+            )  # (m1.v1, m2.v2, size)
             # yield f'm1{preamble + [row, ':']} * m2{preamble + [col, ':']}  -  {m1[-1]}'
 
-def nd_tensor_product(m1, m2, preamble = ()):
+
+def nd_tensor_product(m1, m2, preamble=()):
     """Breaks tensor down to the level of matrix multiplication
 
     Args:
@@ -32,26 +40,38 @@ def nd_tensor_product(m1, m2, preamble = ()):
         srt: dot product with indexing
     """
     if len(m1) == 2:
-       yield from matmul(m1, m2, preamble)
+        yield from matmul(m1, m2, preamble)
     else:
         for dimention in range(m1[0]):
             preamble = preamble + (dimention,)
             yield from nd_tensor_product(m1[1:], m2[1:], preamble=preamble)
             preamble = preamble[:-1]
 
+
 def multiplex_groups(size, common_operand, unique_operands):
-    full = int(len(unique_operands)/oc.PHU_MULTIPLEX)
+    """group nodes into max multiplex
+
+    Args:
+        size (int): length of dot product
+        common_operand (list):
+        unique_operands (list of lists):
+
+    Yields:
+        tupele: (size, common, list(unique))
+    """
+    full = int(len(unique_operands) / oc.PHU_MULTIPLEX)
     start = 0
     end = oc.PHU_MULTIPLEX
-    for i in range(full):
+    for _ in range(full):
         yield (size, common_operand, unique_operands[start:end])
         start = end
         end += oc.PHU_MULTIPLEX
 
     assert end >= len(unique_operands)
-    if len(unique_operands)%oc.PHU_MULTIPLEX:
+    if len(unique_operands) % oc.PHU_MULTIPLEX:
         assert end > len(unique_operands)
         yield (size, common_operand, unique_operands[start:])
+
 
 def task_para_node_gen(node, size, common_operand, unique_operands):
     """takes group of dot dot products and creates list of nodes for a computational graph
@@ -65,11 +85,11 @@ def task_para_node_gen(node, size, common_operand, unique_operands):
     for multiplex in multiplex_groups(size, common_operand, unique_operands):
         size, common_operand, unique_subset = multiplex
 
-        subnode = sg.Node('dot_prod_phu', node.stack)
+        subnode = sg.Node("dot_prod_phu", node.stack)
         subnode.parents = [node.stack_id - 0.1]
 
-        subnode.input_shapes = [ [len(unique_subset) + 1, size] ]
-        subnode.output_shapes = [ [1, len(unique_subset) + 1] ]
+        subnode.input_shapes = [[len(unique_subset) + 1, size]]
+        subnode.output_shapes = [[1, len(unique_subset) + 1]]
 
         oc.NODE_COUNT += 1
         subnode.stack_id = oc.NODE_COUNT
@@ -77,16 +97,16 @@ def task_para_node_gen(node, size, common_operand, unique_operands):
 
     return subnodes
 
+
 def dynamic_para_node_gen(common_operand, unique_operands):
     pass
 
 
 node_expansion = {
-    'task_para_matmul_phu': task_para_node_gen,
-    'task_para_dense_phu': task_para_node_gen,
-    'task_para_pack_phu': task_para_node_gen,
-
-    'dynamic_para_matmul_phu': dynamic_para_node_gen,
-    'dynamic_para_dense_phu': dynamic_para_node_gen,
-    'dynamic_para_pack_phu': dynamic_para_node_gen,
+    "task_para_matmul_phu": task_para_node_gen,
+    "task_para_dense_phu": task_para_node_gen,
+    "task_para_pack_phu": task_para_node_gen,
+    "dynamic_para_matmul_phu": dynamic_para_node_gen,
+    "dynamic_para_dense_phu": dynamic_para_node_gen,
+    "dynamic_para_pack_phu": dynamic_para_node_gen,
 }

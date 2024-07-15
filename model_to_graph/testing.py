@@ -1,3 +1,8 @@
+"""
+Testing and validation
+"""
+
+
 def group_validate(graph, groups):
     """ensures every node parents are included in the group.
     exception to load and store nodes, which can have odd dependancies

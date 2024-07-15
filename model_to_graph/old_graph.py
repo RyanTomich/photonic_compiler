@@ -1,5 +1,3 @@
-
-
 class StackedNode:
     """represents a hypernode in the dependancy graph. A collection of nodes
     (or algorithms) for one operation in the graph

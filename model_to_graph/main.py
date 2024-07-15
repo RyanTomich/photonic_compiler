@@ -1,9 +1,12 @@
+"""
+Entry to program
+"""
+
 import json
 
 import dijkstra as dijk
 import stacked_graph as sg
 import testing as test
-import operator_calcs as oc
 
 
 JSON_PATH = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
@@ -14,11 +17,13 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
     raw_json = json.load(json_file)  # returns json file as dict
     print("... Json loaded ...")
 
-optimization_variable = 'energy'
+OPTIMIZATION_VARIABLE = "energy"
 
-graph = sg.StackGraph(raw_json=raw_json, optimization_variable=optimization_variable)
+graph = sg.StackGraph(raw_json=raw_json, optimization_variable=OPTIMIZATION_VARIABLE)
 stacked_subgraphs = list(dijk.graph_partition(graph))
-flat_subgraphs = dijk.select_nodes(stacked_subgraphs, optimization_variable)
+flat_subgraphs = dijk.select_nodes(
+    stacked_subgraphs, optimization_variable=OPTIMIZATION_VARIABLE
+)
 
 expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
 scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
@@ -27,16 +32,11 @@ scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
 
 schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
 empty = test.schedule_validate(schedule_df)
-dram, delta_dram, sram, delta_sram = dijk.get_memory_profile(scheduled_flat_graph)
+# dram, delta_dram, sram, delta_sram = dijk.get_memory_profile(scheduled_flat_graph)
 
 
 print(end_time)
-print(max(sram, key=lambda x: x[1]))
-
-
-
-
-
+# print(max(sram, key=lambda x: x[1]))
 
 
 # print(end_time)
