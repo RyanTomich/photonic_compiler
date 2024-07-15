@@ -231,7 +231,6 @@ def select_nodes(subgraphs):
         flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
         print("...     ... Subgraph Nodes selected ...")
 
-
     print("... Nodes selected ...")
     return flat_subgraphs
 
@@ -376,7 +375,7 @@ def add_in_out(original_graph, node_list):
         node_list.append(new_node)
 
     assert test.node_list_complete(node_list)
-    print('...     ... graph i/o added ...')
+    print("...     ... graph i/o added ...")
 
 
 def schedule_in_out(graph):
@@ -410,7 +409,7 @@ def schedule_in_out(graph):
     if min_start_time < 0:
         time_shift(graph, -min_start_time)
 
-    print('...     ... graph i/o scheduled ...')
+    print("...     ... graph i/o scheduled ...")
 
 
 def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
@@ -443,7 +442,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
                 for inner_dict in oc.available_hardware.values()
             )
         )
-        print('...     ... Subgraph Scheduled ...')
+        print("...     ... Subgraph Scheduled ...")
 
     test.merge_i_o(full_node_list, original_graph)
     add_in_out(original_graph, full_node_list)
@@ -457,12 +456,9 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
             assert node.start_time is not None
 
     end_time = round(
-            max(
-                max(inner_dict.values())
-                for inner_dict in oc.available_hardware.values()
-            ),
-            5,
-        )
+        max(max(inner_dict.values()) for inner_dict in oc.available_hardware.values()),
+        5,
+    )
 
     print("... Nodes Schdeuled ...")
     return (
@@ -566,7 +562,7 @@ def expand_nodes(flat_subgraphs):
         new_subgraphs.append(sg.Graph(new_subgraph_node_list))
         print("...     ... sungraph Nodes Expanded ...")
 
-    print('... Nodes Expanded ...')
+    print("... Nodes Expanded ...")
     return new_subgraphs
 
 
@@ -575,16 +571,19 @@ def expand_nodes(flat_subgraphs):
 
 # region ###### memory ###### # TODO make work with Node, Stack and Graph
 def get_memory_profile(graph):
+    delta_dram = []
+    delta_sram = []
     dram = []  # (time, bits)
-    dram_total = 0
     sram = []  # (time, bits)
+    dram_total = 0
     sram_total = 0
+
     outdegree = {
         idx: sum([True for i in row if i is not None])
         for idx, row in enumerate(graph.adj_matrix)
     }
-    dram.append((0, 0))
 
+    dram.append((0, 0))
     sorted_stack_list = sorted(graph.node_list, key=lambda x: x.start_time)
 
     for node_obj in sorted_stack_list:
@@ -595,26 +594,38 @@ def get_memory_profile(graph):
         if node_obj.stack_id in graph.in_nodes:  # D -> S
             dram_total -= out_size
             dram.append((node_obj.start_time, dram_total))
+            delta_dram.append((node_obj.start_time, -out_size))
 
             sram_total += out_size
             sram.append(
                 (
-                    node_obj.start_time
-                    + node_obj.time_cost,
+                    node_obj.start_time + node_obj.time_cost,
                     sram_total,
+                )
+            )
+            delta_sram.append(
+                (
+                    node_obj.start_time + node_obj.time_cost,
+                    out_size,
                 )
             )
 
         elif node_obj.stack_id in graph.out_nodes:  # S -> D
             sram_total -= in_size
             sram.append((node_obj.start_time, sram_total))
+            delta_sram.append((node_obj.start_time, -in_size))
 
             dram_total += out_size
             dram.append(
                 (
-                    node_obj.start_time
-                    + node_obj.time_cost,
+                    node_obj.start_time + node_obj.time_cost,
                     dram_total,
+                )
+            )
+            delta_dram.append(
+                (
+                    node_obj.start_time + node_obj.time_cost,
+                    out_size,
                 )
             )
 
@@ -627,19 +638,26 @@ def get_memory_profile(graph):
                     size = sum(oc.ten_elm(x) for x in parent_obj.output_shapes)
                     sram_total -= size
                     sram.append((node_obj.start_time, sram_total))
+                    delta_sram.append((node_obj.start_time, -size))
 
             sram_total += out_size
             sram.append(
                 (
-                    node_obj.start_time
-                    + node_obj.time_cost,
+                    node_obj.start_time + node_obj.time_cost,
                     sram_total,
+                )
+            )
+            delta_sram.append(
+                (
+                    node_obj.start_time + node_obj.time_cost,
+                    out_size,
                 )
             )
 
     print(f"{dram_total=}")
     print(f"{sram_total=}")
-    return dram, sram
+
+    return dram, delta_dram, sram, delta_sram
 
 
 # endregion

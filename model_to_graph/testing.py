@@ -71,25 +71,24 @@ def merge_i_o(full_node_list, original_graph):
 def schedule_validate(schedule_df):
     # check for overlaps
     empty = {}
-    unique_hardware = schedule_df['hardware'].unique()
-    unique_hardware = unique_hardware[unique_hardware != 'memory']
+    unique_hardware = schedule_df["hardware"].unique()
+    unique_hardware = unique_hardware[unique_hardware != "memory"]
 
     for hardware in unique_hardware:
-        filter = schedule_df['hardware'] == hardware
+        filter = schedule_df["hardware"] == hardware
         hw_filtered = schedule_df.loc[filter]
-        hw_sorted = hw_filtered.sort_values(by='start')
+        hw_sorted = hw_filtered.sort_values(by="start")
 
         sparse = 0
         last_end = 0
         for index, row in hw_sorted.iterrows():
-            start = row['start']
+            start = row["start"]
             assert start >= last_end
             sparse += start - last_end
 
-            last_end = row['end']
-
+            last_end = row["end"]
 
         empty[hardware] = sparse
 
-    print( "... No Overlaps ..." )
-    print(empty)
+    print("... No Overlaps ...")
+    # print(empty)
