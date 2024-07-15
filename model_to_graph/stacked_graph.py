@@ -14,10 +14,8 @@ class Node:
         self.parents = stack.parents
         self.input_shapes = stack.input_shapes
         self.output_shapes = stack.output_shapes
-        self.time_cost = oc.cycle_to_s(
-            oc.hardware_algs[algorithm][3](stack.input_shapes, stack.output_shapes)
-        )
-        self.power_cost = None  # TODO
+        self.time_cost = oc.hardware_algs[algorithm].time_cost(stack.input_shapes, stack.output_shapes)
+        self.energy_cost = oc.hardware_algs[algorithm].energy_cost(stack.input_shapes, stack.output_shapes)
 
         self.hardware_selection = None
         self.start_time = None
@@ -35,9 +33,9 @@ class Node:
             + f"{self.start_time}\n"
         )
 
-    def get_algo_info(self, type):
-        opp, hardware, func, cycles = oc.hardware_algs[self.algorithm]
-        info = {"opp": opp, "hardware": hardware, "func": func, "cycles": cycles}
+    def get_algo_info(self, type): # TODO let node carry around algorithm object
+        algorithm_obj = oc.hardware_algs[self.algorithm]
+        info = {"opp": algorithm_obj.opp, "hardware": algorithm_obj.hardware, "func": algorithm_obj.func}
         return info[type]
 
 
@@ -72,8 +70,8 @@ class Stack:
             if relay_node is None
             else [
                 Node(alg, self)
-                for alg, info in oc.hardware_algs.items()
-                if self.opp == info[0]
+                for alg, algorithm_obj in oc.hardware_algs.items()
+                if self.opp == algorithm_obj.opp
             ]
         )
         self.node_selection = None
@@ -104,12 +102,13 @@ class Stack:
 
 
 class Graph:
-    def __init__(self, node_list):
+    def __init__(self, node_list, optimization_variable='time'):
         test.node_list_complete(node_list)
         self.node_list = node_list
         self.id_to_idx = {v.stack_id: i for i, v in enumerate(self.node_list)}
         self.in_nodes = self._get_in()
         self.out_nodes = self._get_out()
+        self.optimization_variable = optimization_variable
         self.adj_matrix = self._creat_adj_matrix()
 
     def _get_in(self):
@@ -171,7 +170,9 @@ class Graph:
         start_hw = start_node.get_algo_info("hardware")
         end_hw = end_node.get_algo_info("hardware")
         hw_connection = tuple(sorted((start_hw, end_hw)))
-        connection = oc.hw_intercon(hw_connection, bit_transfer)
+        # connection = oc.hw_time_intercon(hw_connection, bit_transfer)
+        connection = oc.edge_value_selection[self.optimization_variable](hw_connection, bit_transfer)
+
         return connection
 
     def _creat_adj_matrix(self):
@@ -184,7 +185,7 @@ class Graph:
             for inp in inputs:  # where each input is an index to another node.
                 dependancys.append(
                     (inp, node.stack_id, self._bit_transfer(self.get_node_obj(inp)))
-                )  # (1, 2) where 1's output are 2's inputs
+                ) # (1, 2, bit_transfer) where 1's output are 2's inputs
 
         num_nodes = len(self.node_list)
         adj_matrix = np.empty((num_nodes, num_nodes), dtype=object)  # block matrix
@@ -233,10 +234,10 @@ class Graph:
 class StackGraph(Graph):
     """Represents a Dependancy Graph of Stack Objects"""
 
-    def __init__(self, stack_list=None, raw_json=None):
+    def __init__(self, optimization_variable='time', stack_list=None, raw_json=None):
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_stacks()
-        super().__init__(self.stack_list)
+        super().__init__(self.stack_list, optimization_variable)
         assert self.node_list == self.stack_list
         print("... Graph Made ...")
 
@@ -292,10 +293,10 @@ class StackGraph(Graph):
                 start_hw = start_node.get_algo_info("hardware")
                 end_hw = end_node.get_algo_info("hardware")
                 hw_connection = tuple(sorted((start_hw, end_hw)))
-                connection_matrix[start_idx][end_idx] = oc.hw_intercon(
-                    hw_connection, bit_transfer
-                )
-
+                # connection_matrix[start_idx][end_idx] = oc.hw_time_intercon(
+                #     hw_connection, bit_transfer
+                # )
+                connection_matrix[start_idx][end_idx] = oc.edge_value_selection[self.optimization_variable](hw_connection, bit_transfer)
         return connection_matrix
 
     # Node_selection

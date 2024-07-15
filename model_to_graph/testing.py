@@ -91,4 +91,4 @@ def schedule_validate(schedule_df):
         empty[hardware] = sparse
 
     print("... No Overlaps ...")
-    # print(empty)
+    return empty

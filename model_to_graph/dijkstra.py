@@ -146,7 +146,7 @@ def add_group(groups, group, stack_aggreement, cur_path, stack_coverage):
         group["total_coverage"].update(stack_coverage)
 
 
-def rolling_dijkstra(graph):
+def rolling_dijkstra(graph, optimization_variable = 'time'):
     """
     Dijkstra untill there is full coverage on a combination of aggreement stacks
     graph to optimize
@@ -157,8 +157,7 @@ def rolling_dijkstra(graph):
 
     que = []
     for stack_id in graph.in_nodes:
-        que.append((0, ((graph.id_to_idx[stack_id], 0),)))
-
+        que.append((0, ((graph.id_to_idx[stack_id], 0),))) # (cur_dist, ( (graph.id_to_idx[stack_id], 0), ) )
     groups = []
 
     while que:
@@ -199,21 +198,23 @@ def rolling_dijkstra(graph):
             stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
             for node, node_obj in enumerate(graph.stack_list[neighbor].node_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                new_distance = cur_dist + node_obj.time_cost + edge_weight
+                node_cost = oc.node_value_selection[optimization_variable](node_obj)
+                new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
 
 
-def select_nodes(subgraphs):
+def select_nodes(subgraphs, optimization_variable='time'):
     """apply roling_dijkstra to each subgraph.
-    graph: StackedGraph
-    subgraph: StackedGraph
-    such that subgraph is a partition of graph
+
+    Args:
+        subgraphs (StackedGraph)
+
+    Returns:
+        Graph
     """
-    selected_node_list = []
-    done = set()
     flat_subgraphs = []
     for subgraph in subgraphs:
-        nodes = rolling_dijkstra(subgraph)
+        nodes = rolling_dijkstra(subgraph, optimization_variable=optimization_variable)
         subgraph_nodes_list = []
         for node in nodes:
             subgraph_stack = subgraph.stack_list[node[0]]
@@ -280,7 +281,8 @@ def scheduling_dijkstra(graph):
             if neighbor not in visited and indegree[neighbor] == 0:
                 neighbor_node = graph.node_list[neighbor]
 
-                hardware_type = oc.hardware_algs[neighbor_node.algorithm][1]
+                # hardware_type = oc.hardware_algs[neighbor_node.algorithm][1]
+                hardware_type = oc.hardware_algs[neighbor_node.algorithm].hardware
 
                 parent_end = [end_times[parent] for parent in neighbor_node.parents]
                 max_parent_end = max(parent_end)
@@ -654,9 +656,9 @@ def get_memory_profile(graph):
                 )
             )
 
-    print(f"{dram_total=}")
-    print(f"{sram_total=}")
-
+    # print(f"{dram_total=}")
+    # print(f"{sram_total=}")
+    print('... Memory profile made ...')
     return dram, delta_dram, sram, delta_sram
 
 
