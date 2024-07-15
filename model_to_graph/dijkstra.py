@@ -344,7 +344,7 @@ def add_in_out(original_graph, node_list):
     # input_nodes
     for node in node_list:
         all_nodes.add(node.stack_id)
-        if node.algorithm is not "dot_prod_phu":
+        if node.algorithm != "dot_prod_phu":
             if (
                 node.stack_id in original_graph.id_to_idx
                 or node.stack_id + 0.1 in original_graph.id_to_idx
@@ -583,70 +583,62 @@ def get_memory_profile(graph):
         idx: sum([True for i in row if i is not None])
         for idx, row in enumerate(graph.adj_matrix)
     }
-    # for row in range(len(graph.adj_matrix)):
-    #     outdegree[row] = sum([True for i in graph.adj_matrix[row, :] if i is not None])
+    dram.append((0, 0))
 
-    start_size = 0
-    for node in graph.in_nodes:
-        stack_obj = graph.get_stack(node)
-        start_size += oc.ten_elm(stack_obj.output_shapes[0])
-    dram_total = start_size
-    dram.append((0, dram_total))
+    sorted_stack_list = sorted(graph.node_list, key=lambda x: x.start_time)
 
-    sorted_stack_list = sorted(graph.stack_list, key=lambda x: x.start_time)
-
-    for stack_obj in sorted_stack_list:
-        in_size = sum(oc.ten_elm(x) for x in stack_obj.input_shapes)
-        out_size = sum(oc.ten_elm(x) for x in stack_obj.output_shapes)
+    for node_obj in sorted_stack_list:
+        in_size = sum(oc.ten_elm(x) for x in node_obj.input_shapes)
+        out_size = sum(oc.ten_elm(x) for x in node_obj.output_shapes)
         assert out_size >= 0
 
-        if stack_obj.stack_id in graph.in_nodes:  # D -> S
+        if node_obj.stack_id in graph.in_nodes:  # D -> S
             dram_total -= out_size
-            dram.append((stack_obj.start_time, dram_total))
+            dram.append((node_obj.start_time, dram_total))
 
             sram_total += out_size
             sram.append(
                 (
-                    stack_obj.start_time
-                    + stack_obj.cost_stack[stack_obj.func_selection],
+                    node_obj.start_time
+                    + node_obj.time_cost,
                     sram_total,
                 )
             )
 
-        elif stack_obj.stack_id in graph.output_nodes:  # S -> D
+        elif node_obj.stack_id in graph.out_nodes:  # S -> D
             sram_total -= in_size
-            sram.append((stack_obj.start_time, sram_total))
+            sram.append((node_obj.start_time, sram_total))
 
             dram_total += out_size
             dram.append(
                 (
-                    stack_obj.start_time
-                    + stack_obj.cost_stack[stack_obj.func_selection],
+                    node_obj.start_time
+                    + node_obj.time_cost,
                     dram_total,
                 )
             )
 
         else:
-            for parent in stack_obj.parents:
-                parent_obj = graph.get_stack(parent)
-                outdegree[parent_obj.stack_id] -= 1
+            for parent in node_obj.parents:
+                parent_obj = graph.get_node_obj(parent)
+                outdegree[graph.id_to_idx[parent_obj.stack_id]] -= 1
                 # once all children are satisfied, we remove data from SRAM
-                if outdegree[parent_obj.stack_id] == 0:
+                if outdegree[graph.id_to_idx[parent_obj.stack_id]] == 0:
                     size = sum(oc.ten_elm(x) for x in parent_obj.output_shapes)
                     sram_total -= size
-                    sram.append((stack_obj.start_time, sram_total))
+                    sram.append((node_obj.start_time, sram_total))
 
             sram_total += out_size
             sram.append(
                 (
-                    stack_obj.start_time
-                    + stack_obj.cost_stack[stack_obj.func_selection],
+                    node_obj.start_time
+                    + node_obj.time_cost,
                     sram_total,
                 )
             )
 
-    # print(f"{dram_total=}")
-    # print(f"{sram_total=}")
+    print(f"{dram_total=}")
+    print(f"{sram_total=}")
     return dram, sram
 
 

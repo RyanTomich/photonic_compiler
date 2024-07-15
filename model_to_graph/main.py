@@ -23,8 +23,8 @@ scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
 print(end_time)
 schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
 test.schedule_validate(schedule_df)
+dijk.get_memory_profile(scheduled_flat_graph)
 
-# dijk.get_memory_profile(graph)
 # print('... Memory profile made ...')
 
 # print(end_time)
