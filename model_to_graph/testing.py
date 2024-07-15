@@ -50,7 +50,7 @@ def merge_i_o(full_node_list, original_graph):
     """
     total = 0
     for node in full_node_list:
-        if node.algorithm is not "dot_prod_phu":
+        if node.algorithm != "dot_prod_phu":
             if (
                 node.stack_id in original_graph.id_to_idx
                 or node.stack_id + 0.1 in original_graph.id_to_idx
@@ -66,3 +66,30 @@ def merge_i_o(full_node_list, original_graph):
                 this_parent = {int(parent) for parent in node.parents}
                 assert this_parent == original_parents
     return True
+
+
+def schedule_validate(schedule_df):
+    # check for overlaps
+    empty = {}
+    unique_hardware = schedule_df['hardware'].unique()
+    unique_hardware = unique_hardware[unique_hardware != 'memory']
+
+    for hardware in unique_hardware:
+        filter = schedule_df['hardware'] == hardware
+        hw_filtered = schedule_df.loc[filter]
+        hw_sorted = hw_filtered.sort_values(by='start')
+
+        sparse = 0
+        last_end = 0
+        for index, row in hw_sorted.iterrows():
+            start = row['start']
+            assert start >= last_end
+            sparse += start - last_end
+
+            last_end = row['end']
+
+
+        empty[hardware] = sparse
+
+    print( "... No Overlaps ..." )
+    print(empty)
