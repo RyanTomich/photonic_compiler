@@ -9,4 +9,6 @@
 **/*.pyc
 **/*.png
 **/*.pth
+**/*.yaml
+**/*.snapshot
 try_stuff.py
