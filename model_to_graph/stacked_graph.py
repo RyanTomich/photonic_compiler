@@ -149,6 +149,14 @@ class Graph:
         not_none = [i for i, v in enumerate(row) if v is not None]
         return not_none
 
+    def get_distrabution(self):
+        distrabution = {}
+        for stack in self.stack_list:
+            distrabution.setdefault(stack.opp, 0)
+            distrabution[stack.opp] += 1
+
+        return distrabution
+
     # adj_matrix
 
     def _bit_transfer(self, node, direction="out"):
@@ -291,14 +299,14 @@ class StackGraph(Graph):
         Returns:
             matrix: time cost between all nodes in the two stacks
         """
-
         start_stack = self.get_node_obj(start_node_idx)
         end_stack = self.get_node_obj(end_node_idx)
 
         start_node_list = start_stack.node_stack
         end_node_list = end_stack.node_stack
-        assert isinstance(start_stack, list)
-        assert isinstance(end_stack, list)
+
+        assert isinstance(start_node_list, list), f"was {type(start_stack)}"
+        assert isinstance(end_node_list, list), f"was {type(start_stack)}"
 
         connection_matrix = np.empty((len(start_node_list), len(end_node_list)))
         for start_idx, start_node in enumerate(start_node_list):
