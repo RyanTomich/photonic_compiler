@@ -47,7 +47,9 @@ def nd_tensor_product(m1, m2, preamble=()):
             yield from nd_tensor_product(m1[1:], m2[1:], preamble=preamble)
             preamble = preamble[:-1]
 
+
 # Expansion Functinos
+
 
 def _multiplex_groups(size, common_operand, unique_operands):
     """group nodes into max multiplex
@@ -103,7 +105,7 @@ def _dynamic_para_node_gen(common_operand, unique_operands):
     pass
 
 
-node_expansion = { # node algorithm to it's expansion function
+node_expansion = {  # node algorithm to it's expansion function
     "task_para_matmul_phu": _task_para_node_gen,
     "task_para_dense_phu": _task_para_node_gen,
     "task_para_pack_phu": _task_para_node_gen,

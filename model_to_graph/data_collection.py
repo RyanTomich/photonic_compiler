@@ -1,5 +1,6 @@
 import operator_calcs as oc
 
+
 def get_photonic(subgraphs):
     """conpairs how often photonic was selected
 
@@ -13,14 +14,14 @@ def get_photonic(subgraphs):
         for node in subgraph.node_list:
 
             for alg, algorithm_obj in oc.hardware_algs.items():
-                if node.stack.opp == algorithm_obj.opp and 'phu' in alg:
+                if node.stack.opp == algorithm_obj.opp and "phu" in alg:
                     total += 1
                     break
 
-            if 'phu' in node.algorithm:
+            if "phu" in node.algorithm:
                 selected += 1
 
-    print(f'Photonic Selected: {selected} / {total}')
+    print(f"Photonic Selected: {selected} / {total}")
 
 
 def get_memory_profile(graph):

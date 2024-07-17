@@ -13,6 +13,7 @@ import photonic_algorithms as pa
 
 # region graph_partition
 
+
 def graph_partition(graph):
     """Finds the Articulation Vertices and partitions the large graph into subgraphs
     StackedGraph objects. Inclusive on both ends of range.
@@ -49,10 +50,12 @@ def graph_partition(graph):
         yield sub_graph
     print("... Subgraphs Made ...")
 
+
 # endregion
 
 
 # region select_nodes
+
 
 def _extract_stacks(path):
     """returns set of stacks included in the path

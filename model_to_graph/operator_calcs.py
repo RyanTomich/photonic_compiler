@@ -113,7 +113,7 @@ MODULATOR_CONST = 1 / PHU_CLOCK_SPEED  # per bit time of electronic-photonic con
 BITS_PER_NUM = 8
 
 J_PER_BIT = 10**-12  # 1 pico-jule
-J_PER_CYCLE = 10**-10 # 100 pico-jule
+J_PER_CYCLE = 10**-10  # 100 pico-jule
 
 cycle_to_time_funcs = {
     "CPU": lambda x: x / CPU_CLOCK_SPEED,

@@ -19,8 +19,8 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
     raw_json = json.load(json_file)  # returns json file as dict
     print("... Json loaded ...")
 
-# OPTIMIZATION_VARIABLE = "time"
-OPTIMIZATION_VARIABLE = "energy"
+OPTIMIZATION_VARIABLE = "time"
+# OPTIMIZATION_VARIABLE = "energy"
 
 graph = sg.StackGraph(raw_json=raw_json, optimization_variable=OPTIMIZATION_VARIABLE)
 stacked_subgraphs = list(dijk.graph_partition(graph))
@@ -40,7 +40,7 @@ dram, delta_dram, sram, delta_sram = dc.get_memory_profile(scheduled_flat_graph)
 # dijk.get_energy_profile(graph, schedule_data)
 
 print()
-print('---------- INFO ----------')
+print("---------- INFO ----------")
 dc.get_photonic(flat_subgraphs)
-print(f'makespan: {end_time}')
-print(f'nodes: {len(scheduled_flat_graph.node_list)}')
+print(f"makespan: {end_time}")
+print(f"nodes: {len(scheduled_flat_graph.node_list)}")
