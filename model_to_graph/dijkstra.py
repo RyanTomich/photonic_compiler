@@ -5,14 +5,13 @@ All complex graph operations and redefinitions
 import copy
 import heapq
 import numpy as np
-import stacked_graph as sg
 
+import stacked_graph as sg
 import testing as test
 import operator_calcs as oc
 import photonic_algorithms as pa
 
-# region ###### Rolling Dijkstra for embeded branched stacked graphs ######
-
+# region graph_partition
 
 def graph_partition(graph):
     """Finds the Articulation Vertices and partitions the large graph into subgraphs
@@ -50,8 +49,12 @@ def graph_partition(graph):
         yield sub_graph
     print("... Subgraphs Made ...")
 
+# endregion
 
-def extract_stacks(path):
+
+# region select_nodes
+
+def _extract_stacks(path):
     """returns set of stacks included in the path
 
     Args:
@@ -63,7 +66,7 @@ def extract_stacks(path):
     return {index[0] for index in path}
 
 
-def make_aggreement_list(graph):
+def _make_aggreement_list(graph):
     """
     graph: StackedGraph Object
     returns all stack indicies with branches or merges
@@ -85,7 +88,7 @@ def make_aggreement_list(graph):
     return branches
 
 
-def get_aggreement(node_indexes, aggreement_stacks):
+def _get_aggreement(node_indexes, aggreement_stacks):
     """
     returns tuple of the nodes in each of the aggreement stacks
     node_indexes: a path
@@ -103,7 +106,7 @@ def get_aggreement(node_indexes, aggreement_stacks):
     return tuple(stack_indexes)
 
 
-def ap_works(group_ap, new_ap):
+def _ap_works(group_ap, new_ap):
     """checks that articulation points match
 
     Args:
@@ -120,7 +123,7 @@ def ap_works(group_ap, new_ap):
     return matches
 
 
-def add_group(groups, group, stack_aggreement, cur_path, stack_coverage):
+def _add_group(groups, group, stack_aggreement, cur_path, stack_coverage):
     """adds this path to the group of paths
 
     Args:
@@ -157,24 +160,24 @@ def add_group(groups, group, stack_aggreement, cur_path, stack_coverage):
         group["total_coverage"].update(stack_coverage)
 
 
-def ending_node(cur_path, aggreement_stacks, groups, all_nodes):
+def _ending_node(cur_path, aggreement_stacks, groups, all_nodes):
     """checks if ending node has made a match. All inputs mutable
 
     Returns:
         set: set of working nodes if end satisfies
     """
 
-    stack_aggreement = get_aggreement(cur_path, aggreement_stacks)
-    stack_coverage = extract_stacks(cur_path)
+    stack_aggreement = _get_aggreement(cur_path, aggreement_stacks)
+    stack_coverage = _extract_stacks(cur_path)
 
     added = False
     for group in groups:
         if (
-            ap_works(group["ap"], stack_aggreement)
+            _ap_works(group["ap"], stack_aggreement)
             and stack_coverage not in group["coverage_groups"]
             and group["total_coverage"] - stack_coverage != {}
         ):  # same coverage, new path
-            add_group(groups, group, stack_aggreement, cur_path, stack_coverage)
+            _add_group(groups, group, stack_aggreement, cur_path, stack_coverage)
             added = True
 
     if not added:
@@ -195,12 +198,12 @@ def ending_node(cur_path, aggreement_stacks, groups, all_nodes):
     return None
 
 
-def rolling_dijkstra(graph, optimization_variable="time"):
+def _rolling_dijkstra(graph, optimization_variable="time"):
     """
     Dijkstra untill there is full coverage on a combination of aggreement stacks
     graph to optimize
     """
-    aggreement_stacks = make_aggreement_list(graph)
+    aggreement_stacks = _make_aggreement_list(graph)
     all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != "null"}
 
     que = []
@@ -217,7 +220,7 @@ def rolling_dijkstra(graph, optimization_variable="time"):
 
         if neighbor_stacks == []:  # ending node
 
-            found = ending_node(cur_path, aggreement_stacks, groups, all_nodes)
+            found = _ending_node(cur_path, aggreement_stacks, groups, all_nodes)
             if found:
                 return found
 
@@ -242,7 +245,7 @@ def select_nodes(subgraphs, optimization_variable="time"):
     """
     flat_subgraphs = []
     for subgraph in subgraphs:
-        nodes = rolling_dijkstra(subgraph, optimization_variable=optimization_variable)
+        nodes = _rolling_dijkstra(subgraph, optimization_variable=optimization_variable)
         subgraph_nodes_list = []
         for node in nodes:
             subgraph_stack = subgraph.stack_list[node[0]]
@@ -267,8 +270,8 @@ def select_nodes(subgraphs, optimization_variable="time"):
 # endregion
 
 
-# region ###### scheduling_dijkstra for embeded branched stacked graphs ######
-def hardware_synchronize():
+# region schedule_nodes
+def _hardware_synchronize():
     """brings all hardware times up to the max"""
     max_value = max(
         max(inner_dict.values()) for inner_dict in oc.available_hardware.values()
@@ -279,7 +282,7 @@ def hardware_synchronize():
             sub_dict[key] = max_value
 
 
-def scheduling_dijkstra(graph):
+def _scheduling_dijkstra(graph):
     """
     subgraph with mock start node.
     oc.available_hardware initilized to 0
@@ -359,7 +362,7 @@ def scheduling_dijkstra(graph):
                 que.append(cur_path + (neighbor,))
 
 
-def time_shift(graph, time):
+def _time_shift(graph, time):
     """Shift all nodes =
 
     Args:
@@ -375,7 +378,7 @@ def time_shift(graph, time):
             sub_dict[key] += time
 
 
-def add_in_out(original_graph, node_list):
+def _add_in_out(original_graph, node_list):
     """add i/o nodes to graph
 
     Args:
@@ -422,7 +425,7 @@ def add_in_out(original_graph, node_list):
     print("...     ... graph i/o added ...")
 
 
-def schedule_in_out(graph):
+def _schedule_in_out(graph):
     """Schedule the i/o nodes in a graph
 
     Args:
@@ -455,7 +458,7 @@ def schedule_in_out(graph):
 
     # 0 time pass
     if min_start_time < 0:
-        time_shift(graph, -min_start_time)
+        _time_shift(graph, -min_start_time)
 
     print("...     ... graph i/o scheduled ...")
 
@@ -474,7 +477,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
     nodes_seen = set()
     full_node_list = []
     for subgraph in subgraphs:
-        scheduling_dijkstra(subgraph)
+        _scheduling_dijkstra(subgraph)
 
         for node in subgraph.node_list:
             if node.algorithm != "start" and node.stack_id not in nodes_seen:
@@ -483,7 +486,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
                 full_node_list.append(node)
                 nodes_seen.add(node.stack_id)
 
-        hardware_synchronize()
+        _hardware_synchronize()
         break_points.append(
             max(
                 max(inner_dict.values())
@@ -493,10 +496,10 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
         print("...     ... Subgraph Scheduled ...")
 
     test.merge_i_o(full_node_list, original_graph)
-    add_in_out(original_graph, full_node_list)
+    _add_in_out(original_graph, full_node_list)
 
     graph = sg.Graph(full_node_list)
-    schedule_in_out(graph)
+    _schedule_in_out(graph)
 
     for node in graph.node_list:
         if node.stack_id not in graph.in_nodes and node.stack_id not in graph.out_nodes:
@@ -519,8 +522,8 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
 # endregion
 
 
-# region ###### Node Expansion ######
-def group_dot_products(m1, m2):
+# region expand_nodes
+def _group_dot_products(m1, m2):
     """given to tensors, returns dotproducts grouped by most common vector used
 
     Args:
@@ -540,14 +543,14 @@ def group_dot_products(m1, m2):
     return groups
 
 
-def matmul_graph(node):
+def _matmul_graph(node):
     """given a photonic node, create expanded computational graph to replace it
 
     Args:
         node (Node): Photonic algorithm
     """
     m1, m2 = node.input_shapes
-    dot_prod_groups = group_dot_products(m1, m2)
+    dot_prod_groups = _group_dot_products(m1, m2)
 
     split_node = sg.Node("split", node.stack)
     split_node.stack_id -= 0.1
@@ -574,7 +577,7 @@ def matmul_graph(node):
     return [split_node, merge_node] + subnodes
 
 
-def update_children(graph, node_idx):
+def _update_children(graph, node_idx):
     """propogate patrent id change to children
 
     Args:
@@ -604,9 +607,9 @@ def expand_nodes(flat_subgraphs):
         # add replacement nodes
         for node_idx, node in enumerate(subgraph.node_list):
             if node.algorithm in pa.node_expansion:
-                replacement_nodes = matmul_graph(node)
+                replacement_nodes = _matmul_graph(node)
                 new_subgraph_node_list += replacement_nodes
-                update_children(subgraph, node_idx)
+                _update_children(subgraph, node_idx)
 
         # add rest, some have been modified
         for node_idx, node in enumerate(subgraph.node_list):
@@ -618,108 +621,6 @@ def expand_nodes(flat_subgraphs):
 
     print("... Nodes Expanded ...")
     return new_subgraphs
-
-
-# endregion
-
-
-# region ###### memory ######
-def get_memory_profile(graph):
-    """time datapoints of memory changes in bits
-
-    Args:
-        graph (Graph):
-
-    Returns:
-        lsit of tuples: representing total and change in
-    """
-    delta_dram = []
-    delta_sram = []
-    dram = []  # (time, bits)
-    sram = []  # (time, bits)
-    dram_total = 0
-    sram_total = 0
-
-    outdegree = {
-        idx: sum(1 for i in row if i is not None)
-        for idx, row in enumerate(graph.adj_matrix)
-    }
-
-    dram.append((0, 0))
-    sorted_stack_list = sorted(graph.node_list, key=lambda x: x.start_time)
-
-    for node_obj in sorted_stack_list:
-        in_size = sum(oc.ten_elm(x) for x in node_obj.input_shapes)
-        out_size = sum(oc.ten_elm(x) for x in node_obj.output_shapes)
-        assert out_size >= 0
-
-        if node_obj.stack_id in graph.in_nodes:  # D -> S
-            dram_total -= out_size
-            dram.append((node_obj.start_time, dram_total))
-            delta_dram.append((node_obj.start_time, -out_size))
-
-            sram_total += out_size
-            sram.append(
-                (
-                    node_obj.start_time + node_obj.time_cost,
-                    sram_total,
-                )
-            )
-            delta_sram.append(
-                (
-                    node_obj.start_time + node_obj.time_cost,
-                    out_size,
-                )
-            )
-
-        elif node_obj.stack_id in graph.out_nodes:  # S -> D
-            sram_total -= in_size
-            sram.append((node_obj.start_time, sram_total))
-            delta_sram.append((node_obj.start_time, -in_size))
-
-            dram_total += out_size
-            dram.append(
-                (
-                    node_obj.start_time + node_obj.time_cost,
-                    dram_total,
-                )
-            )
-            delta_dram.append(
-                (
-                    node_obj.start_time + node_obj.time_cost,
-                    out_size,
-                )
-            )
-
-        else:
-            for parent in node_obj.parents:
-                parent_obj = graph.get_node_obj(parent)
-                outdegree[graph.id_to_idx[parent_obj.stack_id]] -= 1
-                # once all children are satisfied, we remove data from SRAM
-                if outdegree[graph.id_to_idx[parent_obj.stack_id]] == 0:
-                    size = sum(oc.ten_elm(x) for x in parent_obj.output_shapes)
-                    sram_total -= size
-                    sram.append((node_obj.start_time, sram_total))
-                    delta_sram.append((node_obj.start_time, -size))
-
-            sram_total += out_size
-            sram.append(
-                (
-                    node_obj.start_time + node_obj.time_cost,
-                    sram_total,
-                )
-            )
-            delta_sram.append(
-                (
-                    node_obj.start_time + node_obj.time_cost,
-                    out_size,
-                )
-            )
-
-    # print(f"{dram_total=}")
-    # print(f"{sram_total=}")
-    print("... Memory profile made ...")
-    return dram, delta_dram, sram, delta_sram
 
 
 # endregion

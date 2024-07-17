@@ -103,7 +103,7 @@ NODE_COUNT = 0
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
-PHU_CORES = 64
+PHU_CORES = 1
 PHU_MULTIPLEX = 20
 CPU_CORES = 1
 
@@ -113,6 +113,7 @@ MODULATOR_CONST = 1 / PHU_CLOCK_SPEED  # per bit time of electronic-photonic con
 BITS_PER_NUM = 8
 
 J_PER_BIT = 10**-12  # 1 pico-jule
+J_PER_CYCLE = 10**-10 # 100 pico-jule
 
 cycle_to_time_funcs = {
     "CPU": lambda x: x / CPU_CLOCK_SPEED,
@@ -124,6 +125,7 @@ node_value_selection = {
     "time": lambda node: node.time_cost,
     "energy": lambda node: node.energy_cost,
 }
+
 edge_value_selection = {
     "time": hw_time_intercon,
     "energy": hw_energy_intercon,
@@ -137,7 +139,7 @@ class HardwareAlgorithm:
         hardware,
         function,
         cycle_function,
-        energy_function=lambda i, o: 10 * J_PER_BIT,
+        energy_function=lambda i, o: 5 * J_PER_CYCLE,
     ):
         self.opp = opp
         self.hardware = hardware
@@ -193,13 +195,13 @@ hardware_algs = {
     "where": HardwareAlgorithm("where", "CPU", func, constnat(1)),
     "erf": HardwareAlgorithm("erf", "CPU", func, constnat(1)),
     "task_para_matmul_phu": HardwareAlgorithm(
-        "matmul", "PHU", func, phu_matmul_task_para_time, lambda i, o: 5 * J_PER_BIT
+        "matmul", "PHU", func, phu_matmul_task_para_time, lambda i, o: 10 * J_PER_CYCLE
     ),
     "task_para_dense_phu": HardwareAlgorithm(
-        "dense", "PHU", func, phu_matmul_task_para_time, lambda i, o: 5 * J_PER_BIT
+        "dense", "PHU", func, phu_matmul_task_para_time, lambda i, o: 10 * J_PER_CYCLE
     ),
     "task_para_pack_phu": HardwareAlgorithm(
-        "pack", "PHU", func, phu_matmul_task_para_time, lambda i, o: 5 * J_PER_BIT
+        "pack", "PHU", func, phu_matmul_task_para_time, lambda i, o: 10 * J_PER_CYCLE
     ),
     "dynamic_para_matmul_phu": HardwareAlgorithm(
         "matmul", "PHU", func, phu_matmul_dynamic_para_time

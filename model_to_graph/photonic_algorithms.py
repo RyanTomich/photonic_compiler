@@ -7,7 +7,7 @@ import stacked_graph as sg
 
 
 # Create Dot Products
-def matmul(m1, m2, preamble):
+def _matmul(m1, m2, preamble):
     """createss dot products from 2 matricies
 
     Args:
@@ -40,15 +40,16 @@ def nd_tensor_product(m1, m2, preamble=()):
         srt: dot product with indexing
     """
     if len(m1) == 2:
-        yield from matmul(m1, m2, preamble)
+        yield from _matmul(m1, m2, preamble)
     else:
         for dimention in range(m1[0]):
             preamble = preamble + (dimention,)
             yield from nd_tensor_product(m1[1:], m2[1:], preamble=preamble)
             preamble = preamble[:-1]
 
+# Expansion Functinos
 
-def multiplex_groups(size, common_operand, unique_operands):
+def _multiplex_groups(size, common_operand, unique_operands):
     """group nodes into max multiplex
 
     Args:
@@ -73,7 +74,7 @@ def multiplex_groups(size, common_operand, unique_operands):
         yield (size, common_operand, unique_operands[start:])
 
 
-def task_para_node_gen(node, size, common_operand, unique_operands):
+def _task_para_node_gen(node, size, common_operand, unique_operands):
     """takes group of dot dot products and creates list of nodes for a computational graph
 
     Args:
@@ -82,7 +83,7 @@ def task_para_node_gen(node, size, common_operand, unique_operands):
         unique_operands (list): list of m2()
     """
     subnodes = []
-    for multiplex in multiplex_groups(size, common_operand, unique_operands):
+    for multiplex in _multiplex_groups(size, common_operand, unique_operands):
         size, common_operand, unique_subset = multiplex
 
         subnode = sg.Node("dot_prod_phu", node.stack)
@@ -98,15 +99,15 @@ def task_para_node_gen(node, size, common_operand, unique_operands):
     return subnodes
 
 
-def dynamic_para_node_gen(common_operand, unique_operands):
+def _dynamic_para_node_gen(common_operand, unique_operands):
     pass
 
 
-node_expansion = {
-    "task_para_matmul_phu": task_para_node_gen,
-    "task_para_dense_phu": task_para_node_gen,
-    "task_para_pack_phu": task_para_node_gen,
-    "dynamic_para_matmul_phu": dynamic_para_node_gen,
-    "dynamic_para_dense_phu": dynamic_para_node_gen,
-    "dynamic_para_pack_phu": dynamic_para_node_gen,
+node_expansion = { # node algorithm to it's expansion function
+    "task_para_matmul_phu": _task_para_node_gen,
+    "task_para_dense_phu": _task_para_node_gen,
+    "task_para_pack_phu": _task_para_node_gen,
+    "dynamic_para_matmul_phu": _dynamic_para_node_gen,
+    "dynamic_para_dense_phu": _dynamic_para_node_gen,
+    "dynamic_para_pack_phu": _dynamic_para_node_gen,
 }

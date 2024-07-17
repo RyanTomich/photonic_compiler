@@ -219,6 +219,8 @@ class Graph:
             adj_matrix[start_stack_idx][end_stack_idx] = connection
         return adj_matrix
 
+    # create_schedule_data
+
     def create_schedule_data(self, write=False):
         """
         returns metadata about the schedule.

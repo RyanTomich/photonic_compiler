@@ -8,4 +8,5 @@
 **/*.txt
 **/*.pyc
 **/*.png
+**/*.pth
 try_stuff.py
