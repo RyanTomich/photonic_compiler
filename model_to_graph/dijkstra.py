@@ -46,7 +46,7 @@ def graph_partition(graph):
                 new_node.parents = set(new_node.parents) - graph.in_nodes
                 subgraph_stack_list.append(new_node)
 
-        sub_graph = sg.StackGraph(stack_list=subgraph_stack_list)
+        sub_graph = sg.StackGraph(stack_list=subgraph_stack_list, optimization_variable=graph.optimization_variable)
         yield sub_graph
     print("... Subgraphs Made ...") if oc.DEBUG_PRINT else None
 
@@ -201,7 +201,7 @@ def _ending_node(cur_path, aggreement_stacks, groups, all_nodes):
     return None
 
 
-def _rolling_dijkstra(graph, optimization_variable="time"):
+def _rolling_dijkstra(graph, optimization_variable):
     """
     Dijkstra untill there is full coverage on a combination of aggreement stacks
     graph to optimize
@@ -237,7 +237,7 @@ def _rolling_dijkstra(graph, optimization_variable="time"):
     return None
 
 
-def select_nodes(subgraphs, optimization_variable="time"):
+def select_nodes(subgraphs, optimization_variable):
     """apply roling_dijkstra to each subgraph.
 
     Args:
@@ -263,7 +263,7 @@ def select_nodes(subgraphs, optimization_variable="time"):
                 )
             )
 
-        flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
+        flat_subgraphs.append(sg.Graph(subgraph_nodes_list, optimization_variable))
         print("...     ... Subgraph Nodes selected ...") if oc.DEBUG_PRINT else None
 
     print("... Nodes selected ...") if oc.DEBUG_PRINT else None
@@ -501,7 +501,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
     test.merge_i_o(full_node_list, original_graph)
     _add_in_out(original_graph, full_node_list)
 
-    graph = sg.Graph(full_node_list)
+    graph = sg.Graph(full_node_list, original_graph.optimization_variable)
     _schedule_in_out(graph)
 
     for node in graph.node_list:
@@ -619,7 +619,7 @@ def expand_nodes(flat_subgraphs):
             if node.algorithm not in pa.node_expansion:
                 new_subgraph_node_list.append(node)
 
-        new_subgraphs.append(sg.Graph(new_subgraph_node_list))
+        new_subgraphs.append(sg.Graph(new_subgraph_node_list, subgraph.optimization_variable))
         print("...     ... sungraph Nodes Expanded ...") if oc.DEBUG_PRINT else None
 
     print("... Nodes Expanded ...") if oc.DEBUG_PRINT else None

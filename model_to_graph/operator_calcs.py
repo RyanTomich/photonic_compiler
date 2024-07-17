@@ -62,11 +62,14 @@ def constnat(c):
 def elm_const(matrix, const=1):
     return ten_elm(matrix) * const
 
+
 def cpu_matmul_time(i, o):
     return {"CPU": ten_elm(i[0]) * i[1][-2]}
 
+
 def cpu_matmul_energy(i, o):
     return ten_elm(i[0]) * i[1][-2] * GPU_MAC
+
 
 def phu_matmul_task_para_time(i, o):
     num_dot_products = ten_elm(i[0]) / i[0][-1]
@@ -76,6 +79,7 @@ def phu_matmul_task_para_time(i, o):
         * length_dot_products
     )
     return {"PHU": phu_cycles}
+
 
 def phu_matmul_task_para_energy(i, o):
     num_dot_products = ten_elm(i[0]) / i[0][-1]
@@ -132,6 +136,7 @@ LOCAL_READ = 1 * PICO_JOULE #TODO
 LOCAL_WRITE = 1 * PICO_JOULE #TODO
 GPU_MAC = 0.1 * PICO_JOULE
 PHU_MAC = 0.04 * PICO_JOULE
+
 DAC_POWER = 3.18 * PICO_JOULE
 ADC_POWER = 1.6 * PICO_JOULE
 
@@ -221,13 +226,13 @@ hardware_algs = {
     "task_para_pack_phu": HardwareAlgorithm(
         "pack", "PHU", func, phu_matmul_task_para_time, phu_matmul_task_para_energy
     ),
-    "dynamic_para_matmul_phu": HardwareAlgorithm(
+    "dynamic_para_matmul_phu": HardwareAlgorithm(  # TODO
         "matmul", "PHU", func, phu_matmul_dynamic_para_time, lambda i,o: np.inf
     ),
-    "dynamic_para_dense_phu": HardwareAlgorithm(
+    "dynamic_para_dense_phu": HardwareAlgorithm(  # TODO
         "dense", "PHU", func, phu_matmul_dynamic_para_time, lambda i,o: np.inf
     ),
-    "dynamic_para_pack_phu": HardwareAlgorithm(
+    "dynamic_para_pack_phu": HardwareAlgorithm(  # TODO
         "pack", "PHU", func, phu_matmul_dynamic_para_time, lambda i,o: np.inf
     ),
     "get_dram": HardwareAlgorithm(

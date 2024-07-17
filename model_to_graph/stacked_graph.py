@@ -115,7 +115,7 @@ class Stack:
 
 
 class Graph:
-    def __init__(self, node_list, optimization_variable="time"):
+    def __init__(self, node_list, optimization_variable):
         test.node_list_complete(node_list)
         self.node_list = node_list
         self.id_to_idx = {v.stack_id: i for i, v in enumerate(self.node_list)}
@@ -259,7 +259,7 @@ class Graph:
 class StackGraph(Graph):
     """Represents a Dependancy Graph of Stack Objects"""
 
-    def __init__(self, optimization_variable="time", stack_list=None, raw_json=None):
+    def __init__(self, optimization_variable, stack_list=None, raw_json=None):
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_stacks()
         super().__init__(self.stack_list, optimization_variable)

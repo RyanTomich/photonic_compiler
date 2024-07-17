@@ -19,14 +19,17 @@ with open(JSON_PATH, encoding="utf-8") as json_file:
     raw_json = json.load(json_file)  # returns json file as dict
     # print("... Json loaded ...")
 
-OPTIMIZATION_VARIABLE = "time"
-# OPTIMIZATION_VARIABLE = "energy"
+# OPTIMIZATION_VARIABLE = "time"
+OPTIMIZATION_VARIABLE = "energy"
 
 graph = sg.StackGraph(raw_json=raw_json, optimization_variable=OPTIMIZATION_VARIABLE)
 stacked_subgraphs = list(dijk.graph_partition(graph))
 flat_subgraphs = dijk.select_nodes(
     stacked_subgraphs, optimization_variable=OPTIMIZATION_VARIABLE
 )
+
+# for graph in flat_subgraphs:
+#     print(graph.optimization_variable)
 
 expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
 scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
