@@ -36,7 +36,7 @@ schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
 empty = test.schedule_validate(schedule_df)
 
 dram, delta_dram, sram, delta_sram = dc.get_memory_profile(scheduled_flat_graph)
-energy, total_energy = dc.get_energy_profile(scheduled_flat_graph)
+energy_data, delta_energy, total_energy = dc.get_energy_profile(scheduled_flat_graph)
 
 print()
 print("---------- INFO ----------")

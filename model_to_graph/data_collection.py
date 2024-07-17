@@ -143,15 +143,13 @@ def get_energy_profile(graph):
     Args:
         graph (Graph): scheduled computational graph
     """
-    total_energy = 0
-    energy = [(0, total_energy)]  # (time, energy_usage)
+    delta_energy = []  # (time, energy_usage)
 
     sorted_node_list = sorted(graph.node_list, key=lambda x: x.start_time)
 
     # Node Energy
     for node in sorted_node_list:
-        total_energy += node.energy_cost
-        energy.append((node.start_time, total_energy))
+        delta_energy.append((node.start_time, node.energy_cost))
 
     # Edge energy
     for row_num in range(len(graph.adj_matrix)):
@@ -166,13 +164,22 @@ def get_energy_profile(graph):
             start_hw = start_node.get_algo_info("hardware")
             end_hw = end_node.get_algo_info("hardware")
             hw_connection = tuple((start_hw, end_hw))
-            total_energy += oc.edge_value_selection(
+            energy_change = oc.edge_value_selection(
                 'time',
                 hw_connection,
                 num_transfer,
                 bit_transfer,
             )
 
-            energy.append((start_node.start_time, total_energy))
+            delta_energy.append((start_node.start_time, energy_change))
 
-    return energy, round(total_energy* 1/oc.PICO_JOULE, 1)
+    print('all_data')
+    delta_energy.sort(key=lambda x: x[0])
+
+    total_energy = 0
+    energy_data = [(0,0)]
+    for delta in delta_energy:
+        total_energy += delta[1]
+        energy_data.append((delta[0], total_energy))
+
+    return energy_data, delta_energy, round(total_energy* 1/oc.PICO_JOULE, 1)
