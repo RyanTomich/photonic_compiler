@@ -158,7 +158,7 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
             xmin=row["start"],
             xmax=row["end"],
             color=task_color,
-            linewidth=20,
+            linewidth=5,
         )
 
         # Adding label on the bar
@@ -172,7 +172,7 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
         ax.set_title(f"Task Schedule {round(xlim_start, 5)}-{round(xlim_end, 5)}")
     else:
         ax.set_title(f"Task Schedule all")
-    ax.grid(True)
+    ax.grid(False)
     # ax.legend()
 
     # x_ticks = np.arange(start=float(xlim_start), stop=float(xlim_end), step=float(1e-8 / 10))
