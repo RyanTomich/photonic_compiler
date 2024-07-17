@@ -121,6 +121,7 @@ def get_memory_profile(graph):
     print("... Memory profile made ...") if oc.DEBUG_PRINT else None
     return dram, delta_dram, sram, delta_sram
 
+
 def get_all_algorithms(graph):
     if not isinstance(graph, list):
         graph = [graph]
@@ -132,3 +133,46 @@ def get_all_algorithms(graph):
 
     # print(algorithms)
     return algorithms
+
+
+def get_energy_profile(graph):
+    """creates list of data points for energy usage
+    Makes the assumption that all energy usage happens at the beginning when in
+    reality, power is continuously used over the time of each transfer or computation.
+
+    Args:
+        graph (Graph): scheduled computational graph
+    """
+    total_energy = 0
+    energy = [(0, total_energy)]  # (time, energy_usage)
+
+    sorted_node_list = sorted(graph.node_list, key=lambda x: x.start_time)
+
+    # Node Energy
+    for node in sorted_node_list:
+        total_energy += node.energy_cost
+        energy.append((node.start_time, total_energy))
+
+    # Edge energy
+    for row_num in range(len(graph.adj_matrix)):
+        for col_num in range(len(graph.adj_matrix)):
+            if graph.adj_matrix[row_num][col_num] is None:
+                continue
+
+            start_node = graph.node_list[row_num]
+            end_node = graph.node_list[col_num]
+
+            num_transfer, bit_transfer = graph._bit_transfer(start_node)
+            start_hw = start_node.get_algo_info("hardware")
+            end_hw = end_node.get_algo_info("hardware")
+            hw_connection = tuple((start_hw, end_hw))
+            total_energy += oc.edge_value_selection(
+                'time',
+                hw_connection,
+                num_transfer,
+                bit_transfer,
+            )
+
+            energy.append((start_node.start_time, total_energy))
+
+    return energy, round(total_energy* 1/oc.PICO_JOULE, 1)
