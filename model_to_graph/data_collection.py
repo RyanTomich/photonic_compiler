@@ -118,5 +118,17 @@ def get_memory_profile(graph):
 
     # print(f"{dram_total=}")
     # print(f"{sram_total=}")
-    print("... Memory profile made ...")
+    print("... Memory profile made ...") if oc.DEBUG_PRINT else None
     return dram, delta_dram, sram, delta_sram
+
+def get_all_algorithms(graph):
+    if not isinstance(graph, list):
+        graph = [graph]
+
+    algorithms = set()
+    for subgraph in graph:
+        for node in subgraph.node_list:
+            algorithms.add(node.algorithm)
+
+    # print(algorithms)
+    return algorithms

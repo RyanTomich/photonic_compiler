@@ -17,7 +17,7 @@ JSON_PATH = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # JSON_PATH = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
 with open(JSON_PATH, encoding="utf-8") as json_file:
     raw_json = json.load(json_file)  # returns json file as dict
-    print("... Json loaded ...")
+    # print("... Json loaded ...")
 
 OPTIMIZATION_VARIABLE = "time"
 # OPTIMIZATION_VARIABLE = "energy"
@@ -42,5 +42,7 @@ dram, delta_dram, sram, delta_sram = dc.get_memory_profile(scheduled_flat_graph)
 print()
 print("---------- INFO ----------")
 dc.get_photonic(flat_subgraphs)
+print( dc.get_all_algorithms(flat_subgraphs).symmetric_difference(dc.get_all_algorithms(scheduled_flat_graph)) )
+
 print(f"makespan: {end_time}")
 print(f"nodes: {len(scheduled_flat_graph.node_list)}")

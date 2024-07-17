@@ -48,7 +48,7 @@ def graph_partition(graph):
 
         sub_graph = sg.StackGraph(stack_list=subgraph_stack_list)
         yield sub_graph
-    print("... Subgraphs Made ...")
+    print("... Subgraphs Made ...") if oc.DEBUG_PRINT else None
 
 
 # endregion
@@ -264,9 +264,9 @@ def select_nodes(subgraphs, optimization_variable="time"):
             )
 
         flat_subgraphs.append(sg.Graph(subgraph_nodes_list))
-        print("...     ... Subgraph Nodes selected ...")
+        print("...     ... Subgraph Nodes selected ...") if oc.DEBUG_PRINT else None
 
-    print("... Nodes selected ...")
+    print("... Nodes selected ...") if oc.DEBUG_PRINT else None
     return flat_subgraphs
 
 
@@ -425,7 +425,7 @@ def _add_in_out(original_graph, node_list):
         node_list.append(new_node)
 
     assert test.node_list_complete(node_list)
-    print("...     ... graph i/o added ...")
+    print("...     ... graph i/o added ...") if oc.DEBUG_PRINT else None
 
 
 def _schedule_in_out(graph):
@@ -463,7 +463,7 @@ def _schedule_in_out(graph):
     if min_start_time < 0:
         _time_shift(graph, -min_start_time)
 
-    print("...     ... graph i/o scheduled ...")
+    print("...     ... graph i/o scheduled ...") if oc.DEBUG_PRINT else None
 
 
 def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
@@ -496,7 +496,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
                 for inner_dict in oc.available_hardware.values()
             )
         )
-        print("...     ... Subgraph Scheduled ...")
+        print("...     ... Subgraph Scheduled ...") if oc.DEBUG_PRINT else None
 
     test.merge_i_o(full_node_list, original_graph)
     _add_in_out(original_graph, full_node_list)
@@ -514,7 +514,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
         5,
     )
 
-    print("... Nodes Schdeuled ...")
+    print("... Nodes Schdeuled ...") if oc.DEBUG_PRINT else None
     return (
         graph,
         end_time,
@@ -620,9 +620,9 @@ def expand_nodes(flat_subgraphs):
                 new_subgraph_node_list.append(node)
 
         new_subgraphs.append(sg.Graph(new_subgraph_node_list))
-        print("...     ... sungraph Nodes Expanded ...")
+        print("...     ... sungraph Nodes Expanded ...") if oc.DEBUG_PRINT else None
 
-    print("... Nodes Expanded ...")
+    print("... Nodes Expanded ...") if oc.DEBUG_PRINT else None
     return new_subgraphs
 
 

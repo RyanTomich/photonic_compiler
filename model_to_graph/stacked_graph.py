@@ -162,19 +162,20 @@ class Graph:
     def _bit_transfer(self, node, direction="out"):
         """
         Calculates the total number of bits passed out of a node
+        returns [num, bits]
         """
-        total_bits = 0
+        total_num = 0
         if direction == "out":
-            total_bits += oc.ten_elm(
+            total_num += oc.ten_elm(
                 node.output_shapes[0]
             )  # assuming uniform outputs(splits are all the same) # TODO fix this assumption...
         else:
             for shape in node.input_shapes:
-                total_bits += oc.ten_elm(shape)
+                total_num += oc.ten_elm(shape)
 
-        return total_bits * oc.BITS_PER_NUM
+        return (total_num, total_num * oc.BITS_PER_NUM)
 
-    def _make_connection(self, start_node_idx, end_node_idx, bit_transfer) -> int:
+    def _make_connection(self, start_node_idx, end_node_idx, num_transfer, bit_transfer) -> int:
         """makes connection cost for flat graphs
 
         Args:
@@ -190,10 +191,12 @@ class Graph:
 
         start_hw = start_node.get_algo_info("hardware")
         end_hw = end_node.get_algo_info("hardware")
-        hw_connection = tuple(sorted((start_hw, end_hw)))
-        # connection = oc.hw_time_intercon(hw_connection, bit_transfer)
-        connection = oc.edge_value_selection[self.optimization_variable](
-            hw_connection, bit_transfer
+        hw_connection = tuple((start_hw, end_hw))
+        connection = oc.edge_value_selection(
+            self.optimization_variable,
+            hw_connection,
+            num_transfer,
+            bit_transfer,
         )
 
         return connection
@@ -207,8 +210,8 @@ class Graph:
             inputs = node.parents
             for inp in inputs:  # where each input is an index to another node.
                 dependancys.append(
-                    (inp, node.stack_id, self._bit_transfer(self.get_node_obj(inp)))
-                )  # (1, 2, bit_transfer) where 1's output are 2's inputs
+                    (inp, node.stack_id) + self._bit_transfer(self.get_node_obj(inp))
+                )  # (1, 2, num, bits) where 1's output are 2's inputs
 
         num_nodes = len(self.node_list)
         adj_matrix = np.empty((num_nodes, num_nodes), dtype=object)  # block matrix
@@ -249,7 +252,7 @@ class Graph:
                         f"{row['label']} --- {row['hardware']} ({row['start']})\n"
                     )
 
-        print("... Schedule Data written ...")
+        print("... Schedule Data written ...") if oc.DEBUG_PRINT else None
         return schedule_data
 
 
@@ -261,7 +264,7 @@ class StackGraph(Graph):
         self.stack_list = stack_list if not raw_json else self._create_stacks()
         super().__init__(self.stack_list, optimization_variable)
         assert self.node_list == self.stack_list
-        print("... Graph Made ...")
+        print("... Graph Made ...") if oc.DEBUG_PRINT else None
 
     def _create_stacks(self):
         ajusted_shapes = []
@@ -290,7 +293,7 @@ class StackGraph(Graph):
 
     # adj_matrix
 
-    def _make_connection(self, start_node_idx, end_node_idx, bit_transfer) -> np.array:
+    def _make_connection(self, start_node_idx, end_node_idx, num_transfer, bit_transfer) -> np.array:
         """makes connection cost for flat graphs
 
         Args:
@@ -315,10 +318,10 @@ class StackGraph(Graph):
             for end_idx, end_node in enumerate(end_node_list):
                 start_hw = start_node.get_algo_info("hardware")
                 end_hw = end_node.get_algo_info("hardware")
-                hw_connection = tuple(sorted((start_hw, end_hw)))
-                connection_matrix[start_idx][end_idx] = oc.edge_value_selection[
-                    self.optimization_variable
-                ](hw_connection, bit_transfer)
+                # hw_connection = tuple(sorted((start_hw, end_hw)))
+                hw_connection = tuple( (start_hw, end_hw) )
+                connection_matrix[start_idx][end_idx] = oc.edge_value_selection(self.optimization_variable, hw_connection, num_transfer, bit_transfer )
+
         return connection_matrix
 
     # Node_selection
