@@ -301,12 +301,12 @@ class HardwareConnection:
 
 
 hw_intercon = {
-    ("HBM", "SRAM"): HardwareConnection(0, DRAM_READ + SRAM_WRITE),
-    ("SRAM", "CPU"): HardwareConnection(0, SRAM_READ),
-    ("SRAM", "PHU"): HardwareConnection(0, SRAM_READ + DAC_POWER),
-    ("CPU", "SRAM"): HardwareConnection(0, SRAM_WRITE),
-    ("PHU", "SRAM"): HardwareConnection(0, ADC_POWER + SRAM_WRITE),
-    ("SRAM", "HBM"): HardwareConnection(0, SRAM_READ + DRAM_WRITE),
+    ("HBM", "SRAM"): HardwareConnection(0, HBM_READ + SRAM_WRITE),
+    ("SRAM", "CPU"): HardwareConnection(0, SRAM_READ + LOCAL_WRITE + LOCAL_READ),
+    ("SRAM", "PHU"): HardwareConnection(0, SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER),
+    ("CPU", "SRAM"): HardwareConnection(0, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE),
+    ("PHU", "SRAM"): HardwareConnection(0, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE),
+    ("SRAM", "HBM"): HardwareConnection(0, SRAM_READ + HBM_WRITE),
     ("start", "CPU"): HardwareConnection(0, 0),
     ("start", "PHU"): HardwareConnection(0, 0),
     ("start", "SRAM"): HardwareConnection(0, 0),
