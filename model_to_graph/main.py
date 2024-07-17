@@ -32,6 +32,11 @@ scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
     graph, expanded_flat_subgraphs
 )
 
+for node in scheduled_flat_graph.node_list:
+    if node.algorithm == 'get_dram':
+        # print (node.output_shapes)
+        pass
+
 schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
 empty = test.schedule_validate(schedule_df)
 

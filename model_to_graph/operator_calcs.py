@@ -172,7 +172,7 @@ ADC_POWER = 1.6 * PICO_JOULE
 cycle_to_time_funcs = {
     "CPU": lambda x: x / CPU_CLOCK_SPEED,
     "PHU": lambda x: x / PHU_CLOCK_SPEED,
-    "DRAM": lambda x: x / CPU_CLOCK_SPEED,
+    "HBM": lambda x: x / CPU_CLOCK_SPEED,
 }
 
 node_value_selection = {
@@ -263,9 +263,10 @@ hardware_algs = {
     ),
     "get_dram": HardwareAlgorithm(
         "null",
-        "DRAM",
+        "HBM",
         func,
-        lambda i, o: {"DRAM": ten_elm(i) * BITS_PER_NUM / DRAM_SRAM_WIDTH},
+        lambda i, o: {"HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / DRAM_SRAM_WIDTH},
+        lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ + sum(ten_elm(a) for a in o) * HBM_WRITE
     ),
     "start": HardwareAlgorithm("start", "start", func, constnat(1)),
     "dot_prod_phu": HardwareAlgorithm(
@@ -300,12 +301,12 @@ class HardwareConnection:
 
 
 hw_intercon = {
-    ("DRAM", "SRAM"): HardwareConnection(0, DRAM_READ + SRAM_WRITE),
+    ("HBM", "SRAM"): HardwareConnection(0, DRAM_READ + SRAM_WRITE),
     ("SRAM", "CPU"): HardwareConnection(0, SRAM_READ),
     ("SRAM", "PHU"): HardwareConnection(0, SRAM_READ + DAC_POWER),
     ("CPU", "SRAM"): HardwareConnection(0, SRAM_WRITE),
     ("PHU", "SRAM"): HardwareConnection(0, ADC_POWER + SRAM_WRITE),
-    ("SRAM", "DRAM"): HardwareConnection(0, SRAM_READ + DRAM_WRITE),
+    ("SRAM", "HBM"): HardwareConnection(0, SRAM_READ + DRAM_WRITE),
     ("start", "CPU"): HardwareConnection(0, 0),
     ("start", "PHU"): HardwareConnection(0, 0),
     ("start", "SRAM"): HardwareConnection(0, 0),
