@@ -7,6 +7,7 @@ import numpy as np
 
 DEBUG_PRINT = False
 
+
 # Scheduling
 def creat_available_hardware(hardware_dict):
     """Given the machiene hardware, create hardware dict
@@ -63,6 +64,7 @@ def elm_const(matrix, const=1):
     return ten_elm(matrix) * const
 
 
+## CPU
 def cpu_matmul_time(i, o):
     return {"CPU": ten_elm(i[0]) * i[1][-2]}
 
@@ -71,6 +73,7 @@ def cpu_matmul_energy(i, o):
     return ten_elm(i[0]) * i[1][-2] * GPU_MAC
 
 
+## PHU
 def phu_matmul_task_para_time(i, o):
     num_dot_products = ten_elm(i[0]) / i[0][-1]
     length_dot_products = i[0][-1]
@@ -96,23 +99,45 @@ def func():
     print("placeholder")
 
 
-def edge_value_selection(optimization_variable, hw_connection, num_transfer, bit_transfer):
-    if any(i in ["start", "SRAM"] for i in hw_connection): # one way
-        return hw_intercon[hw_connection].get_cost(optimization_variable, num_transfer, bit_transfer)
+def edge_value_selection(
+    optimization_variable, hw_connection, num_transfer, bit_transfer
+):
+    """Calculates cost between hardware. Accounts for trips to and from SRAM
+
+    Args:
+        optimization_variable (str): time or energy
+        hw_connection (tuple): (hw1, hw2 )
+        num_transfer (int): number of number being transfered
+        bit_transfer (int): number of bits being transfered
+
+    Returns:
+        int: total cost in seconds or jules (depending on optimization_variable)
+    """
+    if any(i in ["start", "SRAM"] for i in hw_connection):  # one way
+        return hw_intercon[hw_connection].get_cost(
+            optimization_variable, num_transfer, bit_transfer
+        )
     else:  # must go through SRAM
         return sum(
-            (hw_intercon[(hw_connection[0], "SRAM")].get_cost(optimization_variable, num_transfer, bit_transfer),
-            hw_intercon[("SRAM", hw_connection[1])].get_cost(optimization_variable, num_transfer, bit_transfer),)
+            (
+                hw_intercon[(hw_connection[0], "SRAM")].get_cost(
+                    optimization_variable, num_transfer, bit_transfer
+                ),
+                hw_intercon[("SRAM", hw_connection[1])].get_cost(
+                    optimization_variable, num_transfer, bit_transfer
+                ),
+            )
         )
 
-#region ###  Constants ###
+
+# region ###  Constants ###
 NODE_COUNT = 0
 
 # Time
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
-PHU_CORES = 1
+PHU_CORES = 64
 PHU_MULTIPLEX = 20
 CPU_CORES = 1
 
@@ -128,20 +153,21 @@ JOULE_PER_CYCLE = 1 * PICO_JOULE
 
 DRAM_READ = 160 * PICO_JOULE
 DRAM_WRITE = 160 * PICO_JOULE
-HBM_READ = 40 * PICO_JOULE #TODO
-HBM_WRITE = 40 * PICO_JOULE #TODO
+HBM_READ = 40 * PICO_JOULE  # TODO
+HBM_WRITE = 40 * PICO_JOULE  # TODO
 SRAM_READ = 12 * PICO_JOULE
 SRAM_WRITE = 12 * PICO_JOULE
-LOCAL_READ = 1 * PICO_JOULE #TODO
-LOCAL_WRITE = 1 * PICO_JOULE #TODO
+LOCAL_READ = 1 * PICO_JOULE  # TODO
+LOCAL_WRITE = 1 * PICO_JOULE  # TODO
 GPU_MAC = 0.1 * PICO_JOULE
 PHU_MAC = 0.04 * PICO_JOULE
 
+# DAC_POWER = np.inf
+# ADC_POWER = np.inf
 DAC_POWER = 3.18 * PICO_JOULE
 ADC_POWER = 1.6 * PICO_JOULE
 
-#endregion
-
+# endregion
 
 cycle_to_time_funcs = {
     "CPU": lambda x: x / CPU_CLOCK_SPEED,
@@ -168,6 +194,8 @@ class HardwareAlgorithm:
         self.hardware = hardware
         self.func = function
         self.cycle_function = cycle_function
+
+        # default value untill energy for all other algs
         self.energy_function = energy_function
 
     def cycle_to_s(self, cost: dict) -> int:
@@ -212,9 +240,7 @@ hardware_algs = {
     "dense": HardwareAlgorithm(
         "dense", "CPU", func, cpu_matmul_time, cpu_matmul_energy
     ),
-    "pack": HardwareAlgorithm(
-        "pack", "CPU", func, cpu_matmul_time, cpu_matmul_energy
-    ),
+    "pack": HardwareAlgorithm("pack", "CPU", func, cpu_matmul_time, cpu_matmul_energy),
     "where": HardwareAlgorithm("where", "CPU", func, constnat(1)),
     "erf": HardwareAlgorithm("erf", "CPU", func, constnat(1)),
     "task_para_matmul_phu": HardwareAlgorithm(
@@ -227,13 +253,13 @@ hardware_algs = {
         "pack", "PHU", func, phu_matmul_task_para_time, phu_matmul_task_para_energy
     ),
     "dynamic_para_matmul_phu": HardwareAlgorithm(  # TODO
-        "matmul", "PHU", func, phu_matmul_dynamic_para_time, lambda i,o: np.inf
+        "matmul", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
     ),
     "dynamic_para_dense_phu": HardwareAlgorithm(  # TODO
-        "dense", "PHU", func, phu_matmul_dynamic_para_time, lambda i,o: np.inf
+        "dense", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
     ),
     "dynamic_para_pack_phu": HardwareAlgorithm(  # TODO
-        "pack", "PHU", func, phu_matmul_dynamic_para_time, lambda i,o: np.inf
+        "pack", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
     ),
     "get_dram": HardwareAlgorithm(
         "null",
@@ -243,7 +269,11 @@ hardware_algs = {
     ),
     "start": HardwareAlgorithm("start", "start", func, constnat(1)),
     "dot_prod_phu": HardwareAlgorithm(
-        "dot_prod", "PHU", func, lambda i, o: {"PHU": i[0][-1]}, lambda i, o: i[0][-1] * PHU_MAC
+        "dot_prod",
+        "PHU",
+        func,
+        lambda i, o: {"PHU": i[0][-1]},
+        lambda i, o: i[0][-1] * PHU_MAC,
     ),
 }
 
@@ -260,67 +290,29 @@ class HardwareConnection:
         self.time_cost_func = lambda n, b: 1 / CPU_CLOCK_SPEED
         self.energy_cost_func = lambda n, b: n * energy_cost_per_number
 
-
     def get_cost(self, optimization_variable, num_transfer, bit_transfer):
-        var_to_func = {'time': self.time_cost_func,
-                       'energy': self.energy_cost_func,}
+        var_to_func = {
+            "time": self.time_cost_func,
+            "energy": self.energy_cost_func,
+        }
 
         return var_to_func[optimization_variable](num_transfer, bit_transfer)
 
+
 hw_intercon = {
-
-    ("DRAM", "SRAM"):   HardwareConnection(0, DRAM_READ + SRAM_WRITE),
-
-    ("SRAM", "CPU"):    HardwareConnection(0, SRAM_READ),
-    ("SRAM", "PHU"):    HardwareConnection(0, SRAM_READ + DAC_POWER),
-
-    ("CPU", "SRAM"):    HardwareConnection(0, SRAM_WRITE),
-    ("PHU", "SRAM"):    HardwareConnection(0, ADC_POWER + SRAM_WRITE),
-
-    ("SRAM", "DRAM"):   HardwareConnection(0, SRAM_READ + DRAM_WRITE),
-
-    ("start", "CPU"):   HardwareConnection(0, 0),
-    ("start", "PHU"):   HardwareConnection(0, 0),
-    ("start", "SRAM"):  HardwareConnection(0, 0),
-
+    ("DRAM", "SRAM"): HardwareConnection(0, DRAM_READ + SRAM_WRITE),
+    ("SRAM", "CPU"): HardwareConnection(0, SRAM_READ),
+    ("SRAM", "PHU"): HardwareConnection(0, SRAM_READ + DAC_POWER),
+    ("CPU", "SRAM"): HardwareConnection(0, SRAM_WRITE),
+    ("PHU", "SRAM"): HardwareConnection(0, ADC_POWER + SRAM_WRITE),
+    ("SRAM", "DRAM"): HardwareConnection(0, SRAM_READ + DRAM_WRITE),
+    ("start", "CPU"): HardwareConnection(0, 0),
+    ("start", "PHU"): HardwareConnection(0, 0),
+    ("start", "SRAM"): HardwareConnection(0, 0),
 }
 
-# hw_time_intercon_dict = {  # size to time between hardware
+
 #     # ("DRAM", "SRAM"): lambda x: 10 / CPU_CLOCK_SPEED,
 #     # ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD
 #     # / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
 #     # ("PHU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
-
-#     # ("DRAM", "SRAM"): lambda x: 1 / CPU_CLOCK_SPEED,
-#     # ("CPU", "SRAM"): lambda x: 1 / CPU_CLOCK_SPEED,
-#     # ("PHU", "SRAM"): lambda x: 1 / CPU_CLOCK_SPEED,
-#     # ("SRAM", "SRAM"): lambda x: np.inf,
-#     # ("CPU", "start"): lambda x: 0,
-#     # ("PHU", "start"): lambda x: 0,
-#     # ("start", "SRAM"): lambda x: 0,
-#     # ("start", "start"): lambda x: np.inf,
-
-#     ("DRAM", "SRAM"): lambda x: x,
-
-#     ("SRAM", "CPU"): lambda x: x,
-#     ("SRAM", "PHU"): lambda x: x,
-
-#     ("CPU", "SRAM"): lambda x: x,
-#     ("PHU", "SRAM"): lambda x: x,
-
-#     ("SRAM", "DRAM"): lambda x: x,
-
-#     ("start", "CPU"): lambda x: x,
-#     ("start", "PHU"): lambda x: x,
-#     ("start", "SRAM"): lambda x: x,
-
-# }
-
-# hw_energy_intercon_dict = {  # size to energy between hardware
-#     ("DRAM", "SRAM"): lambda x: x * J_PER_BIT,
-#     ("CPU", "SRAM"): lambda x: x * J_PER_BIT,
-#     ("PHU", "SRAM"): lambda x: x * 3 * J_PER_BIT,  # TODO
-#     ("CPU", "start"): lambda x: 0,
-#     ("PHU", "start"): lambda x: 0,
-#     ("start", "SRAM"): lambda x: 0,
-# }

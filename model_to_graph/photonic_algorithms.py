@@ -91,7 +91,7 @@ def _task_para_node_gen(node, size, common_operand, unique_operands):
         subnode = sg.Node("dot_prod_phu", node.stack)
         subnode.parents = [node.stack_id - 0.1]
 
-        subnode.input_shapes = [[len(unique_subset) + 1, size]]
+        subnode.input_shapes = [[len(unique_subset) + 1, size]] # multiplex vectors + common vector
         subnode.output_shapes = [[1, len(unique_subset) + 1]]
 
         oc.NODE_COUNT += 1

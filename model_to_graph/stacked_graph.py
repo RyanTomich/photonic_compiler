@@ -175,7 +175,9 @@ class Graph:
 
         return (total_num, total_num * oc.BITS_PER_NUM)
 
-    def _make_connection(self, start_node_idx, end_node_idx, num_transfer, bit_transfer) -> int:
+    def _make_connection(
+        self, start_node_idx, end_node_idx, num_transfer, bit_transfer
+    ) -> int:
         """makes connection cost for flat graphs
 
         Args:
@@ -293,7 +295,9 @@ class StackGraph(Graph):
 
     # adj_matrix
 
-    def _make_connection(self, start_node_idx, end_node_idx, num_transfer, bit_transfer) -> np.array:
+    def _make_connection(
+        self, start_node_idx, end_node_idx, num_transfer, bit_transfer
+    ) -> np.array:
         """makes connection cost for flat graphs
 
         Args:
@@ -319,8 +323,13 @@ class StackGraph(Graph):
                 start_hw = start_node.get_algo_info("hardware")
                 end_hw = end_node.get_algo_info("hardware")
                 # hw_connection = tuple(sorted((start_hw, end_hw)))
-                hw_connection = tuple( (start_hw, end_hw) )
-                connection_matrix[start_idx][end_idx] = oc.edge_value_selection(self.optimization_variable, hw_connection, num_transfer, bit_transfer )
+                hw_connection = tuple((start_hw, end_hw))
+                connection_matrix[start_idx][end_idx] = oc.edge_value_selection(
+                    self.optimization_variable,
+                    hw_connection,
+                    num_transfer,
+                    bit_transfer,
+                )
 
         return connection_matrix
 

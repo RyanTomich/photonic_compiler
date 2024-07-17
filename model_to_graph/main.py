@@ -27,10 +27,6 @@ stacked_subgraphs = list(dijk.graph_partition(graph))
 flat_subgraphs = dijk.select_nodes(
     stacked_subgraphs, optimization_variable=OPTIMIZATION_VARIABLE
 )
-
-# for graph in flat_subgraphs:
-#     print(graph.optimization_variable)
-
 expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
 scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
     graph, expanded_flat_subgraphs
@@ -40,12 +36,20 @@ schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
 empty = test.schedule_validate(schedule_df)
 
 dram, delta_dram, sram, delta_sram = dc.get_memory_profile(scheduled_flat_graph)
-# dijk.get_energy_profile(graph, schedule_data)
+energy, total_energy = dc.get_energy_profile(scheduled_flat_graph)
 
 print()
 print("---------- INFO ----------")
+print(f'{OPTIMIZATION_VARIABLE=}')
 dc.get_photonic(flat_subgraphs)
-print( dc.get_all_algorithms(flat_subgraphs).symmetric_difference(dc.get_all_algorithms(scheduled_flat_graph)) )
+print(
+    dc.get_all_algorithms(flat_subgraphs).symmetric_difference(
+        dc.get_all_algorithms(scheduled_flat_graph)
+    )
+)
 
-print(f"makespan: {end_time}")
-print(f"nodes: {len(scheduled_flat_graph.node_list)}")
+print(f'Makespan: {end_time} s')
+print(f"Number of Nodes: {len(scheduled_flat_graph.node_list)}")
+print(f'Net DRAM: {dram[-1][1]} bits')
+print(f'Net SRAM: {sram[-1][1]} bits')
+print(f'Total Energy Consumption: {total_energy} pico-joules')
