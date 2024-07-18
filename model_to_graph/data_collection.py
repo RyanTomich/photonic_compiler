@@ -165,7 +165,7 @@ def get_energy_profile(graph):
             end_hw = end_node.get_algo_info("hardware")
             hw_connection = tuple((start_hw, end_hw))
             energy_change = oc.edge_value_selection(
-                'time',
+                'energy',
                 hw_connection,
                 num_transfer,
                 bit_transfer,
@@ -173,7 +173,6 @@ def get_energy_profile(graph):
 
             delta_energy.append((start_node.start_time, energy_change))
 
-    print('all_data')
     delta_energy.sort(key=lambda x: x[0])
 
     total_energy = 0

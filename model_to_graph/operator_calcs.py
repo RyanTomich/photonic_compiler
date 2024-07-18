@@ -100,31 +100,31 @@ def func():
 
 
 def edge_value_selection(
-    optimization_variable, hw_connection, num_transfer, bit_transfer
+    weight_variable, hw_connection, num_transfer, bit_transfer
 ):
     """Calculates cost between hardware. Accounts for trips to and from SRAM
 
     Args:
-        optimization_variable (str): time or energy
+        weight_variable (str): time or energy
         hw_connection (tuple): (hw1, hw2 )
         num_transfer (int): number of number being transfered
         bit_transfer (int): number of bits being transfered
 
     Returns:
-        int: total cost in seconds or jules (depending on optimization_variable)
+        int: total cost in seconds or jules (depending on weight_variable)
     """
     if any(i in ["start", "SRAM"] for i in hw_connection):  # one way
         return hw_intercon[hw_connection].get_cost(
-            optimization_variable, num_transfer, bit_transfer
+            weight_variable, num_transfer, bit_transfer
         )
     else:  # must go through SRAM
         return sum(
             (
                 hw_intercon[(hw_connection[0], "SRAM")].get_cost(
-                    optimization_variable, num_transfer, bit_transfer
+                    weight_variable, num_transfer, bit_transfer
                 ),
                 hw_intercon[("SRAM", hw_connection[1])].get_cost(
-                    optimization_variable, num_transfer, bit_transfer
+                    weight_variable, num_transfer, bit_transfer
                 ),
             )
         )
@@ -291,13 +291,13 @@ class HardwareConnection:
         self.time_cost_func = lambda n, b: 1 / CPU_CLOCK_SPEED
         self.energy_cost_func = lambda n, b: n * energy_cost_per_number
 
-    def get_cost(self, optimization_variable, num_transfer, bit_transfer):
+    def get_cost(self, weight_variable, num_transfer, bit_transfer):
         var_to_func = {
             "time": self.time_cost_func,
             "energy": self.energy_cost_func,
         }
 
-        return var_to_func[optimization_variable](num_transfer, bit_transfer)
+        return var_to_func[weight_variable](num_transfer, bit_transfer)
 
 
 hw_intercon = {

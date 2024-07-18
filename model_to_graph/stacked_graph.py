@@ -115,13 +115,13 @@ class Stack:
 
 
 class Graph:
-    def __init__(self, node_list, optimization_variable):
+    def __init__(self, node_list, weight_variable):
         test.node_list_complete(node_list)
         self.node_list = node_list
         self.id_to_idx = {v.stack_id: i for i, v in enumerate(self.node_list)}
         self.in_nodes = self._get_in()
         self.out_nodes = self._get_out()
-        self.optimization_variable = optimization_variable
+        self.weight_variable = weight_variable
         self.adj_matrix = self._creat_adj_matrix()
 
     def _get_in(self):
@@ -195,7 +195,7 @@ class Graph:
         end_hw = end_node.get_algo_info("hardware")
         hw_connection = tuple((start_hw, end_hw))
         connection = oc.edge_value_selection(
-            self.optimization_variable,
+            self.weight_variable,
             hw_connection,
             num_transfer,
             bit_transfer,
@@ -261,10 +261,10 @@ class Graph:
 class StackGraph(Graph):
     """Represents a Dependancy Graph of Stack Objects"""
 
-    def __init__(self, optimization_variable, stack_list=None, raw_json=None):
+    def __init__(self, weight_variable, stack_list=None, raw_json=None):
         self.raw_json = raw_json
         self.stack_list = stack_list if not raw_json else self._create_stacks()
-        super().__init__(self.stack_list, optimization_variable)
+        super().__init__(self.stack_list, weight_variable)
         assert self.node_list == self.stack_list
         print("... Graph Made ...") if oc.DEBUG_PRINT else None
 
@@ -325,7 +325,7 @@ class StackGraph(Graph):
                 # hw_connection = tuple(sorted((start_hw, end_hw)))
                 hw_connection = tuple((start_hw, end_hw))
                 connection_matrix[start_idx][end_idx] = oc.edge_value_selection(
-                    self.optimization_variable,
+                    self.weight_variable,
                     hw_connection,
                     num_transfer,
                     bit_transfer,

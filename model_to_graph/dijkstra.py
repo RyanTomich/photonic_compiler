@@ -48,7 +48,7 @@ def graph_partition(graph):
 
         sub_graph = sg.StackGraph(
             stack_list=subgraph_stack_list,
-            optimization_variable=graph.optimization_variable,
+            weight_variable=graph.weight_variable,
         )
         yield sub_graph
     print("... Subgraphs Made ...") if oc.DEBUG_PRINT else None
@@ -204,7 +204,7 @@ def _ending_node(cur_path, aggreement_stacks, groups, all_nodes):
     return None
 
 
-def _rolling_dijkstra(graph, optimization_variable):
+def _rolling_dijkstra(graph, weight_variable):
     """
     Dijkstra untill there is full coverage on a combination of aggreement stacks
     graph to optimize
@@ -234,13 +234,13 @@ def _rolling_dijkstra(graph, optimization_variable):
             stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
             for node, node_obj in enumerate(graph.stack_list[neighbor].node_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                node_cost = oc.node_value_selection[optimization_variable](node_obj)
+                node_cost = oc.node_value_selection[weight_variable](node_obj)
                 new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
     return None
 
 
-def select_nodes(subgraphs, optimization_variable):
+def select_nodes(subgraphs, weight_variable):
     """apply roling_dijkstra to each subgraph.
 
     Args:
@@ -251,7 +251,7 @@ def select_nodes(subgraphs, optimization_variable):
     """
     flat_subgraphs = []
     for subgraph in subgraphs:
-        nodes = _rolling_dijkstra(subgraph, optimization_variable=optimization_variable)
+        nodes = _rolling_dijkstra(subgraph, weight_variable=weight_variable)
         subgraph_nodes_list = []
         for node in nodes:
             subgraph_stack = subgraph.stack_list[node[0]]
@@ -266,7 +266,7 @@ def select_nodes(subgraphs, optimization_variable):
                 )
             )
 
-        flat_subgraphs.append(sg.Graph(subgraph_nodes_list, optimization_variable = 'time')) # switch to time for scheduling
+        flat_subgraphs.append(sg.Graph(subgraph_nodes_list, weight_variable = 'time')) # switch to time for scheduling
         print("...     ... Subgraph Nodes selected ...") if oc.DEBUG_PRINT else None
 
     print("... Nodes selected ...") if oc.DEBUG_PRINT else None
@@ -504,7 +504,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
     test.merge_i_o(full_node_list, original_graph)
     _add_in_out(original_graph, full_node_list)
 
-    graph = sg.Graph(full_node_list, optimization_variable = 'time')
+    graph = sg.Graph(full_node_list, weight_variable = 'time')
     _schedule_in_out(graph)
 
     for node in graph.node_list:
@@ -623,7 +623,7 @@ def expand_nodes(flat_subgraphs):
                 new_subgraph_node_list.append(node)
 
         new_subgraphs.append(
-            sg.Graph(new_subgraph_node_list, subgraph.optimization_variable)
+            sg.Graph(new_subgraph_node_list, subgraph.weight_variable)
         )
         print("...     ... sungraph Nodes Expanded ...") if oc.DEBUG_PRINT else None
 
