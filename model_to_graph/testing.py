@@ -1,126 +1,99 @@
-import json
-import numpy as np
+"""
+Testing and validation
+"""
 
-import dijkstra as dijk
-import stacked_graph as sg
-
-def create_liner_stack():
-    node_list = []
-    a = sg.StackedNode(0, [], [[]], [[]], opp='test_opp', func_stack=['start'], cost_stack=[0])
-    node_list.append(a)
-
-    last_out = np.random.randint(low=1, high=5, size=2).tolist()
-
-    for i in range(2):
-        out_size = np.random.randint(low=1, high=5, size=2).tolist()
-        cost = np.random.randint(low=1, high=5, size=3).tolist()
-        node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='test_opp', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
-        last_out = out_size
-
-    stacked_graph = sg.StackedGraph(stack_list = node_list)
-
-    for node in stacked_graph.stack_list:
-        print(node)
-
-    return(stacked_graph)
-    '''
-    +---+
-    | 0 |
-    +---+
-       |
-       v
-    +---+
-    | 1 |
-    +---+
-       |
-       v
-    +---+
-    | 2 |
-    +---+
-    '''
-
-def create_branching_stack(print_nodes = True):
-    node_list = []
-    a = sg.StackedNode(0, [], [[]], [[]], opp='test_opp', func_stack=['start'], cost_stack=[0])
-    node_list.append(a)
-
-    last_out = np.random.randint(low=1, high=5, size=2).tolist()
-
-    for i in range(4):
-        out_size = np.random.randint(low=1, high=5, size=2).tolist()
-        cost = np.random.randint(low=1, high=5, size=3).tolist()
-        node_list.append(sg.StackedNode(i+1, [i], [last_out], [out_size], opp='test_opp', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=cost))
-        last_out = out_size
-
-    out_size = np.random.randint(low=1, high=5, size=2).tolist()
-    node_list[-1].stack_id = 5
-    node_list.append( sg.StackedNode(4, [1], node_list[1].output_shapes, [out_size], opp='test_opp', func_stack=['alg1', 'alg2', 'alg3'], cost_stack=np.random.randint(low=1, high=5, size=3).tolist()))
-
-    node_list[4].input_shapes.append(out_size)
-    node_list[4].parents.append(4)
-
-    node_list.sort(key=lambda x: x.stack_id)
-
-    stacked_graph = sg.StackedGraph(stack_list = node_list)
-
-    if print_nodes:
-        for node in stacked_graph.stack_list:
-            print(node)
-
-    return stacked_graph
-    '''
-    +---+
-    | 0 |
-    +---+
-        |
-        v
-    +---+
-    | 1 |
-    +---+
-        |\
-        | \
-        v  v
-    +---+ +---+
-    | 2 | | 4 |
-    +---+ +---+
-        |    |
-        v    |
-    +---+    |
-    | 3 |    |
-    +---+    |
-       \    /
-        \  /
-          v
-        +---+
-        | 5 |
-        +---+
-    '''
-
-
-# stacked_graph = create_liner_stack()
-# dist, previous = dijk.stacked_dijkstra(stacked_graph, (0,0))
-# print(dist)
-# path = dijk.stacked_get_path(previous, (len(dist)-1, np.argmin(dist[-1])) )
-# print(path)
-
-
-# stacked_graph = create_branching_stack(print_nodes = False)
-
-# print(stacked_graph.get_articulation_points())
-# print(dijk.branching_stacked_dijkstra(stacked_graph))
 
 def group_validate(graph, groups):
-    '''ensures every node parents are included in the group.
+    """ensures every node parents are included in the group.
     exception to load and store nodes, which can have odd dependancies
-    '''
-    for i,lst in enumerate(groups):
-        # print(f'{lst}')
-        load_instructions = {stack.stack_id for stack in graph.stack_list if stack.opp == 'null'}
+    """
+    for i, lst in enumerate(groups):
+        load_instructions = {
+            stack.stack_id for stack in graph.stack_list if stack.opp == "null"
+        }
         included = set(lst)
         for stack in lst[1:]:
             for parent in graph.stack_list[stack].parents:
                 if parent in load_instructions:
                     continue
                 assert parent in included
-        # print(f'group {i} passed!')
     return True
+
+
+def node_list_complete(node_list):
+    """all node parents are present in the list
+
+    Args:
+        node_list (list): list of Node Objects
+
+    Returns:
+        bool:
+    """
+    all_nodes = set()
+    for node in node_list:
+        assert (
+            node.stack_id not in all_nodes
+        ), f"list has repetitious stack node: {node.stack_id}"
+        all_nodes.add(node.stack_id)
+
+    for node in node_list:
+        assert all(
+            parent in all_nodes for parent in node.parents
+        ), "not all parents are in the list"
+    return True
+
+
+def merge_i_o(full_node_list, original_graph):
+    """Disreguarding i/o, do subgraph and parent graph node parents aggree
+
+    Args:
+        full_node_list (list): list of Node Objects
+        original_graph (Grph): Graph made from Relay IR
+
+    Returns:
+        bool:
+    """
+    total = 0
+    for node in full_node_list:
+        if node.algorithm != "dot_prod_phu":
+            if (
+                node.stack_id in original_graph.id_to_idx
+                or node.stack_id + 0.1 in original_graph.id_to_idx
+            ):
+                total += 1
+                original_node = original_graph.get_node_obj(round(node.stack_id))
+
+                original_parents = (
+                    original_node.parents
+                    - original_graph.in_nodes
+                    - original_graph.out_nodes
+                )
+                this_parent = {int(parent) for parent in node.parents}
+                assert this_parent == original_parents
+    return True
+
+
+def schedule_validate(schedule_df):
+    # check for overlaps
+    empty = {}
+    unique_hardware = schedule_df["hardware"].unique()
+    unique_hardware = unique_hardware[unique_hardware != "memory"]
+
+    for hardware in unique_hardware:
+        filter = schedule_df["hardware"] == hardware
+        hw_filtered = schedule_df.loc[filter]
+        hw_sorted = hw_filtered.sort_values(by="start")
+
+        sparse = 0
+        last_end = 0
+        for index, row in hw_sorted.iterrows():
+            start = row["start"]
+            assert start >= last_end
+            sparse += start - last_end
+
+            last_end = row["end"]
+
+        empty[hardware] = sparse
+
+    # print("... No Overlaps ...")
+    return empty
