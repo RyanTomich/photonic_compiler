@@ -65,17 +65,22 @@ def elm_const(matrix, const=1):
 
 
 ## CPU
-def cpu_matmul_time(i, o):
-    return {"CPU": ten_elm(i[0]) * i[1][-2]}
+def cpu_matmul_cycles(i, o):
+    num_dot_products = ten_elm(o[0])
+    length_dot_products = i[0][-1]
+    ops_per_mac = 2  # multiplicaiton and addition
+    return {"CPU": num_dot_products * length_dot_products * ops_per_mac}
 
 
 def cpu_matmul_energy(i, o):
-    return ten_elm(i[0]) * i[1][-2] * GPU_MAC
+    num_dot_products = ten_elm(o[0])
+    length_dot_products = i[0][-1]
+    return num_dot_products * length_dot_products * GPU_MAC
 
 
 ## PHU
-def phu_matmul_task_para_time(i, o):
-    num_dot_products = ten_elm(i[0]) / i[0][-1]
+def phu_matmul_task_para_cycles(i, o):
+    num_dot_products = ten_elm(o[0])
     length_dot_products = i[0][-1]
     phu_cycles = (
         math.ceil(math.ceil(num_dot_products / PHU_MULTIPLEX) / PHU_CORES)
@@ -85,55 +90,17 @@ def phu_matmul_task_para_time(i, o):
 
 
 def phu_matmul_task_para_energy(i, o):
-    num_dot_products = ten_elm(i[0]) / i[0][-1]
+    num_dot_products = ten_elm(o[0])
     length_dot_products = i[0][-1]
     return num_dot_products * length_dot_products * PHU_MAC
 
 
 def phu_matmul_dynamic_para_time(i, o):  # TODO
-    cores_per_partition = int(PHU_CORES)
-    return {"PHU": ten_elm(i[0]) * i[1][-2] / cores_per_partition}
+    return {"PHU": np.inf}
 
 
 def func():
     print("placeholder")
-
-
-def edge_value_selection(
-    weight_variable, out_algorithm, hw_connection, num_transfer, bit_transfer
-):
-    """Calculates cost between hardware. Accounts for trips to and from SRAM
-
-    Args:
-        weight_variable (str): time or energy
-        hw_connection (tuple): (hw1, hw2 )
-        num_transfer (int): number of number being transfered
-        bit_transfer (int): number of bits being transfered
-
-    Returns:
-        int: total cost in seconds or jules (depending on weight_variable)
-    """
-    # one way connection
-    if any(i in ["start", "SRAM"] for i in hw_connection):
-        return hw_intercon[hw_connection].get_transfer_cost(
-            weight_variable, num_transfer, bit_transfer
-        )
-
-    # must go through SRAM
-    else:
-        to_sram = hw_intercon[(hw_connection[0], "SRAM")].get_transfer_cost(
-            weight_variable, num_transfer, bit_transfer
-        )
-        from_sram = (
-            hw_intercon[("SRAM", hw_connection[1])].get_transfer_cost(
-                weight_variable,
-                num_transfer,
-                bit_transfer,
-                check_data_pipeline=out_algorithm,
-            ),
-        )
-
-        return to_sram + from_sram
 
 
 def get_edge_val(graph, start_node, end_node, weight_variable):
@@ -183,17 +150,23 @@ NODE_COUNT = 0
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 
+CPU_CLOCK_PERIOD_SECONDS = 1 / CPU_CLOCK_SPEED
+PHU_CLOCK_PERIOD_SECONDS = 1 / PHU_CLOCK_SPEED
+
+
 PHU_CORES = 64
 PHU_MULTIPLEX = 20
 CPU_CORES = 1
 
 
-# TODO add time between memory locations
+# TODO add time between memory location Constants
 MEMORY_TRANSFER_WIDTH = 32  # bits per cycle
 
 DRAM_SRAM_WIDTH = 256  # bits per cycle
 SRAM_OVERHEAD = 5  # electronic cycles
-MODULATOR_CONST = 1 / PHU_CLOCK_SPEED  # per bit time of electronic-photonic conversion
+MODULATOR_CONST = (
+    PHU_CLOCK_PERIOD_SECONDS  # per bit time of electronic-photonic conversion
+)
 BITS_PER_NUM = 8
 
 # Power
@@ -221,9 +194,9 @@ ADC_POWER = 1.6 * PICO_JOULE
 # region node selection
 
 cycle_to_time_funcs = {
-    "CPU": lambda x: x / CPU_CLOCK_SPEED,
-    "PHU": lambda x: x / PHU_CLOCK_SPEED,
-    "HBM": lambda x: x / CPU_CLOCK_SPEED,
+    "CPU": lambda x: x * CPU_CLOCK_PERIOD_SECONDS,
+    "PHU": lambda x: x * PHU_CLOCK_PERIOD_SECONDS,
+    "HBM": lambda x: x * CPU_CLOCK_PERIOD_SECONDS,
 }
 
 node_value_selection = {
@@ -298,22 +271,24 @@ hardware_algs = {
         "softmax", "CPU", func, lambda i, o: {"CPU": ten_elm(o[0]) * 6}
     ),
     "matmul": HardwareAlgorithm(
-        "matmul", "CPU", func, cpu_matmul_time, cpu_matmul_energy
+        "matmul", "CPU", func, cpu_matmul_cycles, cpu_matmul_energy
     ),
     "dense": HardwareAlgorithm(
-        "dense", "CPU", func, cpu_matmul_time, cpu_matmul_energy
+        "dense", "CPU", func, cpu_matmul_cycles, cpu_matmul_energy
     ),
-    "pack": HardwareAlgorithm("pack", "CPU", func, cpu_matmul_time, cpu_matmul_energy),
+    "pack": HardwareAlgorithm(
+        "pack", "CPU", func, cpu_matmul_cycles, cpu_matmul_energy
+    ),
     "where": HardwareAlgorithm("where", "CPU", func, constnat(1)),
     "erf": HardwareAlgorithm("erf", "CPU", func, constnat(1)),
     "task_para_matmul_phu": HardwareAlgorithm(
-        "matmul", "PHU", func, phu_matmul_task_para_time, phu_matmul_task_para_energy
+        "matmul", "PHU", func, phu_matmul_task_para_cycles, phu_matmul_task_para_energy
     ),
     "task_para_dense_phu": HardwareAlgorithm(
-        "dense", "PHU", func, phu_matmul_task_para_time, phu_matmul_task_para_energy
+        "dense", "PHU", func, phu_matmul_task_para_cycles, phu_matmul_task_para_energy
     ),
     "task_para_pack_phu": HardwareAlgorithm(
-        "pack", "PHU", func, phu_matmul_task_para_time, phu_matmul_task_para_energy
+        "pack", "PHU", func, phu_matmul_task_para_cycles, phu_matmul_task_para_energy
     ),
     "dynamic_para_matmul_phu": HardwareAlgorithm(  # TODO
         "matmul", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
@@ -378,15 +353,13 @@ class HardwareConnection:
             weight_variable == "time"
             and check_data_pipeline in data_pipeline_algorithms
         ):
-            return (
-                1 / CPU_CLOCK_SPEED
-            )  # if data parallelism applies, transfer time is constant
+            return CPU_CLOCK_PERIOD_SECONDS  # if data parallelism applies, transfer time is constant
 
         return var_to_func[weight_variable](num_transfer, bit_transfer)
 
 
 time_cost_per_bit = (
-    lambda x: math.ceil(x / MEMORY_TRANSFER_WIDTH) * 1 / CPU_CLOCK_SPEED
+    lambda x: math.ceil(x / MEMORY_TRANSFER_WIDTH) * CPU_CLOCK_PERIOD_SECONDS
 )  # TODO temp untill have widths of each hardware
 
 hw_intercon = {
@@ -403,7 +376,8 @@ hw_intercon = {
     ("PHU", "SRAM"): HardwareConnection(
         time_cost_per_bit, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
     ),
-    ("SRAM", "HBM"): HardwareConnection(0, SRAM_READ + HBM_WRITE),
+    ("SRAM", "HBM"): HardwareConnection(time_cost_per_bit, SRAM_READ + HBM_WRITE),
+    # start nodes
     ("start", "CPU"): HardwareConnection(0, 0),
     ("start", "PHU"): HardwareConnection(0, 0),
     ("start", "SRAM"): HardwareConnection(0, 0),
