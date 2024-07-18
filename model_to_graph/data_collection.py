@@ -1,6 +1,8 @@
 import operator_calcs as oc
 
 
+
+
 def get_photonic(subgraphs):
     """conpairs how often photonic was selected
 
@@ -145,10 +147,8 @@ def get_energy_profile(graph):
     """
     delta_energy = []  # (time, energy_usage)
 
-    sorted_node_list = sorted(graph.node_list, key=lambda x: x.start_time)
-
     # Node Energy
-    for node in sorted_node_list:
+    for node in graph.node_list:
         delta_energy.append((node.start_time, node.energy_cost))
 
     # Edge energy
