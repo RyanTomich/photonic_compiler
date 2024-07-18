@@ -137,7 +137,6 @@ def get_edge_val(graph, start_node, end_node, weight_variable):
             weight_variable,
             num_transfer,
             bit_transfer,
-            check_data_pipeline=end_node.algorithm,
         )
 
         return to_sram + from_sram
@@ -146,6 +145,11 @@ def get_edge_val(graph, start_node, end_node, weight_variable):
 # region Constants
 NODE_COUNT = 0
 
+# cores
+PHU_CORES = 64
+PHU_MULTIPLEX = 20
+CPU_CORES = 1
+
 # Time
 CPU_CLOCK_SPEED = 10**8  # .1Ghz
 PHU_CLOCK_SPEED = 10**10  # 10 Ghz
@@ -153,21 +157,10 @@ PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 CPU_CLOCK_PERIOD_SECONDS = 1 / CPU_CLOCK_SPEED
 PHU_CLOCK_PERIOD_SECONDS = 1 / PHU_CLOCK_SPEED
 
-
-PHU_CORES = 64
-PHU_MULTIPLEX = 20
-CPU_CORES = 1
-
-
-# TODO add time between memory location Constants
 MEMORY_TRANSFER_WIDTH = 32  # bits per cycle
+DAC_ADC_DELAY = 1 * CPU_CLOCK_PERIOD_SECONDS # 10 nano-seconds
 
-DRAM_SRAM_WIDTH = 256  # bits per cycle
-SRAM_OVERHEAD = 5  # electronic cycles
-MODULATOR_CONST = (
-    PHU_CLOCK_PERIOD_SECONDS  # per bit time of electronic-photonic conversion
-)
-BITS_PER_NUM = 8
+BITS_PER_NUM = 32
 
 # Power
 PICO_JOULE = 10**-12
@@ -204,17 +197,17 @@ node_value_selection = {
     "energy": lambda node: node.energy_cost,
 }
 
-data_pipeline_algorithms = {
-    "matmul"
-    "dense"
-    "pack"
-    "task_para_matmul_phu"
-    "task_para_dense_phu"
-    "task_para_pack_phu"
-    "dynamic_para_matmul_phu"
-    "dynamic_para_dense_phu"
-    "dynamic_para_pack_phu"
-}
+# data_pipeline_algorithms = {
+#     "matmul"
+#     "dense"
+#     "pack"
+#     "task_para_matmul_phu"
+#     "task_para_dense_phu"
+#     "task_para_pack_phu"
+#     "dynamic_para_matmul_phu"
+#     "dynamic_para_dense_phu"
+#     "dynamic_para_pack_phu"
+# }
 
 
 class HardwareAlgorithm:
@@ -304,7 +297,7 @@ hardware_algs = {
         "HBM",
         func,
         lambda i, o: {
-            "HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / DRAM_SRAM_WIDTH
+            "HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / MEMORY_TRANSFER_WIDTH
         },
         lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ
         + sum(ten_elm(a) for a in o) * HBM_WRITE,
@@ -326,57 +319,43 @@ hardware_algs = {
 
 
 class HardwareConnection:
-    def __init__(self, time_cost_per_bit, energy_cost_per_number):
+    def __init__(self, time_cost_per_transfer, energy_cost_per_number):
         """create functions for cost
 
         Args:
             time_cost_func (int): time cost in seconds per bit
             energy_cost_func (int): energy cost in joules per bit
         """
-        self.time_cost_func = (
-            (lambda n, b: time_cost_per_bit * b)
-            if isinstance(time_cost_per_bit, int)
-            else (lambda n, b: time_cost_per_bit(b))
-        )
+        self.time_cost_func = lambda n, b: time_cost_per_transfer
         self.energy_cost_func = lambda n, b: n * energy_cost_per_number
-
-    def get_transfer_cost(
-        self, weight_variable, num_transfer, bit_transfer, check_data_pipeline=None
-    ):
-        var_to_func = {
+        self.var_to_func = {
             "time": self.time_cost_func,
             "energy": self.energy_cost_func,
         }
 
-        # check for data parallelism
-        if (
-            weight_variable == "time"
-            and check_data_pipeline in data_pipeline_algorithms
-        ):
-            return CPU_CLOCK_PERIOD_SECONDS  # if data parallelism applies, transfer time is constant
-
-        return var_to_func[weight_variable](num_transfer, bit_transfer)
+    def get_transfer_cost(
+        self, weight_variable, num_transfer, bit_transfer
+    ):
+        return self.var_to_func[weight_variable](num_transfer, bit_transfer)
 
 
-time_cost_per_bit = (
-    lambda x: math.ceil(x / MEMORY_TRANSFER_WIDTH) * CPU_CLOCK_PERIOD_SECONDS
-)  # TODO temp untill have widths of each hardware
+DAC_ADC_DELAY
 
 hw_intercon = {
-    ("HBM", "SRAM"): HardwareConnection(time_cost_per_bit, HBM_READ + SRAM_WRITE),
+    ("HBM", "SRAM"): HardwareConnection(CPU_CLOCK_PERIOD_SECONDS, HBM_READ + SRAM_WRITE),
     ("SRAM", "CPU"): HardwareConnection(
-        time_cost_per_bit, SRAM_READ + LOCAL_WRITE + LOCAL_READ
+        CPU_CLOCK_PERIOD_SECONDS, SRAM_READ + LOCAL_WRITE + LOCAL_READ
     ),
     ("SRAM", "PHU"): HardwareConnection(
-        time_cost_per_bit, SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER
+        CPU_CLOCK_PERIOD_SECONDS + DAC_ADC_DELAY, SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER
     ),
     ("CPU", "SRAM"): HardwareConnection(
-        time_cost_per_bit, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
+        CPU_CLOCK_PERIOD_SECONDS, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
     ),
     ("PHU", "SRAM"): HardwareConnection(
-        time_cost_per_bit, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
+        CPU_CLOCK_PERIOD_SECONDS + DAC_ADC_DELAY, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
     ),
-    ("SRAM", "HBM"): HardwareConnection(time_cost_per_bit, SRAM_READ + HBM_WRITE),
+    ("SRAM", "HBM"): HardwareConnection(DAC_ADC_DELAY, SRAM_READ + HBM_WRITE),
     # start nodes
     ("start", "CPU"): HardwareConnection(0, 0),
     ("start", "PHU"): HardwareConnection(0, 0),
