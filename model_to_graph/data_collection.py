@@ -160,25 +160,16 @@ def get_energy_profile(graph):
             start_node = graph.node_list[row_num]
             end_node = graph.node_list[col_num]
 
-            num_transfer, bit_transfer = graph._bit_transfer(start_node)
-            start_hw = start_node.get_algo_info("hardware")
-            end_hw = end_node.get_algo_info("hardware")
-            hw_connection = tuple((start_hw, end_hw))
-            energy_change = oc.edge_value_selection(
-                'energy',
-                hw_connection,
-                num_transfer,
-                bit_transfer,
-            )
+            energy_change = oc.get_edge_val(graph, start_node, end_node, "energy")
 
             delta_energy.append((start_node.start_time, energy_change))
 
     delta_energy.sort(key=lambda x: x[0])
 
     total_energy = 0
-    energy_data = [(0,0)]
+    energy_data = [(0, 0)]
     for delta in delta_energy:
         total_energy += delta[1]
         energy_data.append((delta[0], total_energy))
 
-    return energy_data, delta_energy, round(total_energy* 1/oc.PICO_JOULE, 1)
+    return energy_data, delta_energy, round(total_energy * 1 / oc.PICO_JOULE, 1)

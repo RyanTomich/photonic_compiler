@@ -100,7 +100,7 @@ def func():
 
 
 def edge_value_selection(
-    weight_variable, hw_connection, num_transfer, bit_transfer
+    weight_variable, out_algorithm, hw_connection, num_transfer, bit_transfer
 ):
     """Calculates cost between hardware. Accounts for trips to and from SRAM
 
@@ -113,24 +113,70 @@ def edge_value_selection(
     Returns:
         int: total cost in seconds or jules (depending on weight_variable)
     """
-    if any(i in ["start", "SRAM"] for i in hw_connection):  # one way
-        return hw_intercon[hw_connection].get_cost(
+    # one way connection
+    if any(i in ["start", "SRAM"] for i in hw_connection):
+        return hw_intercon[hw_connection].get_transfer_cost(
             weight_variable, num_transfer, bit_transfer
         )
-    else:  # must go through SRAM
-        return sum(
-            (
-                hw_intercon[(hw_connection[0], "SRAM")].get_cost(
-                    weight_variable, num_transfer, bit_transfer
-                ),
-                hw_intercon[("SRAM", hw_connection[1])].get_cost(
-                    weight_variable, num_transfer, bit_transfer
-                ),
-            )
+
+    # must go through SRAM
+    else:
+        to_sram = hw_intercon[(hw_connection[0], "SRAM")].get_transfer_cost(
+            weight_variable, num_transfer, bit_transfer
+        )
+        from_sram = (
+            hw_intercon[("SRAM", hw_connection[1])].get_transfer_cost(
+                weight_variable,
+                num_transfer,
+                bit_transfer,
+                check_data_pipeline=out_algorithm,
+            ),
         )
 
+        return to_sram + from_sram
 
-# region ###  Constants ###
+
+def get_edge_val(graph, start_node, end_node, weight_variable):
+    """Calculates cost between hardware. Accounts for trips to and from SRAM
+
+    Args:
+        graph (Graph):
+        start_node (Node): ending node of directed edge
+        end_node (Node): ending node of directed edge
+        weight_variable (str): time or energy
+
+    Returns:
+        int: total cost in seconds or jules (depending on weight_variable)
+    """
+
+    num_transfer, bit_transfer = graph._bit_transfer(start_node)
+
+    start_hw = start_node.get_algo_info("hardware")
+    end_hw = end_node.get_algo_info("hardware")
+    hw_connection = tuple((start_hw, end_hw))
+
+    # one way connection
+    if any(i in ["start", "SRAM"] for i in hw_connection):
+        return hw_intercon[hw_connection].get_transfer_cost(
+            weight_variable, num_transfer, bit_transfer
+        )
+
+    # must go through SRAM
+    else:
+        to_sram = hw_intercon[(hw_connection[0], "SRAM")].get_transfer_cost(
+            weight_variable, num_transfer, bit_transfer
+        )
+        from_sram = hw_intercon[("SRAM", hw_connection[1])].get_transfer_cost(
+            weight_variable,
+            num_transfer,
+            bit_transfer,
+            check_data_pipeline=end_node.algorithm,
+        )
+
+        return to_sram + from_sram
+
+
+# region Constants
 NODE_COUNT = 0
 
 # Time
@@ -140,6 +186,10 @@ PHU_CLOCK_SPEED = 10**10  # 10 Ghz
 PHU_CORES = 64
 PHU_MULTIPLEX = 20
 CPU_CORES = 1
+
+
+# TODO add time between memory locations
+MEMORY_TRANSFER_WIDTH = 32  # bits per cycle
 
 DRAM_SRAM_WIDTH = 256  # bits per cycle
 SRAM_OVERHEAD = 5  # electronic cycles
@@ -153,21 +203,22 @@ JOULE_PER_CYCLE = 1 * PICO_JOULE
 
 DRAM_READ = 160 * PICO_JOULE
 DRAM_WRITE = 160 * PICO_JOULE
-HBM_READ = 40 * PICO_JOULE  # TODO
-HBM_WRITE = 40 * PICO_JOULE  # TODO
+HBM_READ = 40 * PICO_JOULE
+HBM_WRITE = 40 * PICO_JOULE
 SRAM_READ = 12 * PICO_JOULE
 SRAM_WRITE = 12 * PICO_JOULE
-LOCAL_READ = 1 * PICO_JOULE  # TODO
-LOCAL_WRITE = 1 * PICO_JOULE  # TODO
+LOCAL_READ = 1 * PICO_JOULE
+LOCAL_WRITE = 1 * PICO_JOULE
 GPU_MAC = 0.1 * PICO_JOULE
 PHU_MAC = 0.04 * PICO_JOULE
 
-# DAC_POWER = np.inf
-# ADC_POWER = np.inf
 DAC_POWER = 3.18 * PICO_JOULE
 ADC_POWER = 1.6 * PICO_JOULE
 
 # endregion
+
+
+# region node selection
 
 cycle_to_time_funcs = {
     "CPU": lambda x: x / CPU_CLOCK_SPEED,
@@ -178,6 +229,18 @@ cycle_to_time_funcs = {
 node_value_selection = {
     "time": lambda node: node.time_cost,
     "energy": lambda node: node.energy_cost,
+}
+
+data_pipeline_algorithms = {
+    "matmul"
+    "dense"
+    "pack"
+    "task_para_matmul_phu"
+    "task_para_dense_phu"
+    "task_para_pack_phu"
+    "dynamic_para_matmul_phu"
+    "dynamic_para_dense_phu"
+    "dynamic_para_pack_phu"
 }
 
 
@@ -265,8 +328,11 @@ hardware_algs = {
         "null",
         "HBM",
         func,
-        lambda i, o: {"HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / DRAM_SRAM_WIDTH},
-        lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ + sum(ten_elm(a) for a in o) * HBM_WRITE
+        lambda i, o: {
+            "HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / DRAM_SRAM_WIDTH
+        },
+        lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ
+        + sum(ten_elm(a) for a in o) * HBM_WRITE,
     ),
     "start": HardwareAlgorithm("start", "start", func, constnat(1)),
     "dot_prod_phu": HardwareAlgorithm(
@@ -278,6 +344,11 @@ hardware_algs = {
     ),
 }
 
+# endregion
+
+
+# region Edges
+
 
 class HardwareConnection:
     def __init__(self, time_cost_per_bit, energy_cost_per_number):
@@ -287,33 +358,55 @@ class HardwareConnection:
             time_cost_func (int): time cost in seconds per bit
             energy_cost_func (int): energy cost in joules per bit
         """
-        # self.time_cost_func = lambda n, b: b * time_cost_per_bit
-        self.time_cost_func = lambda n, b: 1 / CPU_CLOCK_SPEED
+        self.time_cost_func = (
+            (lambda n, b: time_cost_per_bit * b)
+            if isinstance(time_cost_per_bit, int)
+            else (lambda n, b: time_cost_per_bit(b))
+        )
         self.energy_cost_func = lambda n, b: n * energy_cost_per_number
 
-    def get_cost(self, weight_variable, num_transfer, bit_transfer):
+    def get_transfer_cost(
+        self, weight_variable, num_transfer, bit_transfer, check_data_pipeline=None
+    ):
         var_to_func = {
             "time": self.time_cost_func,
             "energy": self.energy_cost_func,
         }
 
+        # check for data parallelism
+        if (
+            weight_variable == "time"
+            and check_data_pipeline in data_pipeline_algorithms
+        ):
+            return (
+                1 / CPU_CLOCK_SPEED
+            )  # if data parallelism applies, transfer time is constant
+
         return var_to_func[weight_variable](num_transfer, bit_transfer)
 
 
+time_cost_per_bit = (
+    lambda x: math.ceil(x / MEMORY_TRANSFER_WIDTH) * 1 / CPU_CLOCK_SPEED
+)  # TODO temp untill have widths of each hardware
+
 hw_intercon = {
-    ("HBM", "SRAM"): HardwareConnection(0, HBM_READ + SRAM_WRITE),
-    ("SRAM", "CPU"): HardwareConnection(0, SRAM_READ + LOCAL_WRITE + LOCAL_READ),
-    ("SRAM", "PHU"): HardwareConnection(0, SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER),
-    ("CPU", "SRAM"): HardwareConnection(0, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE),
-    ("PHU", "SRAM"): HardwareConnection(0, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE),
+    ("HBM", "SRAM"): HardwareConnection(time_cost_per_bit, HBM_READ + SRAM_WRITE),
+    ("SRAM", "CPU"): HardwareConnection(
+        time_cost_per_bit, SRAM_READ + LOCAL_WRITE + LOCAL_READ
+    ),
+    ("SRAM", "PHU"): HardwareConnection(
+        time_cost_per_bit, SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER
+    ),
+    ("CPU", "SRAM"): HardwareConnection(
+        time_cost_per_bit, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
+    ),
+    ("PHU", "SRAM"): HardwareConnection(
+        time_cost_per_bit, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
+    ),
     ("SRAM", "HBM"): HardwareConnection(0, SRAM_READ + HBM_WRITE),
     ("start", "CPU"): HardwareConnection(0, 0),
     ("start", "PHU"): HardwareConnection(0, 0),
     ("start", "SRAM"): HardwareConnection(0, 0),
 }
 
-
-#     # ("DRAM", "SRAM"): lambda x: 10 / CPU_CLOCK_SPEED,
-#     # ("CPU", "SRAM"): lambda x: SRAM_OVERHEAD
-#     # / CPU_CLOCK_SPEED,  # SRAM clock cycle overhead
-#     # ("PHU", "SRAM"): lambda x: SRAM_OVERHEAD / CPU_CLOCK_SPEED + x * MODULATOR_CONST,
+# endregion

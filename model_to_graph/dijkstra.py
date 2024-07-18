@@ -266,7 +266,9 @@ def select_nodes(subgraphs, weight_variable):
                 )
             )
 
-        flat_subgraphs.append(sg.Graph(subgraph_nodes_list, weight_variable = 'time')) # switch to time for scheduling
+        flat_subgraphs.append(
+            sg.Graph(subgraph_nodes_list, weight_variable="time")
+        )  # switch to time for scheduling
         print("...     ... Subgraph Nodes selected ...") if oc.DEBUG_PRINT else None
 
     print("... Nodes selected ...") if oc.DEBUG_PRINT else None
@@ -504,7 +506,7 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
     test.merge_i_o(full_node_list, original_graph)
     _add_in_out(original_graph, full_node_list)
 
-    graph = sg.Graph(full_node_list, weight_variable = 'time')
+    graph = sg.Graph(full_node_list, weight_variable="time")
     _schedule_in_out(graph)
 
     for node in graph.node_list:
@@ -622,9 +624,7 @@ def expand_nodes(flat_subgraphs):
             if node.algorithm not in pa.node_expansion:
                 new_subgraph_node_list.append(node)
 
-        new_subgraphs.append(
-            sg.Graph(new_subgraph_node_list, subgraph.weight_variable)
-        )
+        new_subgraphs.append(sg.Graph(new_subgraph_node_list, subgraph.weight_variable))
         print("...     ... sungraph Nodes Expanded ...") if oc.DEBUG_PRINT else None
 
     print("... Nodes Expanded ...") if oc.DEBUG_PRINT else None

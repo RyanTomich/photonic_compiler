@@ -175,9 +175,7 @@ class Graph:
 
         return (total_num, total_num * oc.BITS_PER_NUM)
 
-    def _make_connection(
-        self, start_node_idx, end_node_idx, num_transfer, bit_transfer
-    ) -> int:
+    def _make_connection(self, start_node_idx, end_node_idx) -> int:
         """makes connection cost for flat graphs
 
         Args:
@@ -191,29 +189,16 @@ class Graph:
         start_node = self.get_node_obj(start_node_idx)
         end_node = self.get_node_obj(end_node_idx)
 
-        start_hw = start_node.get_algo_info("hardware")
-        end_hw = end_node.get_algo_info("hardware")
-        hw_connection = tuple((start_hw, end_hw))
-        connection = oc.edge_value_selection(
-            self.weight_variable,
-            hw_connection,
-            num_transfer,
-            bit_transfer,
-        )
-
-        return connection
+        return oc.get_edge_val(self, start_node, end_node, self.weight_variable)
 
     def _creat_adj_matrix(self):
         """
         Creates an adjancy matrix of the dependencies using stack_list
         """
-        dependancys = []
-        for node in self.node_list:
-            inputs = node.parents
-            for inp in inputs:  # where each input is an index to another node.
-                dependancys.append(
-                    (inp, node.stack_id) + self._bit_transfer(self.get_node_obj(inp))
-                )  # (1, 2, num, bits) where 1's output are 2's inputs
+        # (1, 2, num, bits) where 1's output are 2's inputs
+        dependancys = [
+            (inp, node.stack_id) for node in self.node_list for inp in node.parents
+        ]
 
         num_nodes = len(self.node_list)
         adj_matrix = np.empty((num_nodes, num_nodes), dtype=object)  # block matrix
@@ -295,9 +280,7 @@ class StackGraph(Graph):
 
     # adj_matrix
 
-    def _make_connection(
-        self, start_node_idx, end_node_idx, num_transfer, bit_transfer
-    ) -> np.array:
+    def _make_connection(self, start_node_idx, end_node_idx) -> np.array:
         """makes connection cost for flat graphs
 
         Args:
@@ -320,15 +303,9 @@ class StackGraph(Graph):
         connection_matrix = np.empty((len(start_node_list), len(end_node_list)))
         for start_idx, start_node in enumerate(start_node_list):
             for end_idx, end_node in enumerate(end_node_list):
-                start_hw = start_node.get_algo_info("hardware")
-                end_hw = end_node.get_algo_info("hardware")
-                # hw_connection = tuple(sorted((start_hw, end_hw)))
-                hw_connection = tuple((start_hw, end_hw))
-                connection_matrix[start_idx][end_idx] = oc.edge_value_selection(
-                    self.weight_variable,
-                    hw_connection,
-                    num_transfer,
-                    bit_transfer,
+
+                connection_matrix[start_idx][end_idx] = oc.get_edge_val(
+                    self, start_node, end_node, self.weight_variable
                 )
 
         return connection_matrix
