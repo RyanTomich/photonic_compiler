@@ -146,7 +146,7 @@ def get_edge_val(graph, start_node, end_node, weight_variable):
 NODE_COUNT = 0
 
 # cores
-PHU_CORES = 64
+PHU_CORES = 1
 PHU_MULTIPLEX = 20
 CPU_CORES = 1
 
@@ -283,15 +283,15 @@ hardware_algs = {
     "task_para_pack_phu": HardwareAlgorithm(
         "pack", "PHU", func, phu_matmul_task_para_cycles, phu_matmul_task_para_energy
     ),
-    "dynamic_para_matmul_phu": HardwareAlgorithm(  # TODO
-        "matmul", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
-    ),
-    "dynamic_para_dense_phu": HardwareAlgorithm(  # TODO
-        "dense", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
-    ),
-    "dynamic_para_pack_phu": HardwareAlgorithm(  # TODO
-        "pack", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
-    ),
+    # "dynamic_para_matmul_phu": HardwareAlgorithm(  # TODO
+    #     "matmul", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
+    # ),
+    # "dynamic_para_dense_phu": HardwareAlgorithm(  # TODO
+    #     "dense", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
+    # ),
+    # "dynamic_para_pack_phu": HardwareAlgorithm(  # TODO
+    #     "pack", "PHU", func, phu_matmul_dynamic_para_time, lambda i, o: np.inf
+    # ),
     "get_dram": HardwareAlgorithm(
         "null",
         "HBM",
@@ -338,8 +338,6 @@ class HardwareConnection:
     ):
         return self.var_to_func[weight_variable](num_transfer, bit_transfer)
 
-
-DAC_ADC_DELAY
 
 hw_intercon = {
     ("HBM", "SRAM"): HardwareConnection(CPU_CLOCK_PERIOD_SECONDS, HBM_READ + SRAM_WRITE),

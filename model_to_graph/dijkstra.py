@@ -204,10 +204,42 @@ def _ending_node(cur_path, aggreement_stacks, groups, all_nodes):
     return None
 
 
+def _config_selection(graph, config):
+    """selects based on config, not optimization
+
+    Args:
+        graph (StackGraph): _description_
+        config (srt of None): _description_
+
+    Returns:
+        lsit: (stack_idx, node_idx)
+    """
+    nodes = []
+
+    for stack_idx, stack in enumerate(graph.stack_list):
+        node_stack = stack.node_stack
+        stack_hardware = [oc.hardware_algs[node.algorithm].hardware for node in node_stack]
+        if config == 'always_cpu':
+            if "CPU" in stack_hardware:
+                nodes.append( (stack_idx, stack_hardware.index("CPU")) )
+            else:
+                nodes.append( (stack_idx, 0) )
+        if config == "always_phu":
+            if "PHU" in stack_hardware:
+                nodes.append( (stack_idx, stack_hardware.index("PHU")) )
+            else:
+                nodes.append( (stack_idx, 0) )
+
+    return nodes
+
+
+
+
 def _rolling_dijkstra(graph, weight_variable):
     """
     Dijkstra untill there is full coverage on a combination of aggreement stacks
     graph to optimize
+    return list of (stack_idx, node_idx)
     """
     aggreement_stacks = _make_aggreement_list(graph)
     all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != "null"}
@@ -240,7 +272,7 @@ def _rolling_dijkstra(graph, weight_variable):
     return None
 
 
-def select_nodes(subgraphs, weight_variable):
+def select_nodes(subgraphs, weight_variable, config=None):
     """apply roling_dijkstra to each subgraph.
 
     Args:
@@ -251,7 +283,11 @@ def select_nodes(subgraphs, weight_variable):
     """
     flat_subgraphs = []
     for subgraph in subgraphs:
-        nodes = _rolling_dijkstra(subgraph, weight_variable=weight_variable)
+        if config:
+            nodes = _config_selection(subgraph, config)
+        else:
+            nodes = _rolling_dijkstra(subgraph, weight_variable=weight_variable)
+
         subgraph_nodes_list = []
         for node in nodes:
             subgraph_stack = subgraph.stack_list[node[0]]

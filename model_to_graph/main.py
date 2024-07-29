@@ -14,11 +14,11 @@ import testing as test
 import data_collection as dc
 
 
-def forward(relay_path, optimization, profiles = True, get_step_times=True):
+def forward(relay_path, optimization, profiles = True, get_step_times=True, config = None):
 
     # progress bar
     def mark_time():
-        if get_times is True: times.append(time.time())
+        if get_step_times is True: times.append(time.time())
         progress_bar.update(1)
 
     times = []
@@ -58,7 +58,7 @@ def forward(relay_path, optimization, profiles = True, get_step_times=True):
     stacked_subgraphs = list(dijk.graph_partition(graph))
     mark_time()
     flat_subgraphs = dijk.select_nodes(
-        stacked_subgraphs, weight_variable=WEIGHT_VARIABLE
+        stacked_subgraphs, weight_variable=WEIGHT_VARIABLE, config=config
     )
     mark_time()
     expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
@@ -113,9 +113,9 @@ def forward(relay_path, optimization, profiles = True, get_step_times=True):
 
 
 
-
-# optimization = 'always_cpu'
-# optimization = 'always_phu'
+config = None
+# config = 'always_cpu'
+# config = 'always_phu'
 
 # optimization = 'time'
 # optimization = 'energy'
@@ -130,4 +130,4 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # for i in optimizations:
 #     forward(relay_path, i)
 
-forward(relay_path, 'energy', profiles = True, get_step_times=False)
+forward(relay_path, 'time', profiles = False, get_step_times=False, config=config)
