@@ -173,3 +173,11 @@ def get_energy_profile(graph):
         energy_data.append((delta[0], total_energy))
 
     return energy_data, delta_energy, round(total_energy * 1 / oc.PICO_JOULE, 1)
+
+def get_time_profile(graph):
+    time_profile = {}
+    for node in graph.node_list:
+        time_profile.setdefault(node.algorithm, 0)
+        time_profile[node.algorithm] += node.time_cost
+
+    return time_profile

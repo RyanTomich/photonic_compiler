@@ -14,7 +14,9 @@ import testing as test
 import data_collection as dc
 
 
-def forward(relay_path, optimization, profiles = True, get_times=True):
+def forward(relay_path, optimization, profiles = True, get_step_times=True):
+
+    # progress bar
     def mark_time():
         if get_times is True: times.append(time.time())
         progress_bar.update(1)
@@ -42,6 +44,7 @@ def forward(relay_path, optimization, profiles = True, get_times=True):
     progress_bar = tqdm(total=len(ops), desc="Progress", unit="operation")
 
 
+    # Calculation
     mark_time()
     with open(relay_path, encoding="utf-8") as json_file:
         raw_json = json.load(json_file)  # returns json file as dict
@@ -70,15 +73,6 @@ def forward(relay_path, optimization, profiles = True, get_times=True):
     stagnent_time = test.schedule_validate(schedule_df)
     mark_time()
 
-    if profiles:
-        dram, delta_dram, sram, delta_sram = dc.get_memory_profile(scheduled_flat_graph)
-        mark_time()
-        energy_data, delta_energy, total_energy = dc.get_energy_profile(
-            scheduled_flat_graph
-        )
-        mark_time()
-
-
     print("---------- INFO ----------")
     print(f"{WEIGHT_VARIABLE=}")
     dc.get_photonic(flat_subgraphs)
@@ -92,23 +86,36 @@ def forward(relay_path, optimization, profiles = True, get_times=True):
     print(f"Number of Nodes: {len(scheduled_flat_graph.node_list)}")
 
     if profiles:
+        dram, delta_dram, sram, delta_sram = dc.get_memory_profile(scheduled_flat_graph)
         print(f"Net DRAM: {dram[-1][1]} bits")
         print(f"Net SRAM: {sram[-1][1]} bits")
+        mark_time()
+
+        energy_data, delta_energy, total_energy = dc.get_energy_profile(
+            scheduled_flat_graph
+        )
         print(f"Total Energy Consumption: {total_energy} pico-joules")
 
+        mark_time()
+        print(f"time_distrabution {dc.get_time_profile(scheduled_flat_graph)} compute seconds ")
+        mark_time()
 
-    time_taken = {}
-    print(len(times))
-    print(len(ops))
-    assert len(times)-1 == len(ops)
-    for i in range(len(ops)):
-        time_taken[ops[i]] = times[i+1] - times[i]
-    print(time_taken)
+    if get_step_times:
+        time_taken = {}
+        print(len(times))
+        print(len(ops))
+        assert len(times)-1 == len(ops)
+        for i in range(len(ops)):
+            time_taken[ops[i]] = times[i+1] - times[i]
+        print(time_taken)
 
     print("---------- ---- ----------")
 
 
 
+
+# optimization = 'always_cpu'
+# optimization = 'always_phu'
 
 # optimization = 'time'
 # optimization = 'energy'
@@ -123,4 +130,4 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # for i in optimizations:
 #     forward(relay_path, i)
 
-forward(relay_path, 'time', profiles = False, get_times=True)
+forward(relay_path, 'energy', profiles = True, get_step_times=False)
