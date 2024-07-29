@@ -146,7 +146,7 @@ def get_edge_val(graph, start_node, end_node, weight_variable):
 NODE_COUNT = 0
 
 # cores
-PHU_CORES = 1
+PHU_CORES = 64
 PHU_MULTIPLEX = 20
 CPU_CORES = 1
 
@@ -297,7 +297,8 @@ hardware_algs = {
         "HBM",
         func,
         lambda i, o: {
-            "HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / MEMORY_TRANSFER_WIDTH
+            # "HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / MEMORY_TRANSFER_WIDTH
+            "HBM": 0 # 0 if assuming model is preloaded to HMB
         },
         lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ
         + sum(ten_elm(a) for a in o) * HBM_WRITE,

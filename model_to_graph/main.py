@@ -68,7 +68,13 @@ def forward(relay_path, optimization, profiles = True, get_step_times=True, conf
     )
     mark_time()
 
+    # print(scheduled_flat_graph.get_node_obj(13))
+
     schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
+
+    # schedule_df['difference'] = schedule_df['end'] - schedule_df['start']
+    # print(schedule_df.loc[schedule_df['difference'].idxmax()])
+
     mark_time()
     stagnent_time = test.schedule_validate(schedule_df)
     mark_time()
@@ -117,9 +123,9 @@ config = None
 # config = 'always_cpu'
 # config = 'always_phu'
 
-# optimization = 'time'
+optimization = 'time'
 # optimization = 'energy'
-optimizations = ["time", "energy"]
+# optimizations = ["time", "energy"]
 
 
 relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
@@ -130,4 +136,4 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # for i in optimizations:
 #     forward(relay_path, i)
 
-forward(relay_path, 'time', profiles = False, get_step_times=False, config=config)
+forward(relay_path, 'time', profiles = True, get_step_times=False, config=config)
