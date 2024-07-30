@@ -42,8 +42,15 @@ def create_quantized_model(model_name, prompt, max_new_tokens, save):
     generated_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
     if save:
-        print(type(model))
         path = f"neural_chat_quant.pth"
+        # print(type(model)) # <class 'neural_speed.Model'>
+        # print(f'safing model to {path} ...')
+        # print(model.config)
+        # print(model.quantization_config)
+        # print(model.quant_model)
+        # print(model.bin_file)
+
+        # model.save(path)
         # model.save_pretrained(path)
         # torch.save(model.state_dict(), path)
 
