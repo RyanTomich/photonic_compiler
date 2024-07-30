@@ -11,7 +11,7 @@ from transformers import (
 import quantized_models as quantized
 
 
-def original_gpt(model_name, prompt, max_new_tokens, save=False):
+def original_model(model_name, prompt, max_new_tokens, save=False):
     model = AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -53,17 +53,18 @@ max_new_tokens = 50
 
 
 print(f'############### {model_name} Original Response ###############')
-model, generated = original_gpt(model_name, prompt, max_new_tokens, save=False)
+model, generated = original_model(model_name, prompt, max_new_tokens, save=False)
 print(generated)
-# print(quantized.model_param_types(model))
+print(quantized.model_param_types(model))
 
 
 model, generated = quantized.create_quantized_model(model_name, prompt, max_new_tokens, save=False)
 print(f'############### {model_name} Quantized Response ###############')
 print(generated)
-# print(type(model))
+# print(quantized.model_param_types(model))
+# works, but returns Neural_link_model, which is dificult to work with.
 
 # model_quantize_internal: model size  = 27_625.02 MB
 # model_quantize_internal: quant size  =  4316.73 MB
 
-# print(quantized.model_param_types(model))
+print(f'############### {model_name}  ###############')
