@@ -1,18 +1,52 @@
-# region ### intel extention for transformers
+import os
 
-from transformers import AutoTokenizer, TextStreamer
-from intel_extension_for_transformers.transformers import AutoModelForCausalLM
 import torch
-import torchvision.models as modles
+from torchsummary import summary
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
+from torch.profiler import profile, record_function, ProfilerActivity
 
-# # # PyTorch Model from Hugging Face
+
+# model stats
+def model_param_types(model):
+    print(type(model))
+    model_weights = model.state_dict()
+    types = set()
+    for k, v in model_weights.items():
+        # print(k)
+        types.add(v.dtype)
+        # if v.dtype == torch.float32:
+        # print(f"{type(v)} -- {v.dtype} -- {k}")
+    return types
 
 
-def create_quantized_model(model_name, prompt, max_new_tokens, save):
+def print_inference_data(model, inputs, trace=False):
+    """
+    https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html
+        chrome://tracing/
+    """
+
+    print("CPU")
+    with profile(
+        activities=[ProfilerActivity.CPU], record_shapes=True, profile_memory=True
+    ) as prof:
+        with record_function("model_inference"):
+            model(inputs)
+
+    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+
+    if trace:
+        with profile(activities=[ProfilerActivity.CPU]) as prof:
+            model(inputs)
+
+        prof.export_chrome_trace("trace.json")
+
+
+def neural_speed_quantize(model):
     """
     https://github.com/intel/neural-speed/tree/main?tab=readme-ov-file#pytorch-model-from-hugging-face
-    does weights for bert, nothing for GPT2
     """
+    from intel_extension_for_transformers.transformers import AutoModelForCausalLM
+
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         load_in_8bit=True,
@@ -41,32 +75,47 @@ def create_quantized_model(model_name, prompt, max_new_tokens, save):
 
     generated_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
-    if save:
-        path = f"neural_chat_quant.pth"
-        # print(type(model)) # <class 'neural_speed.Model'>
-        # print(f'safing model to {path} ...')
-        # print(model.config)
-        # print(model.quantization_config)
-        # print(model.quant_model)
-        # print(model.bin_file)
 
-        # model.save(path)
-        # model.save_pretrained(path)
-        # torch.save(model.state_dict(), path)
-
-    return model, generated_text
+def torch_quantize(model):
+    model_int8 = torch.ao.quantization.quantize_dynamic(
+        model,
+        {
+            torch.nn.Linear,
+            torch.nn.Conv1d,
+        },  # a set of layers to dynamically quantize
+        dtype=torch.qint8,
+    )  # the target dtype for quantized weights
+    return model_int8
 
 
-def model_param_types(model):
-    print(type(model))
-    model_weights = model.state_dict()
-    types = set()
-    for k, v in model_weights.items():
-        # print(k)
-        types.add(v.dtype)
-        # if v.dtype == torch.float32:
-            # print(f"{type(v)} -- {v.dtype} -- {k}")
-    return types
+def archai_quantize(model):
+
+    from archai.quantization.ptq import dynamic_quantization_torch
+
+    model_int8 = dynamic_quantization_torch(model)
+    return model_int8
 
 
-# endregion
+def create_quantiaed_model(model_name, prompt, save=False):
+
+    model_fp32 = AutoModelForCausalLM.from_pretrained(
+        model_name
+    )  # <class 'transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel'>
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+
+    print("Quantized")
+
+    model_int8 = torch_quantize(model_fp32)
+
+    # Get profile
+    # print_inference_data(model_fp32, input_ids)
+    print_inference_data(model_int8, input_ids, trace=False)
+
+
+model_name = "bert-base-uncased"
+model_name = "gpt2"
+prompt = "my favorite music is"
+
+create_quantiaed_model(model_name, prompt)
