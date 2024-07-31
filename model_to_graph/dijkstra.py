@@ -273,6 +273,7 @@ def _rolling_dijkstra(graph, weight_variable):
                 node_cost = node_value_selection[weight_variable](node_obj)
                 new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
+    raise ValueError('These operations are not computable with this hardware. Change hardware or algorithms for the hardware.')
     return None
 
 

@@ -136,6 +136,6 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 #     forward(relay_path, i)
 
 available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1), hw.PHU(10**10, 64, 20)])
-assert len(hw.Hardware.algs) > 20
-assert len(hw.Hardware.intercon) > 5
+# available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1)])
+# available_hardware = hw.initilize_hardware([hw.PHU(10**10, 64, 20)])
 forward(relay_path, 'time', available_hardware, profiles = True, get_step_times=False, config=config)
