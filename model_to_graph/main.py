@@ -13,7 +13,7 @@ import testing as test
 import data_collection as dc
 
 
-def forward(relay_path, optimization, profiles = True, get_step_times=True, config = None):
+def forward(relay_path, optimization, available_hardware, profiles = True, get_step_times=True, config = None):
 
     # progress bar
     def mark_time():
@@ -63,7 +63,7 @@ def forward(relay_path, optimization, profiles = True, get_step_times=True, conf
     expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
     mark_time()
     scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
-        graph, expanded_flat_subgraphs
+        graph, expanded_flat_subgraphs, available_hardware
     )
     mark_time()
 
@@ -135,9 +135,7 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # for i in optimizations:
 #     forward(relay_path, i)
 
-# forward(relay_path, 'time', profiles = True, get_step_times=False, config=config)
-
-hw.initilize_hardware([hw.CPU(10**8, 1), hw.PHU(10**10, 64, 20)])
-
-print(f'{len(hw.Hardware.algs)=}')
-print(f'{len(hw.Hardware.intercon)=}')
+available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1), hw.PHU(10**10, 64, 20)])
+assert len(hw.Hardware.algs) > 20
+assert len(hw.Hardware.intercon) > 5
+forward(relay_path, 'time', available_hardware, profiles = True, get_step_times=False, config=config)

@@ -1,14 +1,17 @@
 import math
 
+DEBUG_PRINT = False
+NODE_COUNT = 0
+
+
 # region constants and helpers
 MEMORY_TRANSFER_WIDTH = 32  # bits per cycle
 DAC_ADC_DELAY = 1 * 10**-8  # 10 nano-seconds
 
-BITS_PER_NUM = 32
+BITS_PER_NUM = 32 #TODO
 
 # Power
 PICO_JOULE = 10**-12
-
 JOULE_PER_CYCLE = 1 * PICO_JOULE
 
 DRAM_READ = 160 * PICO_JOULE
@@ -43,11 +46,13 @@ def ten_elm(tensor_shape):
 def all_elm(i, o):
     return ten_elm(o[0])
 
+
 def standard_energy(i, o):
     return JOULE_PER_CYCLE
 
+
 def constnat(c):
-    return lambda i, o: {cpu: c}
+    return lambda i, o: c
 
 
 def elm_const(matrix, const=1):
@@ -58,44 +63,76 @@ def elm_const(matrix, const=1):
 
 
 # region Hardware
+def creat_available_hardware(hardware_dict):
+    """Given the machiene hardware, create hardware dict
+
+    Args:
+        hardware_dict (dict): hardware type to number of that hardware
+
+    Returns:
+        dict: each individual hardware to time (0)
+    """
+    hardware = {}
+    for hw, count in hardware_dict.items():
+        in_dict = {}
+        for i in range(count):
+            in_dict[f"{hw}{i}"] = 0
+        hardware[hw] = in_dict
+    return hardware
+
+
 def initilize_hardware(hardware):
     """creates intercon functions
 
     Args:
         hw (list): list of hardware instances of the system
     """
+    # Hardware._hardware_reset()
+
     sram = SRAM(10**8)
     hbm = HBM(10**8)
     start = Start(10**8)
+
+    available_cores = {hw: hw.num_cores for hw in hardware}
+    available_cores[sram] = 1
+
+    available_hardware = creat_available_hardware(available_cores)
 
     Hardware.intercon = {
         (HBM, SRAM): HardwareConnection(sram.clock_period, HBM_READ + SRAM_WRITE),
         (SRAM, HBM): HardwareConnection(DAC_ADC_DELAY, SRAM_READ + HBM_WRITE),
         # start nodes
-        (start, CPU): HardwareConnection(0, 0),
-        (start, PHU): HardwareConnection(0, 0),
-        (start, SRAM): HardwareConnection(0, 0),
+        (Start, CPU): HardwareConnection(0, 0),
+        (Start, PHU): HardwareConnection(0, 0),
+        (Start, SRAM): HardwareConnection(0, 0),
     }
     for hw_obj in hardware:
         if isinstance(hw_obj, CPU):
-            Hardware.intercon.update({
-                (SRAM, CPU): HardwareConnection(
-                    sram.clock_period, SRAM_READ + LOCAL_WRITE + LOCAL_READ
-                ),
-                (CPU, SRAM): HardwareConnection(
-                    sram.clock_period, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
-                ),
-            })
+            Hardware.intercon.update(
+                {
+                    (SRAM, CPU): HardwareConnection(
+                        sram.clock_period, SRAM_READ + LOCAL_WRITE + LOCAL_READ
+                    ),
+                    (CPU, SRAM): HardwareConnection(
+                        sram.clock_period, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
+                    ),
+                }
+            )
         if isinstance(hw_obj, PHU):
-            Hardware.intercon.update({
-                (SRAM, PHU): HardwareConnection(
-                    sram.clock_period + DAC_ADC_DELAY, SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER
-                ),
-                (PHU, SRAM): HardwareConnection(
-                    sram.clock_period + DAC_ADC_DELAY, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
-                ),
-            })
+            Hardware.intercon.update(
+                {
+                    (SRAM, PHU): HardwareConnection(
+                        sram.clock_period + DAC_ADC_DELAY,
+                        SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER,
+                    ),
+                    (PHU, SRAM): HardwareConnection(
+                        sram.clock_period + DAC_ADC_DELAY,
+                        ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE,
+                    ),
+                }
+            )
 
+    return available_hardware
 
 
 class HardwareConnection:
@@ -113,28 +150,31 @@ class HardwareConnection:
             "energy": self.energy_cost_func,
         }
 
-    def get_transfer_cost(
-        self, weight_variable, num_transfer, bit_transfer
-    ):
+    def get_transfer_cost(self, weight_variable, num_transfer, bit_transfer):
         return self.var_to_func[weight_variable](num_transfer, bit_transfer)
 
 
 class HardwareAlgorithm:
-    def __init__(self, opp, cost): #hardware: (time, energy)
+    def __init__(self, opp, cost):  # hardware: (time, energy)
         self.opp = opp
         self.cost = cost
+        self.hardware = next(iter(cost.keys())) # will need to change for multi hardware algorithms
 
     def time_cost(self, i, o):
-        return sum(hardware.clock_period * cost_tup[0] for hardware, cost_tup in self.cost.items())
+        return sum(
+            hardware.clock_period * cost_tup[0](i, o)
+            for hardware, cost_tup in self.cost.items()
+        )
 
     def energy_cost(self, i, o):
-        return sum(cost_tup[1] for hardware, cost_tup in self.cost.items())
+        return sum(cost_tup[1](i,o) for hardware, cost_tup in self.cost.items())
 
 
 class Hardware:
     _universal_hardware_ID = 0
     algs = {}
     intercon = {}
+
     def __init__(self, clock_speed):
         self.clock_speed = clock_speed
         self.clock_period = 1 / clock_speed
@@ -147,6 +187,11 @@ class Hardware:
     def _initialize_algs(self):
         Hardware.algs.update(self.algs)
 
+    def _hardware_reset():
+        Hardware._universal_hardware_ID = 0
+        Hardware.algs = {}
+        Hardware.intercon = {}
+
 
 class PHU(Hardware):
     def __init__(self, clock_speed, num_cores, num_multiplex):
@@ -156,31 +201,39 @@ class PHU(Hardware):
         self.algs = {
             "task_para_matmul_phu": HardwareAlgorithm(
                 "matmul",
-                {self:
-                (self._phu_matmul_task_para_cycles,
-                self._phu_matmul_task_para_energy)
-                }
+                {
+                    self: (
+                        self._phu_matmul_task_para_cycles,
+                        self._phu_matmul_task_para_energy,
+                    )
+                },
             ),
             "task_para_dense_phu": HardwareAlgorithm(
                 "dense",
-                {self:
-                (self._phu_matmul_task_para_cycles,
-                self._phu_matmul_task_para_energy)
-                }
+                {
+                    self: (
+                        self._phu_matmul_task_para_cycles,
+                        self._phu_matmul_task_para_energy,
+                    )
+                },
             ),
             "task_para_pack_phu": HardwareAlgorithm(
                 "pack",
-                {self:
-                (self._phu_matmul_task_para_cycles,
-                self._phu_matmul_task_para_energy)
-                }
+                {
+                    self: (
+                        self._phu_matmul_task_para_cycles,
+                        self._phu_matmul_task_para_energy,
+                    )
+                },
             ),
             "dot_prod_phu": HardwareAlgorithm(
                 "dot_prod",
-                {self:
-                (lambda i, o: i[0][-1],
-                lambda i, o: i[0][-1] * self.mac_energy)
-                }
+                {
+                    self: (
+                        lambda i, o: i[0][-1],
+                        lambda i, o: i[0][-1] * self.mac_energy,
+                    )
+                },
             ),
         }
         super().__init__(clock_speed)
@@ -199,29 +252,39 @@ class PHU(Hardware):
         length_dot_products = i[0][-1]
         return num_dot_products * length_dot_products * self.mac_energy
 
+
 class CPU(Hardware):
     def __init__(self, clock_speed, num_cores):
         self.num_cores = num_cores
         self.mac_energy = 0.1 * PICO_JOULE
         self.algs = {
-            "add": HardwareAlgorithm("add", {self: (all_elm, standard_energy)} ),
-            "subtract": HardwareAlgorithm("subtract", {self: (all_elm, standard_energy)} ),
-            "multiply": HardwareAlgorithm("multiply", {self: (all_elm, standard_energy)} ),
-            "divide": HardwareAlgorithm("divide", {self: (all_elm, standard_energy)} ),
-            "sqrt": HardwareAlgorithm("sqrt", {self: (all_elm, standard_energy)} ),
-            "rsqrt": HardwareAlgorithm("rsqrt", {self: (all_elm, standard_energy)} ),
-            "relu": HardwareAlgorithm("relu", {self: (all_elm, standard_energy)} ),
-            "tanh": HardwareAlgorithm("tanh", {self: (lambda i, o: ten_elm(o[0]) * 4, standard_energy) } ),
-
-            "power": HardwareAlgorithm("power", {self: (all_elm, standard_energy) }),
-            "transpose": HardwareAlgorithm("transpose", {self: (all_elm, standard_energy)} ),
-            "nop": HardwareAlgorithm("nop", {self: (constnat(1), standard_energy)} ),
-            "less": HardwareAlgorithm("less", {self: (constnat(1), standard_energy)} ),
-            "take": HardwareAlgorithm("take", {self: (constnat(1), standard_energy)} ),
+            "add": HardwareAlgorithm("add", {self: (all_elm, standard_energy)}),
+            "subtract": HardwareAlgorithm(
+                "subtract", {self: (all_elm, standard_energy)}
+            ),
+            "multiply": HardwareAlgorithm(
+                "multiply", {self: (all_elm, standard_energy)}
+            ),
+            "divide": HardwareAlgorithm("divide", {self: (all_elm, standard_energy)}),
+            "sqrt": HardwareAlgorithm("sqrt", {self: (all_elm, standard_energy)}),
+            "rsqrt": HardwareAlgorithm("rsqrt", {self: (all_elm, standard_energy)}),
+            "relu": HardwareAlgorithm("relu", {self: (all_elm, standard_energy)}),
+            "tanh": HardwareAlgorithm(
+                "tanh", {self: (lambda i, o: ten_elm(o[0]) * 4, standard_energy)}
+            ),
+            "power": HardwareAlgorithm("power", {self: (all_elm, standard_energy)}),
+            "transpose": HardwareAlgorithm(
+                "transpose", {self: (all_elm, standard_energy)}
+            ),
+            "nop": HardwareAlgorithm("nop", {self: (constnat(1), standard_energy)}),
+            "less": HardwareAlgorithm("less", {self: (constnat(1), standard_energy)}),
+            "take": HardwareAlgorithm("take", {self: (constnat(1), standard_energy)}),
             "mean": HardwareAlgorithm(
-                "mean", {self: (lambda i, o: (i[0][-1] + 1) * i[0][-2], standard_energy) }),
+                "mean",
+                {self: (lambda i, o: (i[0][-1] + 1) * i[0][-2], standard_energy)},
+            ),
             "softmax": HardwareAlgorithm(
-                "softmax", {self: (lambda i, o: ten_elm(o[0]) * 6, standard_energy) }
+                "softmax", {self: (lambda i, o: ten_elm(o[0]) * 6, standard_energy)}
             ),
             "matmul": HardwareAlgorithm(
                 "matmul", {self: (self._cpu_matmul_cycles, self._cpu_matmul_energy)}
@@ -232,8 +295,8 @@ class CPU(Hardware):
             "pack": HardwareAlgorithm(
                 "pack", {self: (self._cpu_matmul_cycles, self._cpu_matmul_energy)}
             ),
-            "where": HardwareAlgorithm("where", {self: (constnat(1), standard_energy) }),
-            "erf": HardwareAlgorithm("erf",  {self: (constnat(1), standard_energy) })
+            "where": HardwareAlgorithm("where", {self: (constnat(1), standard_energy)}),
+            "erf": HardwareAlgorithm("erf", {self: (constnat(1), standard_energy)}),
         }
         super().__init__(clock_speed)
 
@@ -248,6 +311,7 @@ class CPU(Hardware):
         length_dot_products = i[0][-1]
         return num_dot_products * length_dot_products * self.mac_energy
 
+
 class GPU(Hardware):
     def __init__(self, clock_speed):
         self.mac_energy = 0.1 * PICO_JOULE
@@ -258,7 +322,16 @@ class GPU(Hardware):
 class HBM(Hardware):
     def __init__(self, clock_speed):
         self.algs = {
-            "get_dram": HardwareAlgorithm("null", {self:( lambda i, o: 0 , lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ + sum(ten_elm(a) for a in o) * HBM_WRITE) }),
+            "get_dram": HardwareAlgorithm(
+                "null",
+                {
+                    self: (
+                        lambda i, o: 0,
+                        lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ
+                        + sum(ten_elm(a) for a in o) * HBM_WRITE,
+                    )
+                },
+            ),
             # 0 if assuming model is preloaded to HMB
             # sum(ten_elm(a) for a in o) * BITS_PER_NUM / MEMORY_TRANSFER_WIDTH
         }
@@ -272,6 +345,7 @@ class SRAM(Hardware):
         }
         super().__init__(clock_speed)
 
+
 class Start(Hardware):
     def __init__(self, clock_speed):
         self.algs = {
@@ -280,6 +354,42 @@ class Start(Hardware):
         super().__init__(clock_speed)
 
 
-
-
 # endregion
+
+def get_edge_val(graph, start_node, end_node, weight_variable):
+    """Calculates cost between hardware. Accounts for trips to and from SRAM
+
+    Args:
+        graph (Graph):
+        start_node (Node): ending node of directed edge
+        end_node (Node): ending node of directed edge
+        weight_variable (str): time or energy
+
+    Returns:
+        int: total cost in seconds or jules (depending on weight_variable)
+    """
+
+    num_transfer, bit_transfer = graph._bit_transfer(start_node)
+
+    start_hw = type(start_node.get_algo_info("hardware"))
+    end_hw = type(end_node.get_algo_info("hardware"))
+    hw_connection = tuple((start_hw, end_hw))
+
+    # one way connection
+    if any(i in [Start, SRAM] for i in hw_connection):
+        return Hardware.intercon[hw_connection].get_transfer_cost(
+            weight_variable, num_transfer, bit_transfer
+        )
+
+    # must go through SRAM
+    else:
+        to_sram = Hardware.intercon[(hw_connection[0], SRAM)].get_transfer_cost(
+            weight_variable, num_transfer, bit_transfer
+        )
+        from_sram = Hardware.intercon[(SRAM, hw_connection[1])].get_transfer_cost(
+            weight_variable,
+            num_transfer,
+            bit_transfer,
+        )
+
+        return to_sram + from_sram

@@ -2,7 +2,7 @@
 Functions for expanding photnic matrix multiplication
 """
 
-import operator_calcs as oc
+import hardware as hw
 import stacked_graph as sg
 
 
@@ -51,7 +51,7 @@ def nd_tensor_product(m1, m2, preamble=()):
 # Expansion Functinos
 
 
-def _multiplex_groups(size, common_operand, unique_operands):
+def _multiplex_groups(hardware, size, common_operand, unique_operands):
     """group nodes into max multiplex
 
     Args:
@@ -62,16 +62,16 @@ def _multiplex_groups(size, common_operand, unique_operands):
     Yields:
         tupele: (size, common, list(unique))
     """
-    full = int(len(unique_operands) / oc.PHU_MULTIPLEX)
+    full = int(len(unique_operands) / hardware.num_numtiplex)
     start = 0
-    end = oc.PHU_MULTIPLEX
+    end = hardware.num_numtiplex
     for _ in range(full):
         yield (size, common_operand, unique_operands[start:end])
         start = end
-        end += oc.PHU_MULTIPLEX
+        end += hardware.num_numtiplex
 
     assert end >= len(unique_operands)
-    if len(unique_operands) % oc.PHU_MULTIPLEX:
+    if len(unique_operands) % hardware.num_numtiplex:
         assert end > len(unique_operands)
         yield (size, common_operand, unique_operands[start:])
 
@@ -84,8 +84,9 @@ def _task_para_node_gen(node, size, common_operand, unique_operands):
         common_operand (tup): m1()
         unique_operands (list): list of m2()
     """
+    hardware = hw.Hardware.algs[node.algorithm].hardware
     subnodes = []
-    for multiplex in _multiplex_groups(size, common_operand, unique_operands):
+    for multiplex in _multiplex_groups(hardware, size, common_operand, unique_operands):
         size, common_operand, unique_subset = multiplex
 
         subnode = sg.Node("dot_prod_phu", node.stack)
@@ -96,8 +97,8 @@ def _task_para_node_gen(node, size, common_operand, unique_operands):
         ]  # multiplex vectors + common vector
         subnode.output_shapes = [[1, len(unique_subset) + 1]]
 
-        oc.NODE_COUNT += 1
-        subnode.stack_id = oc.NODE_COUNT
+        hw.NODE_COUNT += 1
+        subnode.stack_id = hw.NODE_COUNT
         subnodes.append(subnode)
 
     return subnodes

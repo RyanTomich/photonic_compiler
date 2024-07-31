@@ -8,11 +8,15 @@ import numpy as np
 
 import stacked_graph as sg
 import testing as test
-import operator_calcs as oc
+import hardware as hw
 import photonic_algorithms as pa
 
 # region graph_partition
 
+node_value_selection = {
+    "time": lambda node: node.time_cost,
+    "energy": lambda node: node.energy_cost,
+}
 
 def graph_partition(graph):
     """Finds the Articulation Vertices and partitions the large graph into subgraphs
@@ -51,7 +55,7 @@ def graph_partition(graph):
             weight_variable=graph.weight_variable,
         )
         yield sub_graph
-    print("... Subgraphs Made ...") if oc.DEBUG_PRINT else None
+    print("... Subgraphs Made ...") if hw.DEBUG_PRINT else None
 
 
 # endregion
@@ -218,9 +222,9 @@ def _config_selection(graph, config):
 
     for stack_idx, stack in enumerate(graph.stack_list):
         node_stack = stack.node_stack
-        stack_hardware = [oc.hardware_algs[node.algorithm].hardware for node in node_stack]
+        stack_hardware = [hw.Hardware.algs[node.algorithm].hardware for node in node_stack]
         if config == 'always_cpu':
-            if "CPU" in stack_hardware:
+            if any(isinstance(stack, hw.CPU) for stack in stack_hardware):
                 nodes.append( (stack_idx, stack_hardware.index("CPU")) )
             else:
                 nodes.append( (stack_idx, 0) )
@@ -266,7 +270,7 @@ def _rolling_dijkstra(graph, weight_variable):
             stack_connection = graph.adj_matrix[cur_node[0]][neighbor]
             for node, node_obj in enumerate(graph.stack_list[neighbor].node_stack):
                 edge_weight = stack_connection[cur_node[1]][node]
-                node_cost = oc.node_value_selection[weight_variable](node_obj)
+                node_cost = node_value_selection[weight_variable](node_obj)
                 new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
     return None
@@ -283,10 +287,7 @@ def select_nodes(subgraphs, weight_variable, config=None):
     """
     flat_subgraphs = []
     for subgraph in subgraphs:
-        if config:
-            nodes = _config_selection(subgraph, config)
-        else:
-            nodes = _rolling_dijkstra(subgraph, weight_variable=weight_variable)
+        nodes = _rolling_dijkstra(subgraph, weight_variable=weight_variable)
 
         subgraph_nodes_list = []
         for node in nodes:
@@ -305,9 +306,9 @@ def select_nodes(subgraphs, weight_variable, config=None):
         flat_subgraphs.append(
             sg.Graph(subgraph_nodes_list, weight_variable="time")
         )  # switch to time for scheduling
-        print("...     ... Subgraph Nodes selected ...") if oc.DEBUG_PRINT else None
+        print("...     ... Subgraph Nodes selected ...") if hw.DEBUG_PRINT else None
 
-    print("... Nodes selected ...") if oc.DEBUG_PRINT else None
+    print("... Nodes selected ...") if hw.DEBUG_PRINT else None
     return flat_subgraphs
 
 
@@ -315,21 +316,21 @@ def select_nodes(subgraphs, weight_variable, config=None):
 
 
 # region schedule_nodes
-def _hardware_synchronize():
+def _hardware_synchronize(available_hardware):
     """brings all hardware times up to the max"""
     max_value = max(
-        max(inner_dict.values()) for inner_dict in oc.available_hardware.values()
+        max(inner_dict.values()) for inner_dict in available_hardware.values()
     )
 
-    for sub_dict in oc.available_hardware.values():
+    for sub_dict in available_hardware.values():
         for key in sub_dict:
             sub_dict[key] = max_value
 
 
-def _scheduling_dijkstra(graph):
+def _scheduling_dijkstra(graph, available_hardware):
     """
     subgraph with mock start node.
-    oc.available_hardware initilized to 0
+    available_hardware initilized to 0
     """
     visited = {idx for idx, val in enumerate(graph.node_list) if not val.parents}
     end_times = {val.stack_id: 0 for val in graph.node_list if not val.parents}
@@ -359,7 +360,7 @@ def _scheduling_dijkstra(graph):
             if neighbor not in visited and indegree[neighbor] == 0:
                 neighbor_node = graph.node_list[neighbor]
 
-                hardware_type = oc.hardware_algs[neighbor_node.algorithm].hardware
+                hardware_type = hw.Hardware.algs[neighbor_node.algorithm].hardware
 
                 parent_end = [end_times[parent] for parent in neighbor_node.parents]
                 max_parent_end = max(parent_end)
@@ -367,46 +368,46 @@ def _scheduling_dijkstra(graph):
                 # select hardware to use
                 less_than = [
                     available
-                    for available in oc.available_hardware[hardware_type]
-                    if oc.available_hardware[hardware_type][available] <= max_parent_end
+                    for available in available_hardware[hardware_type]
+                    if available_hardware[hardware_type][available] <= max_parent_end
                 ]
 
                 # no hardware
                 if not less_than:
                     selected_hardware = min(
-                        oc.available_hardware[hardware_type],
-                        key=lambda k: oc.available_hardware[hardware_type][k],
+                        available_hardware[hardware_type],
+                        key=lambda k: available_hardware[hardware_type][k],
                     )
                 else:
                     # select minimum distance away for tightest packing
                     selected_hardware = min(
                         less_than,
                         key=lambda k: max_parent_end
-                        - oc.available_hardware[hardware_type][k],
+                        - available_hardware[hardware_type][k],
                     )
                     # bring hardware behind hardware up to current
-                    oc.available_hardware[hardware_type][
+                    available_hardware[hardware_type][
                         selected_hardware
                     ] = max_parent_end
 
                 neighbor_node.hardware_selection = selected_hardware
                 assert neighbor_node.start_time is None  # not already scheduled
-                neighbor_node.start_time = oc.available_hardware[hardware_type][
+                neighbor_node.start_time = available_hardware[hardware_type][
                     selected_hardware
                 ]
 
                 # add time
                 edge_weight = graph.adj_matrix[cur_node][neighbor]
-                oc.available_hardware[hardware_type][selected_hardware] += (
+                available_hardware[hardware_type][selected_hardware] += (
                     neighbor_node.time_cost + edge_weight
                 )
-                new_time = oc.available_hardware[hardware_type][selected_hardware]
+                new_time = available_hardware[hardware_type][selected_hardware]
                 visited.add(neighbor)
                 end_times[neighbor_node.stack_id] = new_time
                 que.append(cur_path + (neighbor,))
 
 
-def _time_shift(graph, time):
+def _time_shift(available_hardware, graph, time):
     """Shift all nodes =
 
     Args:
@@ -417,7 +418,7 @@ def _time_shift(graph, time):
         node.start_time += time
         assert node.start_time >= 0, "start times not all positive"
 
-    for sub_dict in oc.available_hardware.values():
+    for sub_dict in available_hardware.values():
         for key in sub_dict:
             sub_dict[key] += time
 
@@ -466,10 +467,10 @@ def _add_in_out(original_graph, node_list):
         node_list.append(new_node)
 
     assert test.node_list_complete(node_list)
-    print("...     ... graph i/o added ...") if oc.DEBUG_PRINT else None
+    print("...     ... graph i/o added ...") if hw.DEBUG_PRINT else None
 
 
-def _schedule_in_out(graph):
+def _schedule_in_out(graph, available_hardware):
     """Schedule the i/o nodes in a graph
 
     Args:
@@ -502,12 +503,12 @@ def _schedule_in_out(graph):
 
     # 0 time pass
     if min_start_time < 0:
-        _time_shift(graph, -min_start_time)
+        _time_shift(available_hardware, graph, -min_start_time)
 
-    print("...     ... graph i/o scheduled ...") if oc.DEBUG_PRINT else None
+    print("...     ... graph i/o scheduled ...") if hw.DEBUG_PRINT else None
 
 
-def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
+def schdeule_nodes(original_graph, subgraphs, available_hardware):  # TODO bert in-to-out issues
     """
     merges subgraphs
     schedules in and out nodes
@@ -515,13 +516,12 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
     subgraphs = Subgraph of
     """
     # Schedule subgraphs and merge
-    oc.initilize_hardware()
 
     break_points = []
     nodes_seen = set()
     full_node_list = []
     for subgraph in subgraphs:
-        _scheduling_dijkstra(subgraph)
+        _scheduling_dijkstra(subgraph, available_hardware)
 
         for node in subgraph.node_list:
             if node.algorithm != "start" and node.stack_id not in nodes_seen:
@@ -530,20 +530,20 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
                 full_node_list.append(node)
                 nodes_seen.add(node.stack_id)
 
-        _hardware_synchronize()
+        _hardware_synchronize(available_hardware)
         break_points.append(
             max(
                 max(inner_dict.values())
-                for inner_dict in oc.available_hardware.values()
+                for inner_dict in available_hardware.values()
             )
         )
-        print("...     ... Subgraph Scheduled ...") if oc.DEBUG_PRINT else None
+        print("...     ... Subgraph Scheduled ...") if hw.DEBUG_PRINT else None
 
     test.merge_i_o(full_node_list, original_graph)
     _add_in_out(original_graph, full_node_list)
 
     graph = sg.Graph(full_node_list, weight_variable="time")
-    _schedule_in_out(graph)
+    _schedule_in_out(graph, available_hardware)
 
     for node in graph.node_list:
         if node.stack_id not in graph.in_nodes and node.stack_id not in graph.out_nodes:
@@ -551,11 +551,11 @@ def schdeule_nodes(original_graph, subgraphs):  # TODO bert in-to-out issues
             assert node.start_time is not None
 
     end_time = round(
-        max(max(inner_dict.values()) for inner_dict in oc.available_hardware.values()),
+        max(max(inner_dict.values()) for inner_dict in available_hardware.values()),
         5,
     )
 
-    print("... Nodes Schdeuled ...") if oc.DEBUG_PRINT else None
+    print("... Nodes Schdeuled ...") if hw.DEBUG_PRINT else None
     return (
         graph,
         end_time,
@@ -661,9 +661,9 @@ def expand_nodes(flat_subgraphs):
                 new_subgraph_node_list.append(node)
 
         new_subgraphs.append(sg.Graph(new_subgraph_node_list, subgraph.weight_variable))
-        print("...     ... sungraph Nodes Expanded ...") if oc.DEBUG_PRINT else None
+        print("...     ... sungraph Nodes Expanded ...") if hw.DEBUG_PRINT else None
 
-    print("... Nodes Expanded ...") if oc.DEBUG_PRINT else None
+    print("... Nodes Expanded ...") if hw.DEBUG_PRINT else None
     return new_subgraphs
 
 

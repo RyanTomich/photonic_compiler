@@ -4,7 +4,7 @@ Graph types
 
 import numpy as np
 import pandas as pd
-import operator_calcs as oc
+import hardware as hw
 import testing as test
 
 
@@ -18,10 +18,10 @@ class Node:
         self.parents = stack.parents
         self.input_shapes = stack.input_shapes
         self.output_shapes = stack.output_shapes
-        self.time_cost = oc.hardware_algs[algorithm].time_cost(
+        self.time_cost = hw.Hardware.algs[algorithm].time_cost(
             stack.input_shapes, stack.output_shapes
         )
-        self.energy_cost = oc.hardware_algs[algorithm].energy_cost(
+        self.energy_cost = hw.Hardware.algs[algorithm].energy_cost(
             stack.input_shapes, stack.output_shapes
         )
 
@@ -42,11 +42,10 @@ class Node:
         )
 
     def get_algo_info(self, info_type):  # TODO let node carry around algorithm object
-        algorithm_obj = oc.hardware_algs[self.algorithm]
+        algorithm_obj = hw.Hardware.algs[self.algorithm]
         info = {
             "opp": algorithm_obj.opp,
-            "hardware": algorithm_obj.hardware,
-            "func": algorithm_obj.func,
+            "hardware": algorithm_obj.hardware
         }
         return info[info_type]
 
@@ -82,7 +81,7 @@ class Stack:
             if relay_node is None
             else [
                 Node(alg, self)
-                for alg, algorithm_obj in oc.hardware_algs.items()
+                for alg, algorithm_obj in hw.Hardware.algs.items()
                 if self.opp == algorithm_obj.opp
             ]
         )
@@ -166,14 +165,14 @@ class Graph:
         """
         total_num = 0
         if direction == "out":
-            total_num += oc.ten_elm(
+            total_num += hw.ten_elm(
                 node.output_shapes[0]
             )  # assuming uniform outputs(splits are all the same) # TODO fix this assumption...
         else:
             for shape in node.input_shapes:
-                total_num += oc.ten_elm(shape)
+                total_num += hw.ten_elm(shape)
 
-        return (total_num, total_num * oc.BITS_PER_NUM)
+        return (total_num, total_num * hw.BITS_PER_NUM)
 
     def _make_connection(self, start_node_idx, end_node_idx) -> int:
         """makes connection cost for flat graphs
@@ -189,7 +188,7 @@ class Graph:
         start_node = self.get_node_obj(start_node_idx)
         end_node = self.get_node_obj(end_node_idx)
 
-        return oc.get_edge_val(self, start_node, end_node, self.weight_variable)
+        return hw.get_edge_val(self, start_node, end_node, self.weight_variable)
 
     def _creat_adj_matrix(self):
         """
@@ -239,7 +238,7 @@ class Graph:
                         f"{row['label']} --- {row['hardware']} ({row['start']})\n"
                     )
 
-        print("... Schedule Data written ...") if oc.DEBUG_PRINT else None
+        print("... Schedule Data written ...") if hw.DEBUG_PRINT else None
         return schedule_data
 
 
@@ -251,7 +250,7 @@ class StackGraph(Graph):
         self.stack_list = stack_list if not raw_json else self._create_stacks()
         super().__init__(self.stack_list, weight_variable)
         assert self.node_list == self.stack_list
-        print("... Graph Made ...") if oc.DEBUG_PRINT else None
+        print("... Graph Made ...") if hw.DEBUG_PRINT else None
 
     def _create_stacks(self):
         ajusted_shapes = []
@@ -275,7 +274,7 @@ class StackGraph(Graph):
                 Stack(index, parents, input_shapes, output_shapes, relay_node=node)
             )
 
-        oc.NODE_COUNT = max(oc.NODE_COUNT, index)
+        hw.NODE_COUNT = max(hw.NODE_COUNT, index)
         return stacks
 
     # adj_matrix
@@ -304,7 +303,7 @@ class StackGraph(Graph):
         for start_idx, start_node in enumerate(start_node_list):
             for end_idx, end_node in enumerate(end_node_list):
 
-                connection_matrix[start_idx][end_idx] = oc.get_edge_val(
+                connection_matrix[start_idx][end_idx] = hw.get_edge_val(
                     self, start_node, end_node, self.weight_variable
                 )
 

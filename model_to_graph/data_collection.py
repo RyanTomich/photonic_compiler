@@ -1,4 +1,4 @@
-import operator_calcs as oc
+import hardware as hw
 
 
 
@@ -15,7 +15,7 @@ def get_photonic(subgraphs):
     for subgraph in subgraphs:
         for node in subgraph.node_list:
 
-            for alg, algorithm_obj in oc.hardware_algs.items():
+            for alg, algorithm_obj in hw.Hardware.algs.items():
                 if node.stack.opp == algorithm_obj.opp and "phu" in alg:
                     total += 1
                     break
@@ -51,8 +51,8 @@ def get_memory_profile(graph):
     sorted_stack_list = sorted(graph.node_list, key=lambda x: x.start_time)
 
     for node_obj in sorted_stack_list:
-        in_size = sum(oc.ten_elm(x) for x in node_obj.input_shapes)
-        out_size = sum(oc.ten_elm(x) for x in node_obj.output_shapes)
+        in_size = sum(hw.ten_elm(x) for x in node_obj.input_shapes)
+        out_size = sum(hw.ten_elm(x) for x in node_obj.output_shapes)
         assert out_size >= 0
 
         if node_obj.stack_id in graph.in_nodes:  # D -> S
@@ -99,7 +99,7 @@ def get_memory_profile(graph):
                 outdegree[graph.id_to_idx[parent_obj.stack_id]] -= 1
                 # once all children are satisfied, we remove data from SRAM
                 if outdegree[graph.id_to_idx[parent_obj.stack_id]] == 0:
-                    size = sum(oc.ten_elm(x) for x in parent_obj.output_shapes)
+                    size = sum(hw.ten_elm(x) for x in parent_obj.output_shapes)
                     sram_total -= size
                     sram.append((node_obj.start_time, sram_total))
                     delta_sram.append((node_obj.start_time, -size))
@@ -120,7 +120,7 @@ def get_memory_profile(graph):
 
     # print(f"{dram_total=}")
     # print(f"{sram_total=}")
-    print("... Memory profile made ...") if oc.DEBUG_PRINT else None
+    print("... Memory profile made ...") if hw.DEBUG_PRINT else None
     return dram, delta_dram, sram, delta_sram
 
 
@@ -160,7 +160,7 @@ def get_energy_profile(graph):
             start_node = graph.node_list[row_num]
             end_node = graph.node_list[col_num]
 
-            energy_change = oc.get_edge_val(graph, start_node, end_node, "energy")
+            energy_change = hw.get_edge_val(graph, start_node, end_node, "energy")
 
             delta_energy.append((start_node.start_time, energy_change))
 
@@ -172,7 +172,7 @@ def get_energy_profile(graph):
         total_energy += delta[1]
         energy_data.append((delta[0], total_energy))
 
-    return energy_data, delta_energy, round(total_energy * 1 / oc.PICO_JOULE, 1)
+    return energy_data, delta_energy, round(total_energy * 1 / hw.PICO_JOULE, 1)
 
 def get_time_profile(graph):
     time_profile = {}
