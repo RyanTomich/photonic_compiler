@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 import torch
 from torchsummary import summary
@@ -82,9 +83,9 @@ def torch_quantize(model):
         {
             torch.nn.Linear,
             torch.nn.Conv1d,
-        },  # a set of layers to dynamically quantize
+        },
         dtype=torch.qint8,
-    )  # the target dtype for quantized weights
+    )
     return model_int8
 
 
@@ -96,7 +97,7 @@ def archai_quantize(model):
     return model_int8
 
 
-def create_quantiaed_model(model_name, prompt, save=False):
+def create_quantiaed_model(model_name, prompt, save=False, profile=False):
 
     model_fp32 = AutoModelForCausalLM.from_pretrained(
         model_name
@@ -107,11 +108,35 @@ def create_quantiaed_model(model_name, prompt, save=False):
 
     print("Quantized")
 
+    # model_int8 = torch_quantize(model_fp32)
     model_int8 = torch_quantize(model_fp32)
 
-    # Get profile
-    # print_inference_data(model_fp32, input_ids)
-    print_inference_data(model_int8, input_ids, trace=False)
+    if profile:
+        print_inference_data(model_fp32, input_ids)
+        print_inference_data(model_int8, input_ids, trace=False)
+
+    if save:
+        torch.save(model_int8.state_dict(), 'model_state_dict.pth')
+
+    # print(model_int8)
+
+    # for name, module in model_int8.named_modules():
+    #     print(module)
+
+    # for name, param in model_int8.named_parameters():
+
+    # state_dict = model_int8.state_dict()
+    # for key, value in state_dict.items():
+    #     print(f'{type(value)}  -  {value.dtype}')
+
+
+    # for layer in model_int8.children():
+    #     print(layer)
+
+
+    # summary(model_int8, input_size=(1,4))
+
+
 
 
 model_name = "bert-base-uncased"
