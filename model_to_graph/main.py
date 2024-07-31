@@ -6,9 +6,8 @@ import json
 import time
 from tqdm import tqdm
 
-
+import hardware as hw
 import dijkstra as dijk
-
 import stacked_graph as sg
 import testing as test
 import data_collection as dc
@@ -136,4 +135,9 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # for i in optimizations:
 #     forward(relay_path, i)
 
-forward(relay_path, 'time', profiles = True, get_step_times=False, config=config)
+# forward(relay_path, 'time', profiles = True, get_step_times=False, config=config)
+
+hw.initilize_hardware([hw.CPU(10**8, 1), hw.PHU(10**10, 64, 20)])
+
+print(f'{len(hw.Hardware.algs)=}')
+print(f'{len(hw.Hardware.intercon)=}')
