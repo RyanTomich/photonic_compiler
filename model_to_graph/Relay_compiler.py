@@ -175,12 +175,14 @@ def tvm_validation(model_name, prompt):
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     model = model.eval()  # Change to eval mode
 
+    print(input_ids)
+
     # Real
     print("-----Transformer----:")
     gen_tokens = model.generate(input_ids, do_sample=False, temperature=1, max_length=7)
     print(gen_tokens)
     gen_text = tokenizer.batch_decode(gen_tokens)[0]
-    print(gen_text)
+    # print(gen_text)
 
     # TVM
     print("-----TVM----:")
@@ -207,7 +209,7 @@ def tvm_validation(model_name, prompt):
     gen_tokens = np.append(input_ids, next_tok)
     print(gen_tokens)
     gen_text = tokenizer.batch_decode(gen_tokens)
-    print(gen_text)
+    # print(gen_text)
 
 
 model_name = "gpt2"
