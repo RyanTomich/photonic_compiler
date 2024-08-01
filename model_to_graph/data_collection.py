@@ -181,3 +181,17 @@ def get_time_profile(graph):
         time_profile[node.algorithm] += node.time_cost
 
     return time_profile
+
+
+
+def get_addmm(scheduled_flat_graph):
+    dense_time = 0
+    add_time = 0
+    for node in scheduled_flat_graph.node_list:
+        if node.input_shapes == [[4, 768], [3072, 768]]:
+            dense_time += node.time_cost
+            print(node)
+        if node.input_shapes == [[4, 3072], [3072]]:
+            add_time += node.time_cost
+
+    return dense_time, add_time

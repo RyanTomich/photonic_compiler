@@ -116,6 +116,8 @@ def forward(relay_path, optimization, available_hardware, profiles = True, get_s
 
     print("---------- ---- ----------")
 
+    dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
+
 
 
 config = None
@@ -139,6 +141,5 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1)])
 # available_hardware = hw.initilize_hardware([hw.PHU(10**10, 64, 20)])
 
-available_hardware = hw.initilize_hardware([hw.CPU(3269320700, 1)])
-
+available_hardware = hw.initilize_hardware([hw.CPU(3277245719, 1)])
 forward(relay_path, 'time', available_hardware, profiles = True, get_step_times=False, config=config)
