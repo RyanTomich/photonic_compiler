@@ -162,7 +162,7 @@ def onnx_to_relay(
     return lib
 
 
-def tvm_validation(model_name):
+def tvm_validation(model_name, prompt):
     """Runs inference using transforemer library and TVM
     model_name(srt)
     must be local files: mod_graph.json, mod_lib.so, mod_params.params
@@ -199,7 +199,7 @@ def tvm_validation(model_name):
 
     print("****MY OUTPUT******")
 
-    print(module.benchmark(tvm.cpu()))
+    print(module.benchmark(tvm.cpu(), end_to_end=False))
 
     output = module.get_output(0)
     np_output = output.asnumpy()
@@ -210,14 +210,17 @@ def tvm_validation(model_name):
     print(gen_text)
 
 
-# prompt = "my favorite music is"
-# model_name = "gpt2-large"
+model_name = "gpt2"
+prompt = "my favorite music is"
 
 # model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
 
 # onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 0)
 
-# tvm_validation(model_name)
+os.environ["OMP_NUM_THREADS"] = "1"
+torch.set_num_threads(1)
+
+tvm_validation(model_name, prompt)
 
 
 """modles

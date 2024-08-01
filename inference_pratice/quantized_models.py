@@ -6,6 +6,9 @@ from torchsummary import summary
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 from torch.profiler import profile, record_function, ProfilerActivity
 
+import psutil
+
+
 
 # model stats
 def model_param_types(model):
@@ -20,20 +23,26 @@ def model_param_types(model):
     return types
 
 
-def print_inference_data(model, inputs, trace=False):
+def print_inference_data(model, inputs, detailed=False, trace=False):
     """
     https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html
         chrome://tracing/
     """
 
     print("CPU")
+    print(torch.get_num_threads())
+    print(f'{psutil.cpu_freq()} MHz')
     with profile(
         activities=[ProfilerActivity.CPU], record_shapes=True, profile_memory=True
     ) as prof:
         with record_function("model_inference"):
             model(inputs)
 
-    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+    if detailed:
+        print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total"))
+    else:
+        print(prof.key_averages().table(sort_by="cpu_time_total"))
+
 
     if trace:
         with profile(activities=[ProfilerActivity.CPU]) as prof:
@@ -113,7 +122,7 @@ def create_quantiaed_model(model_name, prompt, save=False, profile=False):
 
     if profile:
         print_inference_data(model_fp32, input_ids)
-        print_inference_data(model_int8, input_ids, trace=False)
+        # print_inference_data(model_int8, input_ids, trace=False)
 
     if save:
         torch.save(model_int8.state_dict(), 'model_state_dict.pth')
@@ -139,8 +148,11 @@ def create_quantiaed_model(model_name, prompt, save=False, profile=False):
 
 
 
-model_name = "bert-base-uncased"
+# model_name = "bert-base-uncased"
 model_name = "gpt2"
 prompt = "my favorite music is"
 
-create_quantiaed_model(model_name, prompt)
+os.environ["OMP_NUM_THREADS"] = "1"
+torch.set_num_threads(1)
+
+create_quantiaed_model(model_name, prompt, profile = True)
