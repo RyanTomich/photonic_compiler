@@ -191,17 +191,33 @@ def tvm_validation(model_name, prompt):
     param_bytes_path = f"{model_name}_params.params"
 
     loaded_json = open(graph_json_path).read()
-    loaded_lib = tvm.runtime.load_module(lib_so_path)
+    loaded_lib = tvm.runtime.load_module(lib_so_path) # tvm.runtime.module.Module
     loaded_params = bytearray(open(param_bytes_path, "rb").read())
 
-    module = graph_runtime.create(loaded_json, loaded_lib, tvm.cpu())
+    print(dir(loaded_lib))
+
+    function = 'tvmgen_default_fused_nn_dense_2'
+
+    # [[4, 768], [3072, 768]]
+    matrix1 = np.random.rand(4, 768).astype(np.float32)
+    matrix2 = np.random.rand(3072, 768).astype(np.float32)
+
+    time_eval_func = loaded_lib.time_evaluator(function, tvm.cpu())
+    time_eval_func([matrix1, matrix2])
+
+
+
+    module = graph_runtime.create(loaded_json, loaded_lib, tvm.cpu()) # tvm.contrib.graph_executor.GraphModule
     module.load_params(loaded_params)
     module.set_input("input_ids", input_ids)
     module.run()
 
     print("****MY OUTPUT******")
 
-    print(module.benchmark(tvm.cpu(), end_to_end=False))
+
+    benchmark_results = module.benchmark(tvm.cpu(), end_to_end=True)
+    print(benchmark_results)
+    print(benchmark_results.results)
 
     output = module.get_output(0)
     np_output = output.asnumpy()
