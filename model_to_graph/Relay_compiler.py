@@ -151,6 +151,8 @@ def onnx_to_relay(
 
         # Create the function library
         lib.export_library(f"{model_name}_lib.so")
+        lib.export_library(f"{model_name}_lib.tar")
+
 
         # Creat paramater library
         param_dict = lib.get_params()
@@ -231,14 +233,14 @@ def tvm_validation(model_name, prompt):
 model_name = "gpt2"
 prompt = "my favorite music is"
 
-# model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
+model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
 
-# onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 0)
+onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 0)
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.set_num_threads(1)
 
-tvm_validation(model_name, prompt)
+# tvm_validation(model_name, prompt)
 
 
 """modles
