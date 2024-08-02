@@ -4,3 +4,6 @@
 [submodule "inference_pratice/my_nlp_architect"]
 	path = inference_pratice/my_nlp_architect
 	url = https://github.com/RyanTomich/my_nlp_architect.git
+[submodule "validation/tvm"]
+	path = validation/tvm
+	url = https://github.com/apache/tvm
