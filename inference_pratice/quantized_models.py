@@ -1,3 +1,7 @@
+'''
+Run using conda (quantized)
+'''
+
 import os
 import numpy as np
 

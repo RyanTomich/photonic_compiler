@@ -1,5 +1,6 @@
 """
 Entry to program
+run using conda (schedule)
 """
 
 import json

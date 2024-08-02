@@ -1,3 +1,8 @@
+'''
+Run using conda (newest)
+'''
+
+
 import os
 
 import cProfile

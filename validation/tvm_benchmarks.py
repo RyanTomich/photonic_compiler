@@ -1,3 +1,7 @@
+'''
+Run using conda (tvm)
+'''
+
 import os
 import io
 import onnx
