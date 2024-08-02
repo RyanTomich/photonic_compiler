@@ -3,6 +3,8 @@ import io
 import onnx
 import numpy as np
 
+import psutil
+
 import tvm
 from tvm import relay
 from tvm.contrib import graph_executor
@@ -66,6 +68,9 @@ def generate_token_TVM(modle_name, prompt, benchmark=False, function_benchmark=F
         m.run()
         tvm_out = m.get_output(0).numpy()
 
+        print (f'threads_used : {tvm.runtime.num_threads()}')
+        cpu_freq = psutil.cpu_freq()
+        print(f"CPU Frequency: {cpu_freq.current} MHz")
 
     output = module.get_output(0)
     np_output = output.asnumpy()

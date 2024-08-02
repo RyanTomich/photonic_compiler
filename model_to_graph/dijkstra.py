@@ -28,7 +28,7 @@ def graph_partition(graph):
 
     for group in groups:
 
-        start_stack = sg.Stack(0, set(), [[]], [[]], opp="start", node_stack=[])
+        start_stack = sg.Stack(0, set(), [[]], [[]], None, opp="start", node_stack=[])
         start_stack.node_stack.append(sg.Node("start", start_stack))
 
         # replace parents if not satisfied in group

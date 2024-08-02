@@ -59,6 +59,7 @@ class Stack:
         parents,
         input_shapes,
         output_shapes,
+        tvm_func,
         opp=None,
         relay_node=None,
         node_stack=None,
@@ -67,6 +68,7 @@ class Stack:
         self.parents = parents
         self.input_shapes = input_shapes
         self.output_shapes = output_shapes
+        self.tvm_func = tvm_func
         self.opp = (
             opp
             if relay_node is None
@@ -270,8 +272,13 @@ class StackGraph(Graph):
                 ajusted_shapes[shape_idx[0]] for shape_idx in node["inputs"]
             ]
             output_shapes = [ajusted_shapes[index] for i in range(num_output)]
+
+            tvm_func = None
+            if 'attrs' in node:
+                tvm_func = node['attrs']['func_name']
+
             stacks.append(
-                Stack(index, parents, input_shapes, output_shapes, relay_node=node)
+                Stack(index, parents, input_shapes, output_shapes, tvm_func, relay_node=node)
             )
 
         hw.NODE_COUNT = max(hw.NODE_COUNT, index)
