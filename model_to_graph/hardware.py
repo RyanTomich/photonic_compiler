@@ -27,6 +27,9 @@ PHU_MAC = 0.04 * PICO_JOULE
 DAC_POWER = 3.18 * PICO_JOULE
 ADC_POWER = 1.6 * PICO_JOULE
 
+# Validated Constants
+CPU_MAC_MULTIPLIER = 0.41
+
 
 # time and dimentions
 def ten_elm(tensor_shape):
@@ -89,9 +92,11 @@ def initilize_hardware(hardware):
     """
     # Hardware._hardware_reset()
 
-    sram = SRAM(10**8)
-    hbm = HBM(10**8)
-    start = Start(10**8)
+    CPU_MAX_CLOCK = 6 * 10**9 #60**9, 6 Ghz
+
+    sram = SRAM(CPU_MAX_CLOCK)
+    hbm = HBM(CPU_MAX_CLOCK)
+    start = Start(CPU_MAX_CLOCK)
 
     available_cores = {hw: hw.num_cores for hw in hardware}
     available_cores[sram] = 1
@@ -303,8 +308,8 @@ class CPU(Hardware):
     def _cpu_matmul_cycles(self, i, o):
         num_dot_products = ten_elm(o[0])
         length_dot_products = i[0][-1]
-        ops_per_mac = 2  # multiplicaiton and addition
-        return num_dot_products * length_dot_products * ops_per_mac
+        num_mac = num_dot_products * length_dot_products
+        return num_mac * CPU_MAC_MULTIPLIER
 
     def _cpu_matmul_energy(self, i, o):
         num_dot_products = ten_elm(o[0])

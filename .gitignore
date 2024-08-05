@@ -11,4 +11,5 @@
 **/*.pth
 **/*.yaml
 **/*.snapshot
+**/*.o
 try_stuff.py
