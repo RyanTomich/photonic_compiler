@@ -17,7 +17,6 @@ from tvm.contrib import graph_executor
 from tvm.contrib.debugger.debug_executor import GraphModuleDebug
 
 
-
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -31,6 +30,8 @@ def generate_token(model_name, prompt):
     gen_tokens = model.generate(input_ids, do_sample=False, max_new_tokens=1)
 
     return int(gen_tokens[0][-1])
+
+
 
 def _find_opp(func_name):
     """
@@ -81,35 +82,24 @@ def get_trace_data(func_names):
         func_durations = [func_duration[func] for func in funcs]
         func_duration_list[opp] = func_durations
 
-    file_path = 'output.txt'
-    cpu_freq = psutil.cpu_freq()
-
-    with open(file_path, 'a') as file:
-        file.write(f'threads_used : {tvm.runtime.num_threads()}\n')
-        file.write(f"CPU Frequency: {cpu_freq.current} MHz\n")
+    tvm_func_time_lists = {}
+    tvm_func_trials = {}
 
     for name, durations in func_duration_list.items():
-        if name in [
-            'tvmgen_default_fused_nn_batch_matmul',
-            'tvmgen_default_fused_nn_batch_matmul_1',
-            'tvmgen_default_fused_nn_dense',
-            'tvmgen_default_fused_nn_dense_1',
-            'tvmgen_default_fused_nn_dense_2',
-            'tvmgen_default_fused_nn_dense_3',
-            'tvmgen_default_fused_nn_dense_4',
-            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack',
-            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_1',
-            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_2',
-            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_3',
-        ]:
-            formatted_string = f'{name:<40} {sum(durations)/len(durations):>10.2f}'
-            print(formatted_string)
-            with open(file_path, 'a') as file:
-                file.write(formatted_string + '\n')
+        tvm_func_time_lists.setdefault(name, 0)
+        tvm_func_time_lists[name] = sum(durations)/len(durations)
+        tvm_func_trials.setdefault(name, 0)
+        tvm_func_trials[name] += len(durations)
+        # formatted_string = f'{name:<40} {sum(durations)/len(durations):>10.2f}'
+
+    return tvm_func_time_lists, tvm_func_trials
 
 
 
-def generate_token_TVM(modle_name, prompt, benchmark=False, function_benchmark=False, profile=False):
+
+
+
+def generate_token_TVM(modle_name, prompt, benchmark=False, function_benchmark=False, operator_constants=False):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
 
@@ -146,24 +136,18 @@ def generate_token_TVM(modle_name, prompt, benchmark=False, function_benchmark=F
 
 
     if function_benchmark:
-        for i in range(10):
-            lib = tvm.runtime.load_module(lib_so_path) # tvm.runtime.module.Module
+        lib = tvm.runtime.load_module(lib_so_path) # tvm.runtime.module.Module
+        dev = tvm.cpu()
+        dump_root = "trace/"
 
-            dev = tvm.cpu()
-
-            # dump_root = "/tmp/tvmdbg"
-            dump_root = "trace/"
-
-            m = GraphModuleDebug(
-                lib["debug_create"]("default", dev),
-                [dev],
-                loaded_json,
-                dump_root=dump_root,
-            )
-            m.set_input("input_ids", input_ids)
-            m.run()
-
-            get_trace_data(func_names)
+        m = GraphModuleDebug(
+            lib["debug_create"]("default", dev),
+            [dev],
+            loaded_json,
+            dump_root=dump_root,
+        )
+        m.set_input("input_ids", input_ids)
+        m.run()
 
         #get resulting token
         tvm_out = m.get_output(0).numpy()
@@ -173,6 +157,41 @@ def generate_token_TVM(modle_name, prompt, benchmark=False, function_benchmark=F
         print (f'threads_used : {tvm.runtime.num_threads()}')
         cpu_freq = psutil.cpu_freq()
         print(f"CPU Frequency: {cpu_freq.current} MHz")
+
+    if operator_constants:
+        lib = tvm.runtime.load_module(lib_so_path) # tvm.runtime.module.Module
+        dev = tvm.cpu()
+        dump_root = "trace/"
+
+        m = GraphModuleDebug(
+            lib["debug_create"]("default", dev),
+            [dev],
+            loaded_json,
+            dump_root=dump_root,
+        )
+        m.set_input("input_ids", input_ids)
+
+        tvm_func_all = {}
+        tvm_trials_all = {}
+
+        for _ in range (2):
+            m.run()
+            tvm_func_time_lists, tvm_func_trials = get_trace_data(func_names)
+
+            for name, time in tvm_func_time_lists.items():
+                tvm_func_all.setdefault(name, [])
+                tvm_func_all[name].append(time)
+
+            for name, tirals in tvm_func_trials.items():
+                tvm_trials_all.setdefault(name, 0)
+                tvm_trials_all[name] += tirals
+
+        for k, v in tvm_func_all.items():
+            tvm_func_all[k] = sum(v)/len(v)
+
+        print(tvm_func_all)
+        print(tvm_trials_all)
+
 
     output = module.get_output(0)
     np_output = output.asnumpy()
@@ -194,5 +213,5 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 torch.set_num_threads(1)
 
 real_token = generate_token(model_name, prompt)
-tvm_token = generate_token_TVM(model_name, prompt, benchmark=False, function_benchmark=True)
+tvm_token = generate_token_TVM(model_name, prompt, benchmark=False, function_benchmark=True, operator_constants = True)
 assert real_token == tvm_token
