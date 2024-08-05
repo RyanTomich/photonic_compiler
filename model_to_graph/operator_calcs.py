@@ -158,7 +158,7 @@ CPU_CLOCK_PERIOD_SECONDS = 1 / CPU_CLOCK_SPEED
 PHU_CLOCK_PERIOD_SECONDS = 1 / PHU_CLOCK_SPEED
 
 MEMORY_TRANSFER_WIDTH = 32  # bits per cycle
-DAC_ADC_DELAY = 1 * CPU_CLOCK_PERIOD_SECONDS # 10 nano-seconds
+DAC_ADC_DELAY = 1 * CPU_CLOCK_PERIOD_SECONDS  # 10 nano-seconds
 
 BITS_PER_NUM = 32
 
@@ -298,7 +298,7 @@ hardware_algs = {
         func,
         lambda i, o: {
             # "HBM": sum(ten_elm(a) for a in o) * BITS_PER_NUM / MEMORY_TRANSFER_WIDTH
-            "HBM": 0 # 0 if assuming model is preloaded to HMB
+            "HBM": 0  # 0 if assuming model is preloaded to HMB
         },
         lambda i, o: sum(ten_elm(a) for a in o) * DRAM_READ
         + sum(ten_elm(a) for a in o) * HBM_WRITE,
@@ -334,25 +334,27 @@ class HardwareConnection:
             "energy": self.energy_cost_func,
         }
 
-    def get_transfer_cost(
-        self, weight_variable, num_transfer, bit_transfer
-    ):
+    def get_transfer_cost(self, weight_variable, num_transfer, bit_transfer):
         return self.var_to_func[weight_variable](num_transfer, bit_transfer)
 
 
 hw_intercon = {
-    ("HBM", "SRAM"): HardwareConnection(CPU_CLOCK_PERIOD_SECONDS, HBM_READ + SRAM_WRITE),
+    ("HBM", "SRAM"): HardwareConnection(
+        CPU_CLOCK_PERIOD_SECONDS, HBM_READ + SRAM_WRITE
+    ),
     ("SRAM", "CPU"): HardwareConnection(
         CPU_CLOCK_PERIOD_SECONDS, SRAM_READ + LOCAL_WRITE + LOCAL_READ
     ),
     ("SRAM", "PHU"): HardwareConnection(
-        CPU_CLOCK_PERIOD_SECONDS + DAC_ADC_DELAY, SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER
+        CPU_CLOCK_PERIOD_SECONDS + DAC_ADC_DELAY,
+        SRAM_READ + LOCAL_WRITE + LOCAL_READ + DAC_POWER,
     ),
     ("CPU", "SRAM"): HardwareConnection(
         CPU_CLOCK_PERIOD_SECONDS, LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
     ),
     ("PHU", "SRAM"): HardwareConnection(
-        CPU_CLOCK_PERIOD_SECONDS + DAC_ADC_DELAY, ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE
+        CPU_CLOCK_PERIOD_SECONDS + DAC_ADC_DELAY,
+        ADC_POWER + LOCAL_WRITE + LOCAL_READ + SRAM_WRITE,
     ),
     ("SRAM", "HBM"): HardwareConnection(DAC_ADC_DELAY, SRAM_READ + HBM_WRITE),
     # start nodes

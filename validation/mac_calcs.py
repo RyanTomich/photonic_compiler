@@ -24,11 +24,12 @@ import time
 
 # print(sum(times)/len(times))
 
+
 def per_mac(num_dot_prod, len_dot_prod, dur):
     time_per_dot = dur / num_dot_prod
     # print(f"{time_per_dot=}")
     time_per_mac = time_per_dot / len_dot_prod
-    print(f'{time_per_mac=}')
+    print(f"{time_per_mac=}")
 
 
 # dense

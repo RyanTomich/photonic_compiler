@@ -18,6 +18,7 @@ node_value_selection = {
     "energy": lambda node: node.energy_cost,
 }
 
+
 def graph_partition(graph):
     """Finds the Articulation Vertices and partitions the large graph into subgraphs
     StackedGraph objects. Inclusive on both ends of range.
@@ -222,21 +223,21 @@ def _config_selection(graph, config):
 
     for stack_idx, stack in enumerate(graph.stack_list):
         node_stack = stack.node_stack
-        stack_hardware = [hw.Hardware.algs[node.algorithm].hardware for node in node_stack]
-        if config == 'always_cpu':
+        stack_hardware = [
+            hw.Hardware.algs[node.algorithm].hardware for node in node_stack
+        ]
+        if config == "always_cpu":
             if any(isinstance(stack, hw.CPU) for stack in stack_hardware):
-                nodes.append( (stack_idx, stack_hardware.index("CPU")) )
+                nodes.append((stack_idx, stack_hardware.index("CPU")))
             else:
-                nodes.append( (stack_idx, 0) )
+                nodes.append((stack_idx, 0))
         if config == "always_phu":
             if "PHU" in stack_hardware:
-                nodes.append( (stack_idx, stack_hardware.index("PHU")) )
+                nodes.append((stack_idx, stack_hardware.index("PHU")))
             else:
-                nodes.append( (stack_idx, 0) )
+                nodes.append((stack_idx, 0))
 
     return nodes
-
-
 
 
 def _rolling_dijkstra(graph, weight_variable):
@@ -273,7 +274,9 @@ def _rolling_dijkstra(graph, weight_variable):
                 node_cost = node_value_selection[weight_variable](node_obj)
                 new_distance = cur_dist + node_cost + edge_weight
                 heapq.heappush(que, (new_distance, cur_path + ((neighbor, node),)))
-    raise ValueError('These operations are not computable with this hardware. Change hardware or algorithms for the hardware.')
+    raise ValueError(
+        "These operations are not computable with this hardware. Change hardware or algorithms for the hardware."
+    )
     return None
 
 
@@ -509,7 +512,9 @@ def _schedule_in_out(graph, available_hardware):
     print("...     ... graph i/o scheduled ...") if hw.DEBUG_PRINT else None
 
 
-def schdeule_nodes(original_graph, subgraphs, available_hardware):  # TODO bert in-to-out issues
+def schdeule_nodes(
+    original_graph, subgraphs, available_hardware
+):  # TODO bert in-to-out issues
     """
     merges subgraphs
     schedules in and out nodes
@@ -533,10 +538,7 @@ def schdeule_nodes(original_graph, subgraphs, available_hardware):  # TODO bert 
 
         _hardware_synchronize(available_hardware)
         break_points.append(
-            max(
-                max(inner_dict.values())
-                for inner_dict in available_hardware.values()
-            )
+            max(max(inner_dict.values()) for inner_dict in available_hardware.values())
         )
         print("...     ... Subgraph Scheduled ...") if hw.DEBUG_PRINT else None
 

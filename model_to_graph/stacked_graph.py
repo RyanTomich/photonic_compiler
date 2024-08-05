@@ -43,10 +43,7 @@ class Node:
 
     def get_algo_info(self, info_type):  # TODO let node carry around algorithm object
         algorithm_obj = hw.Hardware.algs[self.algorithm]
-        info = {
-            "opp": algorithm_obj.opp,
-            "hardware": algorithm_obj.hardware
-        }
+        info = {"opp": algorithm_obj.opp, "hardware": algorithm_obj.hardware}
         return info[info_type]
 
 
@@ -274,11 +271,18 @@ class StackGraph(Graph):
             output_shapes = [ajusted_shapes[index] for i in range(num_output)]
 
             tvm_func = None
-            if 'attrs' in node:
-                tvm_func = node['attrs']['func_name']
+            if "attrs" in node:
+                tvm_func = node["attrs"]["func_name"]
 
             stacks.append(
-                Stack(index, parents, input_shapes, output_shapes, tvm_func, relay_node=node)
+                Stack(
+                    index,
+                    parents,
+                    input_shapes,
+                    output_shapes,
+                    tvm_func,
+                    relay_node=node,
+                )
             )
 
         hw.NODE_COUNT = max(hw.NODE_COUNT, index)

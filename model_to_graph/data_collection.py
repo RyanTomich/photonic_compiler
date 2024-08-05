@@ -1,8 +1,6 @@
 import hardware as hw
 
 
-
-
 def get_photonic(subgraphs):
     """conpairs how often photonic was selected
 
@@ -174,6 +172,7 @@ def get_energy_profile(graph):
 
     return energy_data, delta_energy, round(total_energy * 1 / hw.PICO_JOULE, 1)
 
+
 def get_time_profile(graph):
     time_profile = {}
     for node in graph.node_list:
@@ -181,7 +180,6 @@ def get_time_profile(graph):
         time_profile[node.algorithm] += node.time_cost
 
     return time_profile
-
 
 
 def get_addmm(scheduled_flat_graph):
@@ -207,17 +205,15 @@ def get_addmm(scheduled_flat_graph):
         shape = [[1, 4, 3072], []]
         shape = [[1, 4, 768], [1, 4, 768]]
 
-
-
         # shape = [[1, 4, 3072], []]
         # shape = [[1, 4, 3072], [1, 4, 3072]]
         shape = [[1, 4, 768], [768]]
 
         # if node.input_shapes == shape and node.algorithm == 'multiply':
-        if node.algorithm == 'dense':
-        # if node.stack.tvm_func == 'tvmgen_default_fused_nn_batch_matmul':
-        # if node.stack.tvm_func == 'tvmgen_default_fused_nn_dense_4':
-        # if node.stack.tvm_func == 'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_3':
+        if node.algorithm == "dense":
+            # if node.stack.tvm_func == 'tvmgen_default_fused_nn_batch_matmul':
+            # if node.stack.tvm_func == 'tvmgen_default_fused_nn_dense_4':
+            # if node.stack.tvm_func == 'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_3':
             print(node.stack.tvm_func)
             print(node)
             # print(node.stack.tvm_func)
@@ -225,8 +221,6 @@ def get_addmm(scheduled_flat_graph):
             # print(node.input_shapes)
             add += 1
 
-
     print(add)
-
 
     return dense_time, add_time

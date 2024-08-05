@@ -16,37 +16,41 @@ import testing as test
 import data_collection as dc
 
 
-
-
-def forward(relay_path, optimization, available_hardware, profiles = True, get_step_times=True, config = None):
+def forward(
+    relay_path,
+    optimization,
+    available_hardware,
+    profiles=True,
+    get_step_times=True,
+    config=None,
+):
 
     # progress bar
     def mark_time():
-        if get_step_times is True: times.append(time.time())
+        if get_step_times is True:
+            times.append(time.time())
         progress_bar.update(1)
 
     times = []
 
     ops = [
-        'open',
-        'oringal_graph',
-        'stacked_subgraphs',
-        'flat_subgraphs',
-        'expanded_flat_subgraphs',
-        'schdeule_nodes',
-        'create_schedule_data',
-        'schedule_validate',
-        'get_memory_profile',
-        'get_energy_profile',
+        "open",
+        "oringal_graph",
+        "stacked_subgraphs",
+        "flat_subgraphs",
+        "expanded_flat_subgraphs",
+        "schdeule_nodes",
+        "create_schedule_data",
+        "schedule_validate",
+        "get_memory_profile",
+        "get_energy_profile",
     ]
 
     if not profiles:
-        ops.remove('get_memory_profile')
-        ops.remove('get_energy_profile')
-
+        ops.remove("get_memory_profile")
+        ops.remove("get_energy_profile")
 
     progress_bar = tqdm(total=len(ops), desc="Progress", unit="operation")
-
 
     # Calculation
     mark_time()
@@ -108,16 +112,18 @@ def forward(relay_path, optimization, available_hardware, profiles = True, get_s
         print(f"Total Energy Consumption: {total_energy} pico-joules")
 
         mark_time()
-        print(f"time_distrabution {dc.get_time_profile(scheduled_flat_graph)} compute seconds ")
+        print(
+            f"time_distrabution {dc.get_time_profile(scheduled_flat_graph)} compute seconds "
+        )
         mark_time()
 
     if get_step_times:
         time_taken = {}
         print(len(times))
         print(len(ops))
-        assert len(times)-1 == len(ops)
+        assert len(times) - 1 == len(ops)
         for i in range(len(ops)):
-            time_taken[ops[i]] = times[i+1] - times[i]
+            time_taken[ops[i]] = times[i + 1] - times[i]
         print(time_taken)
 
     print("---------- ---- ----------")
@@ -125,12 +131,11 @@ def forward(relay_path, optimization, available_hardware, profiles = True, get_s
     # dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
 
 
-
 config = None
 # config = 'always_cpu'
 # config = 'always_phu'
 
-optimization = 'time'
+optimization = "time"
 # optimization = 'energy'
 # optimizations = ["time", "energy"]
 
@@ -152,9 +157,9 @@ print(cpu_freq)
 print(f"CPU Frequency: {cpu_freq.current} MHz")
 
 
-CPU_MAX_CLOCK = 5.0875 * 10**9 # 5.0875 e+9 5Ghz
-CPU_AVERAGE_CLOCK = 3.208 * 10**9 #60**9, 6
-PHU_MIN_CLOCK = 10 * 10**9 #100**9, 10 Ghz
+CPU_MAX_CLOCK = 5.0875 * 10**9  # 5.0875 e+9 5Ghz
+CPU_AVERAGE_CLOCK = 3.208 * 10**9  # 60**9, 6
+PHU_MIN_CLOCK = 10 * 10**9  # 100**9, 10 Ghz
 
 hardware = []
 hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
@@ -165,4 +170,11 @@ hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
 available_hardware = hw.initilize_hardware(hardware)
 
 
-forward(relay_path, 'time', available_hardware, profiles = True, get_step_times=False, config=config)
+forward(
+    relay_path,
+    "time",
+    available_hardware,
+    profiles=True,
+    get_step_times=False,
+    config=config,
+)

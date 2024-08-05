@@ -153,7 +153,6 @@ def onnx_to_relay(
         lib.export_library(f"{model_name}_lib.so")
         lib.export_library(f"{model_name}_lib.tar")
 
-
         # Creat paramater library
         param_dict = lib.get_params()
         param_bytes_path = f"{model_name}_params.params"
@@ -193,12 +192,12 @@ def tvm_validation(model_name, prompt):
     param_bytes_path = f"{model_name}_params.params"
 
     loaded_json = open(graph_json_path).read()
-    loaded_lib = tvm.runtime.load_module(lib_so_path) # tvm.runtime.module.Module
+    loaded_lib = tvm.runtime.load_module(lib_so_path)  # tvm.runtime.module.Module
     loaded_params = bytearray(open(param_bytes_path, "rb").read())
 
     print(dir(loaded_lib))
 
-    function = 'tvmgen_default_fused_nn_dense_2'
+    function = "tvmgen_default_fused_nn_dense_2"
 
     # [[4, 768], [3072, 768]]
     matrix1 = np.random.rand(4, 768).astype(np.float32)
@@ -207,15 +206,14 @@ def tvm_validation(model_name, prompt):
     time_eval_func = loaded_lib.time_evaluator(function, tvm.cpu())
     time_eval_func([matrix1, matrix2])
 
-
-
-    module = graph_runtime.create(loaded_json, loaded_lib, tvm.cpu()) # tvm.contrib.graph_executor.GraphModule
+    module = graph_runtime.create(
+        loaded_json, loaded_lib, tvm.cpu()
+    )  # tvm.contrib.graph_executor.GraphModule
     module.load_params(loaded_params)
     module.set_input("input_ids", input_ids)
     module.run()
 
     print("****MY OUTPUT******")
-
 
     benchmark_results = module.benchmark(tvm.cpu(), end_to_end=True)
     print(benchmark_results)
@@ -233,9 +231,9 @@ def tvm_validation(model_name, prompt):
 model_name = "gpt2"
 prompt = "my favorite music is"
 
-model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save = False)
+model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save=False)
 
-onnx_to_relay(model_onnx,input_ids, write = True, model_name = model_name, opt_level = 0)
+onnx_to_relay(model_onnx, input_ids, write=True, model_name=model_name, opt_level=0)
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.set_num_threads(1)

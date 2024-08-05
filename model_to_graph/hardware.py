@@ -8,7 +8,7 @@ NODE_COUNT = 0
 MEMORY_TRANSFER_WIDTH = 32  # bits per cycle
 DAC_ADC_DELAY = 1 * 10**-8  # 10 nano-seconds
 
-BITS_PER_NUM = 32 #TODO
+BITS_PER_NUM = 32  # TODO
 
 # Power
 PICO_JOULE = 10**-12
@@ -92,7 +92,7 @@ def initilize_hardware(hardware):
     """
     # Hardware._hardware_reset()
 
-    CPU_MAX_CLOCK = 6 * 10**9 #60**9, 6 Ghz
+    CPU_MAX_CLOCK = 6 * 10**9  # 60**9, 6 Ghz
 
     sram = SRAM(CPU_MAX_CLOCK)
     hbm = HBM(CPU_MAX_CLOCK)
@@ -163,7 +163,9 @@ class HardwareAlgorithm:
     def __init__(self, opp, cost):  # hardware: (time, energy)
         self.opp = opp
         self.cost = cost
-        self.hardware = next(iter(cost.keys())) # will need to change for multi hardware algorithms
+        self.hardware = next(
+            iter(cost.keys())
+        )  # will need to change for multi hardware algorithms
 
     def time_cost(self, i, o):
         return sum(
@@ -172,7 +174,7 @@ class HardwareAlgorithm:
         )
 
     def energy_cost(self, i, o):
-        return sum(cost_tup[1](i,o) for hardware, cost_tup in self.cost.items())
+        return sum(cost_tup[1](i, o) for hardware, cost_tup in self.cost.items())
 
 
 class Hardware:
@@ -360,6 +362,7 @@ class Start(Hardware):
 
 
 # endregion
+
 
 def get_edge_val(graph, start_node, end_node, weight_variable):
     """Calculates cost between hardware. Accounts for trips to and from SRAM

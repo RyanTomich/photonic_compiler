@@ -1,7 +1,6 @@
-'''
+"""
 Run using conda (newest)
-'''
-
+"""
 
 import os
 
@@ -14,6 +13,7 @@ from torchsummary import summary
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 from torch.profiler import profile, record_function, ProfilerActivity
 
+
 def get_transformer_model(model_name):
     model = AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -22,10 +22,9 @@ def get_transformer_model(model_name):
 
     return model, input_ids
 
+
 def model_inference(model, input_ids):
     return model.generate(input_ids, max_new_tokens=1)
-
-
 
 
 def print_inference_data(model, inputs, detailed=False, trace=False):
@@ -36,7 +35,7 @@ def print_inference_data(model, inputs, detailed=False, trace=False):
 
     print("CPU")
     print(torch.get_num_threads())
-    print(f'{psutil.cpu_freq()} MHz')
+    print(f"{psutil.cpu_freq()} MHz")
     with profile(
         activities=[ProfilerActivity.CPU], record_shapes=True, profile_memory=True
     ) as prof:
@@ -44,12 +43,13 @@ def print_inference_data(model, inputs, detailed=False, trace=False):
             model(inputs)
 
     if detailed:
-        print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total"))
+        print(
+            prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total")
+        )
     else:
         a = prof.key_averages().table(sort_by="cpu_time_total")
         print(a[-13:])
         # print(prof.key_averages().table(sort_by="cpu_time_total"))
-
 
     if trace:
         with profile(activities=[ProfilerActivity.CPU]) as prof:
@@ -57,9 +57,10 @@ def print_inference_data(model, inputs, detailed=False, trace=False):
 
         prof.export_chrome_trace("trace.json")
 
-'''
+
+"""
 Run with conda newest
-'''
+"""
 
 # model_name = "bert-base-uncased"
 model_name = "gpt2"
@@ -74,9 +75,7 @@ model, input_ids = get_transformer_model(model_name)
 # print_inference_data(model, input_ids, detailed=True, trace=True)
 
 
-
-
-for i in range(1,24,1):
+for i in range(1, 24, 1):
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -88,4 +87,4 @@ for i in range(1,24,1):
 
     model, input_ids = get_transformer_model(model_name)
 
-    print_inference_data(model, input_ids, detailed=True , trace=False)
+    print_inference_data(model, input_ids, detailed=True, trace=False)
