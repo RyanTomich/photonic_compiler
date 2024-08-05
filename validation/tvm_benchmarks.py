@@ -97,6 +97,10 @@ def get_trace_data(func_names):
             'tvmgen_default_fused_nn_dense_2',
             'tvmgen_default_fused_nn_dense_3',
             'tvmgen_default_fused_nn_dense_4',
+            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack',
+            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_1',
+            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_2',
+            'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_3',
         ]:
             formatted_string = f'{name:<40} {sum(durations)/len(durations):>10.2f}'
             print(formatted_string)
@@ -142,7 +146,7 @@ def generate_token_TVM(modle_name, prompt, benchmark=False, function_benchmark=F
 
 
     if function_benchmark:
-        for i in range(20):
+        for i in range(10):
             lib = tvm.runtime.load_module(lib_so_path) # tvm.runtime.module.Module
 
             dev = tvm.cpu()
@@ -178,6 +182,7 @@ def generate_token_TVM(modle_name, prompt, benchmark=False, function_benchmark=F
 
 
 model_name = "gpt2"
+model_name = "bert-base-uncased"
 prompt = "my favorite music is"
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

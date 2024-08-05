@@ -54,6 +54,8 @@ def forward(relay_path, optimization, available_hardware, profiles = True, get_s
     WEIGHT_VARIABLE = optimization
 
     graph = sg.StackGraph(raw_json=raw_json, weight_variable=WEIGHT_VARIABLE)
+    dense_time, add_time = dc.get_addmm(graph)
+
     mark_time()
     stacked_subgraphs = list(dijk.graph_partition(graph))
     mark_time()
@@ -130,8 +132,8 @@ optimization = 'time'
 # optimizations = ["time", "energy"]
 
 
-relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
-# relay_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
+# relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
+relay_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
 # relay_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
 # relay_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
 
@@ -142,5 +144,5 @@ relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
 # available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1)])
 # available_hardware = hw.initilize_hardware([hw.PHU(10**10, 64, 20)])
 
-available_hardware = hw.initilize_hardware([hw.CPU(3277245719, 1)])
+available_hardware = hw.initilize_hardware([hw.CPU(3279973517, 1)])
 forward(relay_path, 'time', available_hardware, profiles = True, get_step_times=False, config=config)

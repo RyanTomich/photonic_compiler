@@ -207,17 +207,22 @@ def get_addmm(scheduled_flat_graph):
         shape = [[1, 4, 3072], []]
         shape = [[1, 4, 768], [1, 4, 768]]
 
+
+
         # shape = [[1, 4, 3072], []]
         # shape = [[1, 4, 3072], [1, 4, 3072]]
         shape = [[1, 4, 768], [768]]
 
         # if node.input_shapes == shape and node.algorithm == 'multiply':
-        if node.algorithm == 'matmul':
-            print(node.stack.tvm_func)
-            print(node.time_cost)
-            print(node.input_shapes)
-            print()
+        # if node.stack.tvm_func == 'tvmgen_default_fused_nn_batch_matmul':
+        # if node.stack.tvm_func == 'tvmgen_default_fused_nn_dense_4':
+        if node.tvm_func == 'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_3':
+            print(node)
+            # print(node.stack.tvm_func)
+            # print(node.time_cost)
+            # print(node.input_shapes)
             add += 1
+
 
     print(add)
 
