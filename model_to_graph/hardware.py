@@ -90,7 +90,6 @@ def initilize_hardware(hardware):
     Args:
         hw (list): list of hardware instances of the system
     """
-    # Hardware._hardware_reset()
 
     CPU_MAX_CLOCK = 6 * 10**9  # 60**9, 6 Ghz
 
@@ -111,6 +110,7 @@ def initilize_hardware(hardware):
         (Start, PHU): HardwareConnection(0, 0),
         (Start, SRAM): HardwareConnection(0, 0),
     }
+    hw_types = {type(hw_obj) for hw_obj in hardware}
     for hw_obj in hardware:
         if isinstance(hw_obj, CPU):
             Hardware.intercon.update(

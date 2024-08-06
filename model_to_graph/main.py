@@ -217,6 +217,7 @@ if __name__ == "__main__": #import guard
     PHU_MIN_CLOCK = 10 * 10**9  # 100**9, 10 Ghz
 
     hardware = []
+    hw.Hardware._hardware_reset()
     hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
     # hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
     # hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
