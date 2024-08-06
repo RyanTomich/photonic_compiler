@@ -6,6 +6,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import hardware as hw
 
 
 class GraphVisualization:
@@ -89,9 +90,9 @@ def adj_to_graph(
     labels = {}
     colors = {}
     for idx, node in enumerate(G.nodes):
-        labels[node] = graph.node_list[idx].stack_id
-        # labels[node] = graph.stack_list[idx].opp
-        if graph.node_list[idx].get_algo_info("hardware") == "PHU":
+        # labels[node] = graph.node_list[idx].stack_id
+        labels[node] = graph.node_list[idx].stack.opp
+        if isinstance(graph.node_list[idx].get_algo_info("hardware"), hw.PHU):
             colors[node] = "lightcoral"
         else:
             colors[node] = "lightblue"
@@ -116,8 +117,8 @@ def adj_to_graph(
         labels=labels,
         node_color=[colors[node] for node in G.nodes],
         edge_color="gray",
-        node_size=200,
-        font_size=5,
+        node_size=400,
+        font_size=10,
         ax=ax,
     )
     ax.set_title(title)

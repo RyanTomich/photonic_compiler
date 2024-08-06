@@ -130,7 +130,7 @@ def forward(
 
     # dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
 
-
+'''
 config = None
 # config = 'always_cpu'
 # config = 'always_phu'
@@ -178,3 +178,5 @@ forward(
     get_step_times=False,
     config=config,
 )
+
+'''
