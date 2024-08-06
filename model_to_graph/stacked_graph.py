@@ -240,6 +240,9 @@ class Graph:
         print("... Schedule Data written ...") if hw.DEBUG_PRINT else None
         return schedule_data
 
+    def get_sorted_nodes(self):
+        return sorted(self.node_list, key=lambda x: x.start_time)
+
 
 class StackGraph(Graph):
     """Represents a Dependancy Graph of Stack Objects"""

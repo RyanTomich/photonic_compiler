@@ -14,9 +14,63 @@ import dijkstra as dijk
 import stacked_graph as sg
 import testing as test
 import data_collection as dc
-
+import code_generation as cg
 
 def forward(
+    relay_path,
+    optimization,
+    available_hardware,
+    profiles=True,
+    get_step_times=True,
+    config=None,
+):
+    with open(relay_path, encoding="utf-8") as json_file:
+        raw_json = json.load(json_file)  # returns json file as dict
+        # print("... Json loaded ...")
+
+    WEIGHT_VARIABLE = optimization
+
+    graph = sg.StackGraph(raw_json=raw_json, weight_variable=WEIGHT_VARIABLE)
+    stacked_subgraphs = list(dijk.graph_partition(graph))
+    flat_subgraphs = dijk.select_nodes(
+        stacked_subgraphs, weight_variable=WEIGHT_VARIABLE, config=config
+    )
+    expanded_flat_subgraphs = dijk.expand_nodes(flat_subgraphs)
+    scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
+        graph, expanded_flat_subgraphs, available_hardware
+    )
+    schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
+    cg.code_gen(scheduled_flat_graph)
+
+    print("---------- INFO ----------")
+    print(f"{WEIGHT_VARIABLE=}")
+    dc.get_photonic(flat_subgraphs)
+    print(
+        dc.get_all_algorithms(flat_subgraphs).symmetric_difference(
+            dc.get_all_algorithms(scheduled_flat_graph)
+        )
+    )
+
+    print(f"Makespan: {end_time} s")
+    print(f"Number of Nodes: {len(scheduled_flat_graph.node_list)}")
+
+    if profiles:
+        dram, delta_dram, sram, delta_sram = dc.get_memory_profile(scheduled_flat_graph)
+        print(f"Net DRAM: {dram[-1][1]} bits")
+        print(f"Net SRAM: {sram[-1][1]} bits")
+        energy_data, delta_energy, total_energy = dc.get_energy_profile(
+            scheduled_flat_graph
+        )
+        print(f"Total Energy Consumption: {total_energy} pico-joules")
+        print(
+            f"time_distrabution {dc.get_time_profile(scheduled_flat_graph)} compute seconds "
+        )
+
+    print("---------- ---- ----------")
+
+    # dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
+
+def debug_forward(
     relay_path,
     optimization,
     available_hardware,
@@ -130,53 +184,52 @@ def forward(
 
     # dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
 
-'''
-config = None
-# config = 'always_cpu'
-# config = 'always_phu'
 
-optimization = "time"
-# optimization = 'energy'
-# optimizations = ["time", "energy"]
+if __name__ == "__main__": #import guard
+    config = None
+    # config = 'always_cpu'
+    # config = 'always_phu'
 
-
-relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
-# relay_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
-# relay_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
-# relay_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
-
-# for i in optimizations:
-#     forward(relay_path, i)
-
-# available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1), hw.PHU(10**10, 64, 20)])
-# available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1)])
-# available_hardware = hw.initilize_hardware([hw.PHU(10**10, 64, 20)])
-
-cpu_freq = psutil.cpu_freq()
-print(cpu_freq)
-print(f"CPU Frequency: {cpu_freq.current} MHz")
+    optimization = "time"
+    # optimization = 'energy'
+    # optimizations = ["time", "energy"]
 
 
-CPU_MAX_CLOCK = 5.0875 * 10**9  # 5.0875 e+9 5Ghz
-CPU_AVERAGE_CLOCK = 3.208 * 10**9  # 60**9, 6
-PHU_MIN_CLOCK = 10 * 10**9  # 100**9, 10 Ghz
+    relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
+    # relay_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
+    # relay_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph.json'
+    # relay_path = '/home/rjtomich/photonic_compiler/Pytorch-LeNet/simple_LeNet_graph_NoFusion.json'
 
-hardware = []
-hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
-# hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
-# hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
+    # for i in optimizations:
+    #     forward(relay_path, i)
 
-# available_hardware = hw.initilize_hardware([hw.CPU(14792899408, 1)])
-available_hardware = hw.initilize_hardware(hardware)
+    # available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1), hw.PHU(10**10, 64, 20)])
+    # available_hardware = hw.initilize_hardware([hw.CPU(10**8, 1)])
+    # available_hardware = hw.initilize_hardware([hw.PHU(10**10, 64, 20)])
+
+    cpu_freq = psutil.cpu_freq()
+    print(cpu_freq)
+    print(f"CPU Frequency: {cpu_freq.current} MHz")
 
 
-forward(
-    relay_path,
-    "time",
-    available_hardware,
-    profiles=True,
-    get_step_times=False,
-    config=config,
-)
+    CPU_MAX_CLOCK = 5.0875 * 10**9  # 5.0875 e+9 5Ghz
+    CPU_AVERAGE_CLOCK = 3.208 * 10**9  # 60**9, 6
+    PHU_MIN_CLOCK = 10 * 10**9  # 100**9, 10 Ghz
 
-'''
+    hardware = []
+    hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
+    # hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
+    # hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
+
+    # available_hardware = hw.initilize_hardware([hw.CPU(14792899408, 1)])
+    available_hardware = hw.initilize_hardware(hardware)
+
+
+    forward(
+        relay_path,
+        "time",
+        available_hardware,
+        profiles=False,
+        get_step_times=False,
+        config=config,
+    )
