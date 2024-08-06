@@ -80,6 +80,7 @@ def adj_to_graph(
     save=False,
     layout="shell",
     title="Graph Visualization from Adjacency Matrix",
+    stack=False
 ):
     vectorized_function = np.vectorize(lambda x: 1 if x is not None else 0)
 
@@ -91,11 +92,16 @@ def adj_to_graph(
     colors = {}
     for idx, node in enumerate(G.nodes):
         # labels[node] = graph.node_list[idx].stack_id
-        labels[node] = graph.node_list[idx].stack.opp
-        if isinstance(graph.node_list[idx].get_algo_info("hardware"), hw.PHU):
-            colors[node] = "lightcoral"
-        else:
+        if stack:
+            labels[node] = graph.node_list[idx].opp
             colors[node] = "lightblue"
+        else:
+            labels[node] = graph.node_list[idx].stack.opp
+
+            if isinstance(graph.node_list[idx].get_algo_info("hardware"), hw.PHU):
+                colors[node] = "lightcoral"
+            else:
+                colors[node] = "lightblue"
 
     nx.set_node_attributes(G, labels, "label")
 
@@ -110,19 +116,31 @@ def adj_to_graph(
         # pos = nx.spring_layout(G, k=0.1, iterations=10)
         pos = nx.spring_layout(G, weight="weight", k=0.3, iterations=10)
 
-    nx.draw(
-        G,
-        pos,
-        with_labels=True,
-        labels=labels,
-        node_color=[colors[node] for node in G.nodes],
-        edge_color="gray",
-        node_size=400,
-        font_size=10,
-        ax=ax,
-    )
-    ax.set_title(title)
-    ax.set_aspect("equal")
+    if stack:
+        nx.draw(
+            G,
+            pos,
+            with_labels=False,
+            node_color=[colors[node] for node in G.nodes],
+            edge_color="grey",
+            node_size=10,
+            width=0.4,
+            arrowsize=4
+        )
+    else:
+        nx.draw(
+            G,
+            pos,
+            with_labels=True,
+            labels=labels,
+            node_color=[colors[node] for node in G.nodes],
+            edge_color="grey",
+            node_size=400,
+            font_size=10,
+            # ax=ax,
+        )
+        ax.set_title(title)
+        ax.set_aspect("equal")
 
 
 def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
