@@ -181,6 +181,28 @@ def get_time_profile(graph):
 
     return time_profile
 
+def get_energy_per_opp(graph):
+    energy_profile = {}
+    for node in graph.node_list:
+        energy_profile.setdefault(node.algorithm, 0)
+        energy_profile[node.algorithm] += node.energy_cost
+
+    return energy_profile
+
+def time_energy_profiles(graph):
+    time_profile = {}
+    energy_profile = {}
+    for node in graph.node_list:
+        time_profile.setdefault(node.algorithm, 0)
+        time_profile[node.algorithm] += node.time_cost
+
+        energy_profile.setdefault(node.algorithm, 0)
+        energy_profile[node.algorithm] += node.energy_cost
+
+
+    return time_profile, energy_profile
+
+
 
 def get_addmm(scheduled_flat_graph):
     dense_time = 0

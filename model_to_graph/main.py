@@ -39,6 +39,7 @@ def forward(
     scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
         graph, expanded_flat_subgraphs, available_hardware
     )
+    print(end_time)
     schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
     cg.code_gen(scheduled_flat_graph)
 
@@ -228,7 +229,7 @@ if __name__ == "__main__": #import guard
 
     forward(
         relay_path,
-        "time",
+        optimization,
         available_hardware,
         profiles=False,
         get_step_times=False,
