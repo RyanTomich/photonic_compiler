@@ -69,7 +69,7 @@ def forward(
 
     print("---------- ---- ----------")
 
-    # dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
+    dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
 
 def debug_forward(
     relay_path,
@@ -219,9 +219,9 @@ if __name__ == "__main__": #import guard
 
     hardware = []
     hw.Hardware._hardware_reset()
-    # hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
-    hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
-    hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
+    hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
+    # hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
+    # hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
 
     # available_hardware = hw.initilize_hardware([hw.CPU(14792899408, 1)])
     available_hardware = hw.initilize_hardware(hardware)
@@ -231,7 +231,7 @@ if __name__ == "__main__": #import guard
         relay_path,
         optimization,
         available_hardware,
-        profiles=False,
+        profiles=True,
         get_step_times=False,
         config=config,
     )

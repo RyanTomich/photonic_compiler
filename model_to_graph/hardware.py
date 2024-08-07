@@ -28,7 +28,10 @@ DAC_POWER = 3.18 * PICO_JOULE
 ADC_POWER = 1.6 * PICO_JOULE
 
 # Validated Constants
-CPU_MAC_MULTIPLIER = 0.41
+CPU_MAC_MULTIPLIER_AVG = 0.3978
+CPU_MAC_MULTIPLIER_LARGE = 1.7130
+CPU_MAC_MULTIPLIER_LARGE = 1.18
+CPU_MAC_1D_MULTIPLIER = 2.3654
 
 
 # time and dimentions
@@ -61,7 +64,14 @@ def constnat(c):
 def elm_const(matrix, const=1):
     return ten_elm(matrix) * const
 
-
+def recursive_contains_num(nested_list, func):
+    for element in nested_list:
+        if isinstance(element, list):
+            if recursive_contains_num(element, func):
+                return True
+        elif func(element) is True:
+            return True
+    return False
 # endregion
 
 
@@ -311,7 +321,19 @@ class CPU(Hardware):
         num_dot_products = ten_elm(o[0])
         length_dot_products = i[0][-1]
         num_mac = num_dot_products * length_dot_products
-        return num_mac * CPU_MAC_MULTIPLIER
+        effectiv_cycles = num_mac
+
+        if recursive_contains_num(i, lambda x: x > 50000):
+            print('here')
+            print(i)
+            effectiv_cycles *= CPU_MAC_MULTIPLIER_LARGE
+        else:
+            effectiv_cycles *= CPU_MAC_MULTIPLIER_AVG
+
+        if recursive_contains_num(i, lambda x: x == 1):
+            effectiv_cycles *= CPU_MAC_1D_MULTIPLIER
+
+        return effectiv_cycles
 
     def _cpu_matmul_energy(self, i, o):
         num_dot_products = ten_elm(o[0])

@@ -106,13 +106,13 @@ def generate_token_TVM(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
 
-    # graph_json_path = f"../model_to_graph/{model_name}_graph.json"
-    # lib_so_path = f"../model_to_graph/{model_name}_lib.so"
-    # param_bytes_path = f"../model_to_graph/{model_name}_params.params"
+    graph_json_path = f"../model_to_graph/{model_name}_graph.json"
+    lib_so_path = f"../model_to_graph/{model_name}_lib.so"
+    param_bytes_path = f"../model_to_graph/{model_name}_params.params"
 
-    graph_json_path = f"modles/{model_name}_graph.json"
-    lib_so_path = f"modles/{model_name}_lib.so"
-    param_bytes_path = f"modles/{model_name}_params.params"
+    # graph_json_path = f"modles/{model_name}_graph.json"
+    # lib_so_path = f"modles/{model_name}_lib.so"
+    # param_bytes_path = f"modles/{model_name}_params.params"
 
     loaded_json = open(graph_json_path).read()  # str
     loaded_lib = tvm.runtime.load_module(lib_so_path)  # tvm.runtime.module.Module
@@ -186,7 +186,7 @@ def generate_token_TVM(
         tvm_func_all = {}
         tvm_trials_all = {}
 
-        for _ in range(25):
+        for _ in range(1):
             m.run()
             tvm_func_time_lists, tvm_func_trials = get_trace_data(func_names)
 
@@ -216,7 +216,7 @@ def generate_token_TVM(
 
 # model_name = "bert-base-uncased"
 model_name = "gpt2"
-prompt = "There once"
+prompt = "My favorite music is"
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -232,6 +232,6 @@ tvm_token = generate_token_TVM(
     prompt,
     benchmark=False,
     function_benchmark=True,
-    operator_constants=True,
+    operator_constants=False,
 )
 assert real_token == tvm_token
