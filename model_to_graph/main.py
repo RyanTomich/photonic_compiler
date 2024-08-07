@@ -219,9 +219,9 @@ if __name__ == "__main__": #import guard
 
     hardware = []
     hw.Hardware._hardware_reset()
-    hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
-    # hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
-    # hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
+    # hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
+    hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
+    hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
 
     # available_hardware = hw.initilize_hardware([hw.CPU(14792899408, 1)])
     available_hardware = hw.initilize_hardware(hardware)

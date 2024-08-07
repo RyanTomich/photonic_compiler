@@ -106,9 +106,13 @@ def generate_token_TVM(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
 
-    graph_json_path = f"../model_to_graph/{model_name}_graph.json"
-    lib_so_path = f"../model_to_graph/{model_name}_lib.so"
-    param_bytes_path = f"../model_to_graph/{model_name}_params.params"
+    # graph_json_path = f"../model_to_graph/{model_name}_graph.json"
+    # lib_so_path = f"../model_to_graph/{model_name}_lib.so"
+    # param_bytes_path = f"../model_to_graph/{model_name}_params.params"
+
+    graph_json_path = f"modles/{model_name}_graph.json"
+    lib_so_path = f"modles/{model_name}_lib.so"
+    param_bytes_path = f"modles/{model_name}_params.params"
 
     loaded_json = open(graph_json_path).read()  # str
     loaded_lib = tvm.runtime.load_module(lib_so_path)  # tvm.runtime.module.Module
@@ -174,10 +178,15 @@ def generate_token_TVM(
         )
         m.set_input("input_ids", input_ids)
 
+        # # intermediate results
+        # for i in range(m.get_num_outputs()):
+        #     output = m.get_output(i).numpy()
+        #     print(f"Output {i}: {output}")
+
         tvm_func_all = {}
         tvm_trials_all = {}
 
-        for _ in range(2):
+        for _ in range(25):
             m.run()
             tvm_func_time_lists, tvm_func_trials = get_trace_data(func_names)
 
@@ -192,8 +201,12 @@ def generate_token_TVM(
         for k, v in tvm_func_all.items():
             tvm_func_all[k] = sum(v) / len(v)
 
-        print(tvm_func_all)
-        print(tvm_trials_all)
+        with open('averages.txt', 'w') as file:
+            for name, time in tvm_func_all.items():
+                file.write(f'{name:<65} {time:>20.10f} {tvm_trials_all[name]:>10}\n')
+
+        # print(tvm_func_all)
+        # print(tvm_trials_all)
 
     output = module.get_output(0)
     np_output = output.asnumpy()
@@ -201,9 +214,9 @@ def generate_token_TVM(
     return next_tok
 
 
+# model_name = "bert-base-uncased"
 model_name = "gpt2"
-model_name = "bert-base-uncased"
-prompt = "my favorite music is"
+prompt = "There once"
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

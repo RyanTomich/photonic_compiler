@@ -166,7 +166,7 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
     for idx, (task, label) in enumerate(unique_combinations.itertuples(index=False)):
         color_map[(task, label)] = colors(idx)
 
-    fig, ax = plt.subplots(figsize=(60, 10))
+    fig, ax = plt.subplots(figsize=(60, 4))
 
     # Iterate over each row in the dataframe and plot a horizontal line
     for index, row in df.iterrows():
@@ -177,7 +177,7 @@ def make_schedule_diagram(graph, xlim_start=None, xlim_end=None):
             xmin=row["start"],
             xmax=row["end"],
             color=task_color,
-            linewidth=5,
+            linewidth=25,
         )
 
         # Adding label on the bar
