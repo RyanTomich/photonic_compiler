@@ -181,6 +181,7 @@ def get_time_profile(graph):
 
     return time_profile
 
+
 def get_energy_per_opp(graph):
     energy_profile = {}
     for node in graph.node_list:
@@ -188,6 +189,7 @@ def get_energy_per_opp(graph):
         energy_profile[node.algorithm] += node.energy_cost
 
     return energy_profile
+
 
 def time_energy_profiles(graph):
     time_profile = {}
@@ -199,9 +201,7 @@ def time_energy_profiles(graph):
         energy_profile.setdefault(node.algorithm, 0)
         energy_profile[node.algorithm] += node.energy_cost
 
-
     return time_profile, energy_profile
-
 
 
 def get_addmm(scheduled_flat_graph):
@@ -232,7 +232,7 @@ def get_addmm(scheduled_flat_graph):
         shape = [[1, 4, 768], [768]]
 
         # if node.input_shapes == shape and node.algorithm == 'multiply':
-        if node.algorithm == "dense":
+        if node.algorithm == "split":
             # if node.stack.tvm_func == 'tvmgen_default_fused_nn_batch_matmul':
             # if node.stack.tvm_func == 'tvmgen_default_fused_nn_dense_4':
             # if node.stack.tvm_func == 'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_3':

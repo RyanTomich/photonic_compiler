@@ -9,7 +9,7 @@ def group_validate(graph, groups):
     """
     for i, lst in enumerate(groups):
         load_instructions = {
-            stack.stack_id for stack in graph.stack_list if stack.opp == "null"
+            stack.stack_id for stack in graph.stack_list if stack.opp == "memory"
         }
         included = set(lst)
         for stack in lst[1:]:

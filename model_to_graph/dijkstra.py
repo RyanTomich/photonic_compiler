@@ -86,11 +86,11 @@ def _make_aggreement_list(graph):
     for idx, row in enumerate(graph.adj_matrix):
         row_counts = 0
         for stack_idx, element in enumerate(row):
-            if element is not None and graph.stack_list[stack_idx].opp != "null":
+            if element is not None and graph.stack_list[stack_idx].opp != "memory":
                 row_counts += 1
         col_count = 0
         for stack_idx, element in enumerate(graph.adj_matrix[:, idx]):
-            if element is not None and graph.stack_list[stack_idx].opp != "null":
+            if element is not None and graph.stack_list[stack_idx].opp != "memory":
                 col_count += 1
 
         if row_counts > 1 or col_count > 1:
@@ -247,7 +247,7 @@ def _rolling_dijkstra(graph, weight_variable):
     return list of (stack_idx, node_idx)
     """
     aggreement_stacks = _make_aggreement_list(graph)
-    all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != "null"}
+    all_nodes = {i for i, v in enumerate(graph.stack_list) if v.opp != "memory"}
 
     que = []
     for stack_id in graph.in_nodes:

@@ -80,7 +80,7 @@ class Stack:
             else (
                 self._find_opp(relay_node["attrs"]["func_name"])
                 if "attrs" in relay_node
-                else "null"
+                else "memory"
             )
         )
         self.node_stack = (

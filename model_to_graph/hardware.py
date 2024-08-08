@@ -64,6 +64,7 @@ def constnat(c):
 def elm_const(matrix, const=1):
     return ten_elm(matrix) * const
 
+
 def recursive_contains_num(nested_list, func):
     for element in nested_list:
         if isinstance(element, list):
@@ -72,6 +73,8 @@ def recursive_contains_num(nested_list, func):
         elif func(element) is True:
             return True
     return False
+
+
 # endregion
 
 
@@ -350,7 +353,7 @@ class HBM(Hardware):
     def __init__(self, clock_speed):
         self.algs = {
             "get_dram": HardwareAlgorithm(
-                "null",
+                "memory",
                 {
                     self: (
                         lambda i, o: 0,
