@@ -209,40 +209,10 @@ def get_addmm(scheduled_flat_graph):
     add_time = 0
     add = 0
     for node in scheduled_flat_graph.node_list:
-        # print(node.input_shapes)
-
-        # if node.input_shapes == [[4, 768], [3072, 768]]:
-        #     dense_time += node.time_cost
-        #     print(node)
-        # if node.input_shapes == [[4, 3072], [3072]]:
-        #     add_time += node.time_cost
-        #     print(node)
-
-        # if node.input_shapes == [[1, 4, 768], [1, 4, 768]]:
-        #     print(node)
-        #     add_time += node.time_cost
-        #     add += 1
-
-        shape = [[1, 4, 3072], [1, 4, 3072]]
-        shape = [[1, 4, 3072], []]
-        shape = [[1, 4, 768], [1, 4, 768]]
-
-        # shape = [[1, 4, 3072], []]
-        # shape = [[1, 4, 3072], [1, 4, 3072]]
-        shape = [[1, 4, 768], [768]]
-
         # if node.input_shapes == shape and node.algorithm == 'multiply':
-        if node.algorithm == "split":
-            # if node.stack.tvm_func == 'tvmgen_default_fused_nn_batch_matmul':
-            # if node.stack.tvm_func == 'tvmgen_default_fused_nn_dense_4':
-            # if node.stack.tvm_func == 'tvmgen_default_fused_layout_transform_nn_contrib_dense_pack_3':
-            print(node.stack.tvm_func)
-            print(node)
+        if node.algorithm == "task_para_matmul_phu" or node.algorithm == "multiply":
+            pass
             # print(node.stack.tvm_func)
-            # print(node.time_cost)
-            # print(node.input_shapes)
-            add += 1
-
-    print(add)
+            # print(node)
 
     return dense_time, add_time

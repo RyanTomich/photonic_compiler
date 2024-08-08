@@ -80,7 +80,7 @@ def adj_to_graph(
     save=False,
     layout="shell",
     title="Graph Visualization from Adjacency Matrix",
-    stack=False
+    stack=False,
 ):
     vectorized_function = np.vectorize(lambda x: 1 if x is not None else 0)
 
@@ -125,7 +125,7 @@ def adj_to_graph(
             edge_color="grey",
             node_size=10,
             width=0.4,
-            arrowsize=4
+            arrowsize=4,
         )
     else:
         nx.draw(

@@ -227,7 +227,8 @@ def tvm_validation(model_name, prompt):
     gen_text = tokenizer.batch_decode(gen_tokens)
     # print(gen_text)
 
-'''
+
+"""
 model_name = "gpt2"
 prompt = "my favorite music is"
 
@@ -239,7 +240,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 torch.set_num_threads(1)
 
 # tvm_validation(model_name, prompt)
-'''
+"""
 
 """modles
 

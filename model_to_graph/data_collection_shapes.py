@@ -13,7 +13,7 @@ with open(relay_path, encoding="utf-8") as json_file:
     raw_json = json.load(json_file)  # returns json file as dict
     # print("... Json loaded ...")
 
-WEIGHT_VARIABLE = 'time'
+WEIGHT_VARIABLE = "time"
 
 graph = sg.StackGraph(raw_json=raw_json, weight_variable=WEIGHT_VARIABLE)
 
@@ -27,4 +27,4 @@ for stack in graph.stack_list:
         shapes[stack.tvm_func].append(stack.output_shapes)
 
 for name, size in shapes.items():
-    print(f'{name if name else 'none':<60} {types[name]:<10} {str(size):<30}')
+    print(f"{name if name else 'none':<60} {types[name]:<10} {str(size):<30}")

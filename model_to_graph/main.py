@@ -16,6 +16,7 @@ import testing as test
 import data_collection as dc
 import code_generation as cg
 
+
 def forward(
     relay_path,
     optimization,
@@ -41,6 +42,7 @@ def forward(
         graph, expanded_flat_subgraphs, available_hardware
     )
     schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
+
     cg.code_gen(scheduled_flat_graph)
 
     print("---------- INFO ----------")
@@ -71,6 +73,7 @@ def forward(
 
     if data_collection:
         dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
+
 
 def debug_forward(
     relay_path,
@@ -187,15 +190,14 @@ def debug_forward(
     dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
 
 
-if __name__ == "__main__": #import guard
+if __name__ == "__main__":  # import guard
     config = None
     # config = 'always_cpu'
     # config = 'always_phu'
 
-    optimization = "time"
-    # optimization = 'energy'
+    # optimization = "time"
+    optimization = "energy"
     # optimizations = ["time", "energy"]
-
 
     relay_path = "/home/rjtomich/photonic_compiler/model_to_graph/gpt2_graph.json"
     # relay_path = '/home/rjtomich/photonic_compiler/model_to_graph/bert-base-uncased_graph.json'
@@ -213,7 +215,6 @@ if __name__ == "__main__": #import guard
     print(cpu_freq)
     print(f"CPU Frequency: {cpu_freq.current} MHz")
 
-
     CPU_MAX_CLOCK = 5.0875 * 10**9  # 5.0875 e+9 5Ghz
     CPU_AVERAGE_CLOCK = 3.208 * 10**9  # 60**9, 6
     PHU_MIN_CLOCK = 10 * 10**9  # 100**9, 10 Ghz
@@ -222,11 +223,10 @@ if __name__ == "__main__": #import guard
     hw.Hardware._hardware_reset()
     hardware.append(hw.CPU(CPU_MAX_CLOCK, 1))
     # hardware.append(hw.CPU(CPU_AVERAGE_CLOCK, 1))
-    # hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
+    hardware.append(hw.PHU(PHU_MIN_CLOCK, 1, 20))
 
     # available_hardware = hw.initilize_hardware([hw.CPU(14792899408, 1)])
     available_hardware = hw.initilize_hardware(hardware)
-
 
     forward(
         relay_path,
