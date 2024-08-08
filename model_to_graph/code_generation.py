@@ -3,8 +3,8 @@ import re
 import importlib
 
 # Code format
-
-template_base = "{start_time:.10f}  {hardware:<6}  {core:4d}  {func:<40}  {opp:<10} "
+header = f'|start_time |---|hardware|---|core|---|________________tvm_func________________|---|____opp___|---|_io___\n\n'
+template_base = "{start_time:.10f}     {hardware:<8}     {core:4d}     {func:<40}     {opp:<10}     "
 template_out = "o{out_var:<5} "
 template_in = "i{in_var:<5} "
 
@@ -61,6 +61,7 @@ def code_gen(scheduled_flat_graph):
 
     with open("code.txt", "w") as file:
         node_variables = {}
+        file.write(header)
         for node in sorted_nodes:
 
             dump_variables(node)
