@@ -11,8 +11,11 @@ import testing as test
 class Node:
     """represent one algorithm for one opperation. Created by Stack objects"""
 
+    id_counter = 0
+
     def __init__(self, algorithm, stack):
         self.algorithm = algorithm
+        self.node_id = self._get_node_id()
         self.stack = stack
         self.stack_id = stack.stack_id
         self.parents = stack.parents
@@ -45,6 +48,11 @@ class Node:
         algorithm_obj = hw.Hardware.algs[self.algorithm]
         info = {"opp": algorithm_obj.opp, "hardware": algorithm_obj.hardware}
         return info[info_type]
+
+    def _get_node_id(self):
+        id = Node.id_counter
+        Node.id_counter += 1
+        return id
 
 
 class Stack:
