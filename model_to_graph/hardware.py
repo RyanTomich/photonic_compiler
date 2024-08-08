@@ -324,8 +324,6 @@ class CPU(Hardware):
         effectiv_cycles = num_mac
 
         if recursive_contains_num(i, lambda x: x > 50000):
-            print('here')
-            print(i)
             effectiv_cycles *= CPU_MAC_MULTIPLIER_LARGE
         else:
             effectiv_cycles *= CPU_MAC_MULTIPLIER_AVG

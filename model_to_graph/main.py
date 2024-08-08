@@ -22,6 +22,7 @@ def forward(
     available_hardware,
     profiles=True,
     get_step_times=True,
+    data_collection=False,
     config=None,
 ):
     with open(relay_path, encoding="utf-8") as json_file:
@@ -39,7 +40,6 @@ def forward(
     scheduled_flat_graph, end_time, break_points = dijk.schdeule_nodes(
         graph, expanded_flat_subgraphs, available_hardware
     )
-    print(end_time)
     schedule_df = scheduled_flat_graph.create_schedule_data(write=True)
     cg.code_gen(scheduled_flat_graph)
 
@@ -69,7 +69,8 @@ def forward(
 
     print("---------- ---- ----------")
 
-    dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
+    if data_collection:
+        dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
 
 def debug_forward(
     relay_path,
@@ -183,7 +184,7 @@ def debug_forward(
 
     print("---------- ---- ----------")
 
-    # dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
+    dense_time, add_time = dc.get_addmm(scheduled_flat_graph)
 
 
 if __name__ == "__main__": #import guard
@@ -233,5 +234,6 @@ if __name__ == "__main__": #import guard
         available_hardware,
         profiles=True,
         get_step_times=False,
+        data_collection=False,
         config=config,
     )
