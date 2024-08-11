@@ -33,7 +33,9 @@ def forward(
     WEIGHT_VARIABLE = optimization
 
     graph = sg.StackGraph(raw_json=raw_json, weight_variable=WEIGHT_VARIABLE)
-    stacked_subgraphs = list(dijk.graph_partition(graph))
+    stacked_subgraphs = list(
+        dijk.graph_partition(graph, weight_variable=WEIGHT_VARIABLE)
+    )
     flat_subgraphs = dijk.select_nodes(
         stacked_subgraphs, weight_variable=WEIGHT_VARIABLE, config=config
     )

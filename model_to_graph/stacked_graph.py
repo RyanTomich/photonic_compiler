@@ -432,7 +432,7 @@ class StackGraph(Graph):
 
         cuts = self._get_cuts(layers_list)
 
-        # ignore load and store for optimization
+        # ignore load and store for pathfinding
         sparse_order = []
         for i in order:
             if i not in self.in_nodes and i not in self.out_nodes:

@@ -19,13 +19,14 @@ node_value_selection = {
 }
 
 
-def graph_partition(graph):
+def graph_partition(graph, weight_variable="time"):
     """Finds the Articulation Vertices and partitions the large graph into subgraphs
     StackedGraph objects. Inclusive on both ends of range.
     graph: StackedGraph
     """
     groups = list(graph.get_node_groups(asap=False))
     assert test.group_validate(graph, groups)
+    subgraphs = []
 
     for group in groups:
 
@@ -37,6 +38,7 @@ def graph_partition(graph):
         stacks_hit = set()
         for stack in group:
             stack_obj = graph.get_node_obj(stack)
+            # first stack
             if all(parent not in group for parent in stack_obj.parents):
                 stacks_hit.add(stack_obj.stack_id)
                 first_stack = copy.deepcopy(stack_obj)
@@ -49,13 +51,24 @@ def graph_partition(graph):
                 stack_obj = graph.get_node_obj(stack_id)
                 new_node = copy.deepcopy(stack_obj)
                 new_node.parents = set(new_node.parents) - graph.in_nodes
+                # add energy weight from in_node to nodes in stack
+                memory_parent = set(stack_obj.parents) & graph.in_nodes
+                if weight_variable == "energy" and len(memory_parent) > 0:
+                    stack_idx = graph.id_to_idx[stack_id]
+                    parent_idx = graph.id_to_idx[memory_parent.pop()]
+                    edge_energy_cost = graph.adj_matrix[parent_idx][stack_idx]
+                    for idx, cost in enumerate(edge_energy_cost[0]):
+                        new_node.node_stack[idx].energy_cost += cost
+
                 subgraph_stack_list.append(new_node)
 
         sub_graph = sg.StackGraph(
             stack_list=subgraph_stack_list,
             weight_variable=graph.weight_variable,
         )
-        yield sub_graph
+        subgraphs.append(sub_graph)
+
+    return subgraphs
     print("... Subgraphs Made ...") if hw.DEBUG_PRINT else None
 
 
