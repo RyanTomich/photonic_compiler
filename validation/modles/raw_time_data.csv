@@ -38,7 +38,6 @@ tvmgen_default_fused_add_8,add,0.5695085102936762,"[[[1, 2, 3072], []], [[1, 2, 
 tvmgen_default_fused_multiply_3,multiply,0.6553662874401122,"[[[1, 2, 3072], [1, 2, 3072]], [[1, 2, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,498.7017194444449,"[[[2, 3072], [768, 3072]], [[2, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,30720.953899999997,"[[[2, 768], [50257, 768]], [[2, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.14244133156413832,"[[[1, 3]], [[1, 3]]]"
 tvmgen_default_fused_less,less,0.1518141825219816,"[[[1, 3], []], [[1, 3]]]"
 tvmgen_default_fused_add,add,0.15060325036823202,"[[[1, 3], []], [[1, 3]]]"
@@ -78,7 +77,6 @@ tvmgen_default_fused_add_8,add,0.6865239296527458,"[[[1, 3, 3072], []], [[1, 3, 
 tvmgen_default_fused_multiply_3,multiply,0.8272319995187382,"[[[1, 3, 3072], [1, 3, 3072]], [[1, 3, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,755.4189777777779,"[[[3, 3072], [768, 3072]], [[3, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,53940.159066666674,"[[[3, 768], [50257, 768]], [[3, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.14113847385548675,"[[[1, 4]], [[1, 4]]]"
 tvmgen_default_fused_less,less,0.151537936471089,"[[[1, 4], []], [[1, 4]]]"
 tvmgen_default_fused_add,add,0.1581098911981936,"[[[1, 4], []], [[1, 4]]]"
@@ -118,7 +116,6 @@ tvmgen_default_fused_add_8,add,0.8497428594044308,"[[[1, 4, 3072], []], [[1, 4, 
 tvmgen_default_fused_multiply_3,multiply,1.027664322435985,"[[[1, 4, 3072], [1, 4, 3072]], [[1, 4, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,709.1248027777777,"[[[4, 3072], [768, 3072]], [[4, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,36701.2664,"[[[4, 768], [50257, 768]], [[4, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.14175043063490497,"[[[1, 5]], [[1, 5]]]"
 tvmgen_default_fused_less,less,0.15342944956890403,"[[[1, 5], []], [[1, 5]]]"
 tvmgen_default_fused_add,add,0.1544735047739099,"[[[1, 5], []], [[1, 5]]]"
@@ -158,7 +155,6 @@ tvmgen_default_fused_add_8,add,1.0066059890144743,"[[[1, 5, 3072], []], [[1, 5, 
 tvmgen_default_fused_multiply_3,multiply,1.228910364610998,"[[[1, 5, 3072], [1, 5, 3072]], [[1, 5, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,1071.0912805555556,"[[[5, 3072], [768, 3072]], [[5, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,78524.70653333334,"[[[5, 768], [50257, 768]], [[5, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.140331835510248,"[[[1, 6]], [[1, 6]]]"
 tvmgen_default_fused_less,less,0.15423113003193922,"[[[1, 6], []], [[1, 6]]]"
 tvmgen_default_fused_add,add,0.15373673018195125,"[[[1, 6], []], [[1, 6]]]"
@@ -198,7 +194,6 @@ tvmgen_default_fused_add_8,add,1.1465699202670914,"[[[1, 6, 3072], []], [[1, 6, 
 tvmgen_default_fused_multiply_3,multiply,1.4235689264287117,"[[[1, 6, 3072], [1, 6, 3072]], [[1, 6, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,924.9691499999994,"[[[6, 3072], [768, 3072]], [[6, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,59072.566633333336,"[[[6, 768], [50257, 768]], [[6, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.14047908002976328,"[[[1, 8]], [[1, 8]]]"
 tvmgen_default_fused_less,less,0.15614596645888842,"[[[1, 8], []], [[1, 8]]]"
 tvmgen_default_fused_add,add,0.15016793436159273,"[[[1, 8], []], [[1, 8]]]"
@@ -238,7 +233,6 @@ tvmgen_default_fused_add_8,add,1.4815499694089012,"[[[1, 8, 3072], []], [[1, 8, 
 tvmgen_default_fused_multiply_3,multiply,1.8184983469074547,"[[[1, 8, 3072], [1, 8, 3072]], [[1, 8, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,1015.4093944444444,"[[[8, 3072], [768, 3072]], [[8, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,54981.249500000005,"[[[8, 768], [50257, 768]], [[8, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.14237362642112808,"[[[1, 11]], [[1, 11]]]"
 tvmgen_default_fused_less,less,0.15611925129859078,"[[[1, 11], []], [[1, 11]]]"
 tvmgen_default_fused_add,add,0.151914703903157,"[[[1, 11], []], [[1, 11]]]"
@@ -278,7 +272,6 @@ tvmgen_default_fused_add_8,add,1.9270445720408134,"[[[1, 11, 3072], []], [[1, 11
 tvmgen_default_fused_multiply_3,multiply,2.403955973140619,"[[[1, 11, 3072], [1, 11, 3072]], [[1, 11, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,1928.793380555556,"[[[11, 3072], [768, 3072]], [[11, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,154560.74806666665,"[[[11, 768], [50257, 768]], [[11, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.1408981486359456,"[[[1, 13]], [[1, 13]]]"
 tvmgen_default_fused_less,less,0.1600031838126821,"[[[1, 13], []], [[1, 13]]]"
 tvmgen_default_fused_add,add,0.1516886618838282,"[[[1, 13], []], [[1, 13]]]"
@@ -318,7 +311,6 @@ tvmgen_default_fused_add_8,add,2.2282966212695907,"[[[1, 13, 3072], []], [[1, 13
 tvmgen_default_fused_multiply_3,multiply,2.8039869056432916,"[[[1, 13, 3072], [1, 13, 3072]], [[1, 13, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,2255.2142222222224,"[[[13, 3072], [768, 3072]], [[13, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,179313.3038333333,"[[[13, 768], [50257, 768]], [[13, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.14113982828954855,"[[[1, 15]], [[1, 15]]]"
 tvmgen_default_fused_less,less,0.15832933041163585,"[[[1, 15], []], [[1, 15]]]"
 tvmgen_default_fused_add,add,0.15347616263158556,"[[[1, 15], []], [[1, 15]]]"
@@ -358,7 +350,6 @@ tvmgen_default_fused_add_8,add,2.524442244842652,"[[[1, 15, 3072], []], [[1, 15,
 tvmgen_default_fused_multiply_3,multiply,3.2040433988869257,"[[[1, 15, 3072], [1, 15, 3072]], [[1, 15, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,2547.898580555557,"[[[15, 3072], [768, 3072]], [[15, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,204753.89376666668,"[[[15, 768], [50257, 768]], [[15, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.14135848730802536,"[[[1, 17]], [[1, 17]]]"
 tvmgen_default_fused_less,less,0.15269625179707327,"[[[1, 17], []], [[1, 17]]]"
 tvmgen_default_fused_add,add,0.14986458920994428,"[[[1, 17], []], [[1, 17]]]"
@@ -398,7 +389,6 @@ tvmgen_default_fused_add_8,add,2.85806585256503,"[[[1, 17, 3072], []], [[1, 17, 
 tvmgen_default_fused_multiply_3,multiply,3.617733791127092,"[[[1, 17, 3072], [1, 17, 3072]], [[1, 17, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,2819.2596472222212,"[[[17, 3072], [768, 3072]], [[17, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,229315.51220000003,"[[[17, 768], [50257, 768]], [[17, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.1407814562165489,"[[[1, 19]], [[1, 19]]]"
 tvmgen_default_fused_less,less,0.15357488958034446,"[[[1, 19], []], [[1, 19]]]"
 tvmgen_default_fused_add,add,0.15556487268059352,"[[[1, 19], []], [[1, 19]]]"
@@ -438,7 +428,6 @@ tvmgen_default_fused_add_8,add,3.169177075660905,"[[[1, 19, 3072], []], [[1, 19,
 tvmgen_default_fused_multiply_3,multiply,3.984802376025426,"[[[1, 19, 3072], [1, 19, 3072]], [[1, 19, 3072]]]"
 tvmgen_default_fused_nn_dense_3,dense,3269.3442611111113,"[[[19, 3072], [768, 3072]], [[19, 768]]]"
 tvmgen_default_fused_nn_dense_4,dense,255481.13236666666,"[[[19, 768], [50257, 768]], [[19, 50257]]]"
-tvm_func,compiler_name,microseconds,shape
 __nop,nop,0.1397257748952446,"[[[1, 23]], [[1, 23]]]"
 tvmgen_default_fused_less,less,0.1499775266865688,"[[[1, 23], []], [[1, 23]]]"
 tvmgen_default_fused_add,add,0.15093293385957093,"[[[1, 23], []], [[1, 23]]]"

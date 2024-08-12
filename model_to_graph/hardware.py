@@ -278,7 +278,7 @@ class CPU(Hardware):
         self.num_cores = num_cores
         self.mac_energy = 0.1 * PICO_JOULE
         self.algs = {
-            "add": HardwareAlgorithm("add", {self: (all_elm, standard_energy)}),
+            "add": HardwareAlgorithm("add", {self: (self._add_cycles, standard_energy)}),
             "subtract": HardwareAlgorithm(
                 "subtract", {self: (all_elm, standard_energy)}
             ),
@@ -320,21 +320,38 @@ class CPU(Hardware):
         }
         super().__init__(clock_speed)
 
+    def _add_cycles(self, i, o):
+        m = 5.728114536194012e-11
+        b = 2.018610633633051e-07
+
+        num_add = all_elm(i, o)
+
+        time = (m * num_add) + b
+        return time * self.clock_speed
+
+
     def _cpu_matmul_cycles(self, i, o):
         num_dot_products = ten_elm(o[0])
         length_dot_products = i[0][-1]
         num_mac = num_dot_products * length_dot_products
-        effectiv_cycles = num_mac
 
         if recursive_contains_num(i, lambda x: x > 50000):
-            effectiv_cycles *= CPU_MAC_MULTIPLIER_LARGE
+            # just tvmgen_default_fused_nn_dense_4
+            m = 3.554631597170242e-10
+            b = -0.007057115703999989
         else:
-            effectiv_cycles *= CPU_MAC_MULTIPLIER_AVG
+            # excluding tvmgen_default_fused_nn_dense_4
+            # m = 6.894675011954473e-11
+            # b = -1.4073338082593907e-05
 
-        if recursive_contains_num(i, lambda x: x == 1):
-            effectiv_cycles *= CPU_MAC_1D_MULTIPLIER
+            m = 6.845684637179875e-11
+            b = 8.258292187675319e-07
 
-        return effectiv_cycles
+
+        time = (m * num_mac) + b
+        return time * self.clock_speed
+
+
 
     def _cpu_matmul_energy(self, i, o):
         num_dot_products = ten_elm(o[0])
