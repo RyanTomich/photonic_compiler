@@ -12,6 +12,7 @@ import psutil
 
 import tvm
 from tvm import relay
+from tvm import runtime
 from tvm.contrib import graph_executor
 
 from tvm.contrib.debugger.debug_executor import GraphModuleDebug
@@ -54,7 +55,7 @@ def get_trace_data(func_names):
     Args:
         func_names (dict): maping function name to list of node names
     """
-    trace_path = "/home/rjtomich/photonic_compiler/validation/trace/_tvmdbg_device_CPU_0/_tvmdbg_execution_trace.json"
+    trace_path = "/home/rjtomich/photonic_compiler/validation/modles/trace/_tvmdbg_device_CPU_0/_tvmdbg_execution_trace.json"
     with open(trace_path, "r") as file:
         trace_data = json.load(file)
 
@@ -97,29 +98,50 @@ def get_trace_data(func_names):
 
 
 def generate_token_TVM(
-    modle_name,
+    model_name,
     prompt,
+    tvm_lib = None,
     benchmark=False,
     function_benchmark=False,
     operator_constants=False,
 ):
+
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
+    os.environ["TVM_NUM_THREADS"] = "1"
+    torch.set_num_threads(1)
+
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
 
-    graph_json_path = f"../model_to_graph/{model_name}_graph.json"
-    lib_so_path = f"../model_to_graph/{model_name}_lib.so"
-    param_bytes_path = f"../model_to_graph/{model_name}_params.params"
+    if tvm_lib:
+        # loaded_json = tvm_lib.get_graph_json()
+        # loaded_lib = tvm_lib.get_lib_module()
+        # loaded_params = tvm_lib.get_params()
 
-    # graph_json_path = f"modles/{model_name}_graph.json"
-    # lib_so_path = f"modles/{model_name}_lib.so"
-    # param_bytes_path = f"modles/{model_name}_params.params"
+        loaded_json = tvm_lib.get_graph_json()
+        loaded_lib = tvm_lib["default"](tvm.cpu())
+        loaded_params = relay.save_param_dict(tvm_lib.get_params())
 
-    loaded_json = open(graph_json_path).read()  # str
-    loaded_lib = tvm.runtime.load_module(lib_so_path)  # tvm.runtime.module.Module
-    loaded_params = bytearray(open(param_bytes_path, "rb").read())  # bytearray
+        json_dict = json.loads(loaded_json)
 
-    with open(graph_json_path, "r") as file:
-        json_dict = json.load(file)
+    else:
+        graph_json_path = f"{model_name}_graph.json"
+        lib_so_path = f"{model_name}_lib.so"
+        param_bytes_path = f"{model_name}_params.params"
+
+        # graph_json_path = f"modles/{model_name}_graph.json"
+        # lib_so_path = f"modles/{model_name}_lib.so"
+        # param_bytes_path = f"modles/{model_name}_params.params"
+
+        loaded_json = open(graph_json_path).read()  # str
+        loaded_lib = tvm.runtime.load_module(lib_so_path)  # tvm.runtime.module.Module
+        loaded_params = bytearray(open(param_bytes_path, "rb").read())  # bytearray
+
+        with open(graph_json_path, "r") as file:
+            json_dict = json.load(file)
 
     func_names = {}
     for node in json_dict["nodes"]:
@@ -134,6 +156,7 @@ def generate_token_TVM(
     module.run()
 
     if benchmark:
+        ''' Total time'''
         benchmark_results = module.benchmark(tvm.cpu(), end_to_end=True)
         print(benchmark_results.results)
         print(benchmark_results)
@@ -143,6 +166,7 @@ def generate_token_TVM(
         print(f"CPU Frequency: {cpu_freq.current} MHz")
 
     if function_benchmark:
+        ''' Total time by tvm function call'''
         lib = tvm.runtime.load_module(lib_so_path)  # tvm.runtime.module.Module
         dev = tvm.cpu()
         dump_root = "trace/"
@@ -166,6 +190,7 @@ def generate_token_TVM(
         print(f"CPU Frequency: {cpu_freq.current} MHz")
 
     if operator_constants:
+        ''' Total time by tvm function call with averaging over many runs'''
         lib = tvm.runtime.load_module(lib_so_path)  # tvm.runtime.module.Module
         dev = tvm.cpu()
         dump_root = "trace/"
@@ -186,7 +211,7 @@ def generate_token_TVM(
         tvm_func_all = {}
         tvm_trials_all = {}
 
-        for _ in range(1):
+        for _ in range(3):
             m.run()
             tvm_func_time_lists, tvm_func_trials = get_trace_data(func_names)
 
@@ -205,8 +230,11 @@ def generate_token_TVM(
             for name, time in tvm_func_all.items():
                 file.write(f'{name:<65} {time:>20.10f} {tvm_trials_all[name]:>10}\n')
 
-        # print(tvm_func_all)
-        # print(tvm_trials_all)
+            file.write(f"threads_used : {tvm.runtime.num_threads()}")
+            cpu_freq = psutil.cpu_freq()
+            file.write(f"CPU Frequency: {cpu_freq.current} MHz")
+
+        return tvm_func_all
 
     output = module.get_output(0)
     np_output = output.asnumpy()
@@ -214,24 +242,25 @@ def generate_token_TVM(
     return next_tok
 
 
-# model_name = "bert-base-uncased"
-model_name = "gpt2"
-prompt = "My favorite music is"
+if __name__ == "__main__":  # import guard
+    # model_name = "bert-base-uncased"
+    model_name = "gpt2"
+    prompt = "My favorite music is"
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-torch.set_num_threads(1)
+    torch.set_num_threads(1)
 
-real_token = generate_token(model_name, prompt)
-tvm_token = generate_token_TVM(
-    model_name,
-    prompt,
-    benchmark=False,
-    function_benchmark=True,
-    operator_constants=False,
-)
-assert real_token == tvm_token
+    real_token = generate_token(model_name, prompt)
+    tvm_token = generate_token_TVM(
+        model_name,
+        prompt,
+        benchmark=False,
+        function_benchmark=True,
+        operator_constants=False,
+    )
+    assert real_token == tvm_token

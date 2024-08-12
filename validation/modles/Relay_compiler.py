@@ -55,6 +55,11 @@ def transformer_torch_to_onnx(model_name, prompt, save=False):
     save(bool) samve model to files
     """
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
+    os.environ["TVM_NUM_THREADS"] = "1"
+    torch.set_num_threads(1)
 
     # get model from transformer library
     model = AutoModelForCausalLM.from_pretrained(model_name, torchscript=True)
@@ -125,25 +130,28 @@ def onnx_to_relay(
 
     # apply optimixations
     sep_mod = relay.transform.FuseOps(0)(mod)
+
     # tvm.relay.transform.DefuseOps
     # tvm.relay.transform.ToGraphNormalForm()
 
+    # config = {}
     config = {"relay.FuseOps.max_depth": 0}
     # config = {"relay.backend.use_auto_scheduler": True,
     #       "relay.FuseOps.max_depth": -1,
     #       "tir.disable_vectorize": False}
 
-    # Extract and save Relay function source code
-    relay_source_path = f"{model_name}_relay_source.txt"
-    with open(relay_source_path, "w") as f:
-        f.write(sep_mod.astext(show_meta_data=False))  # annotate = func
 
     # Export model graph parts
     target = tvm.target.Target("llvm", host="llvm")
     with tvm.transform.PassContext(opt_level=opt_level, config=config):
-        lib = relay.build(mod, target=target, params=params)
+        lib = relay.build(mod, target=target, params=params) # <class 'tvm.relay.backend.executor_factory.GraphExecutorFactoryModule'>
 
     if write:
+        #Extract and save Relay function source code
+        relay_source_path = f"{model_name}_relay_source.txt"
+        with open(relay_source_path, "w") as f:
+            f.write(sep_mod.astext(show_meta_data=False))  # annotate = func
+
         # Save the graph JSON to a file
         graph_json_path = f"{model_name}_graph.json"
         with open(graph_json_path, "w") as f:
@@ -227,22 +235,22 @@ def tvm_validation(model_name, prompt):
     gen_text = tokenizer.batch_decode(gen_tokens)
     # print(gen_text)
 
+if __name__ == "__main__":  # import guard
+    model_name = "gpt2"
+    # prompt = "The"
+    prompt = "There once"
+    # prompt = "my favorite music is"
+    # prompt = "my favorite music is music that is from another"
+    # prompt = "My favorite music is music from different cultures that blends traditional instruments with modern sounds, creating a unique experience."
 
-model_name = "gpt2"
-# prompt = "The"
-prompt = "There once"
-# prompt = "my favorite music is"
-# prompt = "my favorite music is music that is from another"
-# prompt = "My favorite music is music from different cultures that blends traditional instruments with modern sounds, creating a unique experience."
+    model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save=False)
 
-model_onnx, input_ids = transformer_torch_to_onnx(model_name, prompt, save=False)
+    onnx_to_relay(model_onnx, input_ids, write=True, model_name=model_name, opt_level=0)
 
-onnx_to_relay(model_onnx, input_ids, write=True, model_name=model_name, opt_level=0)
+    os.environ["OMP_NUM_THREADS"] = "1"
+    torch.set_num_threads(1)
 
-os.environ["OMP_NUM_THREADS"] = "1"
-torch.set_num_threads(1)
-
-# tvm_validation(model_name, prompt)
+    # tvm_validation(model_name, prompt)
 
 
 """modles
