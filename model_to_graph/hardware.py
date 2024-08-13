@@ -341,12 +341,8 @@ class CPU(Hardware):
             b = -0.007057115703999989
         else:
             # excluding tvmgen_default_fused_nn_dense_4
-            # m = 6.894675011954473e-11
-            # b = -1.4073338082593907e-05
-
             m = 6.845684637179875e-11
             b = 8.258292187675319e-07
-
 
         time = (m * num_mac) + b
         return time * self.clock_speed

@@ -207,12 +207,13 @@ def time_energy_profiles(graph):
 def get_addmm(scheduled_flat_graph):
     dense_time = 0
     add_time = 0
-    add = 0
-    for node in scheduled_flat_graph.node_list:
-        # if node.input_shapes == shape and node.algorithm == 'multiply':
-        if node.algorithm == "task_para_matmul_phu" or node.algorithm == "multiply":
-            pass
-            # print(node.stack.tvm_func)
-            # print(node)
+    # add = 0
+    # for node in scheduled_flat_graph.node_list:
+    #     # if node.input_shapes == shape and node.algorithm == 'multiply':
+    #     if node.algorithm == "matmul":
+
+    #         print(node.stack.tvm_func)
+    #         print(f'{node.input_shapes} -- {node.output_shapes}')
+    #         print(f'{node.time_cost}')
 
     return dense_time, add_time
